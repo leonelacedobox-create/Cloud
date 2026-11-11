@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mis Horas</title>
+  <meta name="description" content="Registrá tu entrada y salida del trabajo con la voz y calculá cuánto cobrás por semana.">
+  <meta name="theme-color" content="#101826">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Mis Horas</h1>
+    <button id="btnSettings" class="icon-btn" aria-label="Ajustes">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6a.5.5 0 0 0 .1-.6l-1.9-3.3a.5.5 0 0 0-.6-.2l-2.4 1a7.3 7.3 0 0 0-1.7-1l-.4-2.5a.5.5 0 0 0-.5-.4h-3.8a.5.5 0 0 0-.5.4l-.4 2.5a7.3 7.3 0 0 0-1.7 1l-2.4-1a.5.5 0 0 0-.6.2L2.7 8.8a.5.5 0 0 0 .1.6l2 1.6a7.6 7.6 0 0 0 0 2l-2 1.6a.5.5 0 0 0-.1.6l1.9 3.3c.1.2.4.3.6.2l2.4-1c.5.4 1.1.7 1.7 1l.4 2.5c0 .2.2.4.5.4h3.8c.3 0 .5-.2.5-.4l.4-2.5c.6-.3 1.2-.6 1.7-1l2.4 1c.2.1.5 0 .6-.2l1.9-3.3a.5.5 0 0 0-.1-.6l-2-1.6ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <section class="card status" id="status" aria-live="polite">
+      <span class="dot" id="statusDot"></span>
+      <div>
+        <div class="status-title" id="statusTitle"></div>
+        <div class="status-sub" id="statusSub"></div>
+      </div>
+    </section>
+
+    <section class="actions">
+      <button id="btnMic" class="mic" aria-label="Hablar: decí entré o salí">
+        <svg viewBox="0 0 24 24" width="44" height="44" aria-hidden="true"><path fill="currentColor" d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 0 0-7 0v6A3.5 3.5 0 0 0 12 15Zm6.5-3.5a1 1 0 0 0-2 0 4.5 4.5 0 0 1-9 0 1 1 0 0 0-2 0 6.5 6.5 0 0 0 5.5 6.4V20H8.5a1 1 0 0 0 0 2h7a1 1 0 0 0 0-2H13v-2.1a6.5 6.5 0 0 0 5.5-6.4Z"/></svg>
+      </button>
+      <p class="mic-hint" id="micHint">Tocá y decí <b>“entré”</b> o <b>“salí”</b></p>
+      <div class="btn-row">
+        <button id="btnIn" class="big in">Entré</button>
+        <button id="btnOut" class="big out">Salí</button>
+      </div>
+    </section>
+
+    <section class="card week">
+      <div class="week-nav">
+        <button id="prevWeek" class="icon-btn" aria-label="Semana anterior">‹</button>
+        <div class="week-title">
+          <div id="weekLabel"></div>
+          <button id="goToday" class="link" hidden>Volver a esta semana</button>
+        </div>
+        <button id="nextWeek" class="icon-btn" aria-label="Semana siguiente">›</button>
+      </div>
+
+      <ul class="days" id="days"></ul>
+
+      <div class="total-row">
+        <span>Total de la semana</span>
+        <b id="weekHours"></b>
+      </div>
+
+      <div class="pay">
+        <div class="pay-label" id="payLabel"></div>
+        <div class="pay-amount" id="payAmount"></div>
+        <div class="pay-note" id="payNote"></div>
+      </div>
+
+      <button id="btnAdd" class="secondary wide">+ Agregar turno a mano</button>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" hidden>
+    <span id="toastMsg"></span>
+    <button id="toastUndo" class="link" hidden>Deshacer</button>
+  </div>
+
+  <dialog id="dlgShift">
+    <form method="dialog" id="formShift">
+      <h2 id="dlgShiftTitle">Turno</h2>
+      <label>Entrada
+        <input type="datetime-local" id="fIn" required>
+      </label>
+      <label>Salida
+        <input type="datetime-local" id="fOut">
+      </label>
+      <p class="hint">Si salís después de la medianoche, poné la fecha del día siguiente en la salida.</p>
+      <p class="error" id="shiftError" hidden></p>
+      <div class="dlg-actions">
+        <button type="button" id="btnDelete" class="danger">Borrar</button>
+        <span class="spacer"></span>
+        <button type="button" id="btnCancelShift" class="secondary">Cancelar</button>
+        <button type="submit" class="primary">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlgSettings">
+    <form method="dialog" id="formSettings">
+      <h2>Ajustes</h2>
+      <label>Cuánto cobro por hora (pesos)
+        <input type="number" id="fRate" inputmode="decimal" min="0" step="any" placeholder="Ej: 5000">
+      </label>
+      <p class="hint">El precio nuevo se aplica a la semana actual y a las siguientes. Las semanas anteriores conservan el precio que tenían.</p>
+      <div class="dlg-actions">
+        <span class="spacer"></span>
+        <button type="button" id="btnCancelSettings" class="secondary">Cancelar</button>
+        <button type="submit" class="primary">Guardar</button>
+      </div>
+      <hr>
+      <h3>Copia de seguridad</h3>
+      <p class="hint">Tus horas se guardan solo en este celular. Guardá una copia cada tanto.</p>
+      <div class="btn-row">
+        <button type="button" id="btnExport" class="secondary">Guardar copia</button>
+        <button type="button" id="btnImport" class="secondary">Restaurar copia</button>
+      </div>
+      <input type="file" id="fileImport" accept="application/json,.json" hidden>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
