@@ -88,21 +88,108 @@ const Art = (() => {
     ashotgun: { len: 2.1, fore: 1.3 },
     hmg:      { len: 2.4, fore: 1.4 },
   };
-  const METAL = '#1a1e28', STEEL = '#6b7280', WOOD = '#7a4b22';
+  // Degradados que dan volumen (brillo en el centro, borde oscuro): se usan en todas las piezas
+  const MET = [[0, '#0a0c11'], [0.3, '#3d4554'], [0.52, '#a3acbb'], [0.74, '#434b5a'], [1, '#0a0c11']];
+  const POLY = [[0, '#0b0d12'], [0.45, '#343a47'], [0.6, '#444b5a'], [1, '#0b0d12']];
+  const WOOD = [[0, '#2f1a0b'], [0.35, '#9c5f2a'], [0.55, '#bf7b3b'], [0.8, '#8a5223'], [1, '#2f1a0b']];
+  const GOLD = [[0, '#6e4f10'], [0.5, '#f6d869'], [1, '#6e4f10']];
+  const OLIVE = [[0, '#1c260f'], [0.5, '#56772f'], [1, '#1c260f']];
+  const GLASS = [[0, '#04060a'], [0.4, '#2d3646'], [0.6, '#566277'], [1, '#04060a']];
+  const STEELB = [[0, '#6b7280'], [0.5, '#f3f4f6'], [1, '#6b7280']];
 
   function gun(x, type, u, glow) {
-    const r = (a, b, w, h, c, rad = 0.06) => { x.fillStyle = c; x.beginPath(); x.roundRect(a * u, (b - w / 2) * u, (h) * u, w * u, rad * u); x.fill(); };
+    const lw = Math.max(0.6, u * 0.05);
+    const G = (cy, w, stops) => { const g = x.createLinearGradient(0, (cy - w / 2) * u, 0, (cy + w / 2) * u); for (const [o, c] of stops) g.addColorStop(o, c); return g; };
+    const box = (a, b, cy, w, stops, rad = 0.06) => {
+      x.fillStyle = G(cy, w, stops); x.beginPath(); x.roundRect(a * u, (cy - w / 2) * u, (b - a) * u, w * u, rad * u); x.fill();
+      x.strokeStyle = 'rgba(0,0,0,.6)'; x.lineWidth = lw; x.stroke();
+    };
+    const dot = (px, py, r, c) => { x.fillStyle = c; x.beginPath(); x.arc(px * u, py * u, Math.max(0.5, r * u), 0, 6.2832); x.fill(); };
+    const line = (a, b, c, d, col, w = 0.04) => { x.strokeStyle = col; x.lineWidth = Math.max(0.6, w * u); x.lineCap = 'round'; x.beginPath(); x.moveTo(a * u, b * u); x.lineTo(c * u, d * u); x.stroke(); };
+    const dark = 'rgba(0,0,0,.6)', hi = 'rgba(255,255,255,.45)';
+
     switch (type) {
-      case 'pistol':  r(-0.1, 0, 0.3, 0.55, METAL); r(0.35, 0, 0.26, 0.7, STEEL); r(0.0, 0.14, 0.2, 0.28, '#2b2f3a'); break;
-      case 'sniper':  r(-0.3, 0, 0.36, 0.9, WOOD); r(0.5, 0, 0.24, 1.7, METAL); r(2.1, 0, 0.13, 0.9, STEEL); r(0.9, -0.02, 0.34, 0.6, '#0f172a'); r(1.0, -0.02, 0.2, 0.4, '#38bdf8', 0.1); break;
-      case 'lmg':     r(-0.2, 0, 0.36, 0.7, '#2b2f3a'); r(0.4, 0, 0.3, 1.3, METAL); r(1.5, 0, 0.14, 0.6, STEEL); r(0.7, 0.28, 0.26, 0.5, '#4b5563'); break;
-      case 'shotgun': r(-0.25, 0, 0.34, 0.8, WOOD); r(0.5, 0, 0.26, 1.7, METAL); r(1.0, 0, 0.4, 0.6, '#9a6430'); break;
-      case 'ashotgun': r(-0.25, 0, 0.34, 0.7, '#2b2f3a'); r(0.4, 0, 0.3, 1.5, METAL); x.fillStyle = '#4b5563'; x.beginPath(); x.arc(0.95 * u, 0.3 * u, 0.3 * u, 0, 6.2832); x.fill(); x.fillStyle = '#1f2937'; x.beginPath(); x.arc(0.95 * u, 0.3 * u, 0.15 * u, 0, 6.2832); x.fill(); break;
-      case 'hmg':     r(-0.25, 0, 0.5, 0.8, '#2b2f3a'); r(0.5, 0, 0.42, 1.2, METAL); r(1.6, 0, 0.2, 0.9, STEEL); r(0.55, 0.45, 0.36, 0.8, '#3f6212'); r(0.55, 0.45, 0.2, 0.8, '#a3a3a3', 0.1); break;
-      case 'knife':   r(0.0, 0, 0.26, 0.3, '#3b2a1a'); x.fillStyle = '#d1d5db'; x.beginPath(); x.moveTo(0.3 * u, -0.14 * u); x.lineTo(1.05 * u, -0.03 * u); x.lineTo(1.12 * u, 0.04 * u); x.lineTo(0.3 * u, 0.14 * u); x.closePath(); x.fill(); break;
+      case 'pistol':
+        box(-0.05, 0.5, 0, 0.36, POLY, 0.1);                         // empuñadura y armazón
+        box(0.12, 1.05, 0, 0.29, MET, 0.1);                          // corredera
+        for (let i = 0; i < 4; i++) line(0.16 + i * 0.07, -0.11, 0.16 + i * 0.07, 0.11, dark, 0.03);   // estrías
+        line(0.5, 0.05, 0.75, 0.05, dark, 0.05);                     // ventana de expulsión
+        line(0.14, -0.1, 1.0, -0.1, hi, 0.025);                      // brillo
+        dot(1.04, 0, 0.05, '#000'); box(0.95, 1.0, 0, 0.09, STEELB, 0.02);   // boca y mira
+        break;
+      case 'knife': {
+        box(0, 0.36, 0, 0.25, [[0, '#120b04'], [0.5, '#6a4521'], [1, '#120b04']], 0.1);   // mango
+        dot(0.1, 0, 0.035, '#d1d5db'); dot(0.26, 0, 0.035, '#d1d5db');
+        box(0.34, 0.42, 0, 0.5, MET, 0.03);                          // guarda
+        x.fillStyle = G(0, 0.28, STEELB); x.beginPath();             // hoja
+        x.moveTo(0.42 * u, -0.14 * u); x.lineTo(0.98 * u, -0.11 * u); x.lineTo(1.16 * u, 0.03 * u); x.lineTo(0.42 * u, 0.14 * u); x.closePath(); x.fill();
+        x.strokeStyle = dark; x.lineWidth = lw; x.stroke();
+        line(0.48, -0.02, 0.98, -0.01, 'rgba(0,0,0,.35)', 0.035);   // canal
+        line(0.44, 0.13, 1.12, 0.035, '#fff', 0.03);                 // filo
+        break;
+      }
+      case 'sniper':
+        box(-0.35, 0.95, 0, 0.42, WOOD, 0.14);                       // culata de madera
+        box(-0.35, -0.24, 0, 0.44, [[0, '#050505'], [1, '#262626']], 0.05);   // pad
+        line(-0.1, -0.14, 0.7, -0.14, 'rgba(255,220,170,.35)', 0.03);
+        box(0.85, 1.6, 0, 0.3, MET, 0.05);                           // caja del cerrojo
+        line(1.12, 0.14, 1.22, 0.42, '#b6bfcc', 0.06); dot(1.23, 0.45, 0.075, '#dbe3ee');   // manija del cerrojo
+        box(1.55, 2.95, 0, 0.14, MET, 0.04);                         // cañón
+        for (let i = 0; i < 4; i++) line(1.75 + i * 0.2, -0.05, 1.75 + i * 0.2, 0.05, dark, 0.03);
+        box(2.8, 3.04, 0, 0.26, MET, 0.04); line(2.88, -0.12, 2.88, 0.12, dark, 0.03); line(2.97, -0.12, 2.97, 0.12, dark, 0.03);   // freno de boca
+        box(0.78, 1.74, -0.01, 0.25, GLASS, 0.12);                   // mira telescópica
+        box(1.6, 1.86, -0.01, 0.36, GLASS, 0.12); dot(1.84, -0.01, 0.1, '#7dd3fc'); dot(1.81, -0.04, 0.035, '#fff');   // lente
+        box(0.7, 0.82, -0.01, 0.3, GLASS, 0.06);
+        box(0.95, 1.03, -0.01, 0.34, MET, 0.02); box(1.45, 1.53, -0.01, 0.34, MET, 0.02);   // anillos
+        break;
+      case 'lmg':
+        box(-0.25, 0.5, 0, 0.36, POLY, 0.1);                         // culata
+        box(0.45, 1.1, 0, 0.44, POLY, 0.06);                         // caja
+        line(0.62, -0.19, 0.62, 0.19, dark, 0.04); line(0.95, -0.19, 0.95, 0.19, dark, 0.04);
+        box(0.6, 1.0, 0.34, 0.34, OLIVE, 0.05);                      // caja de munición
+        line(0.65, 0.34, 0.95, 0.34, '#facc15', 0.05);
+        box(1.0, 1.78, 0, 0.27, MET, 0.05);                          // funda del cañón
+        for (let i = 0; i < 5; i++) { dot(1.1 + i * 0.14, -0.06, 0.03, '#05070b'); dot(1.1 + i * 0.14, 0.06, 0.03, '#05070b'); }
+        box(1.76, 2.1, 0, 0.1, MET, 0.03); box(2.0, 2.12, 0, 0.19, MET, 0.03);
+        line(1.38, 0.12, 1.8, 0.2, '#9aa3b2', 0.04); line(1.38, -0.12, 1.8, -0.2, '#9aa3b2', 0.04);   // bípode plegado
+        line(0.5, -0.2, 1.05, -0.2, hi, 0.025);
+        break;
+      case 'shotgun':
+        box(-0.25, 0.72, 0, 0.42, WOOD, 0.14);                       // culata
+        line(-0.2, -0.15, 0.6, -0.15, 'rgba(255,220,170,.35)', 0.03);
+        box(0.65, 1.25, 0, 0.34, MET, 0.05); box(0.78, 1.0, 0, 0.1, [[0, '#000'], [1, '#222']], 0.03);   // caja y ventana
+        box(1.2, 2.2, 0, 0.15, MET, 0.04);                           // cañón
+        box(1.2, 2.0, 0.2, 0.1, MET, 0.04);                          // tubo cargador
+        box(1.3, 1.85, 0.07, 0.4, WOOD, 0.12);                       // corredera de madera
+        for (let i = 0; i < 4; i++) line(1.42 + i * 0.1, -0.1, 1.42 + i * 0.1, 0.24, 'rgba(0,0,0,.45)', 0.03);
+        dot(2.17, 0, 0.04, '#fde68a');
+        break;
+      case 'ashotgun':
+        box(-0.25, 0.55, 0, 0.36, POLY, 0.1);
+        box(0.5, 1.5, 0, 0.42, POLY, 0.08);                          // cuerpo
+        for (let i = 0; i < 5; i++) line(1.0 + i * 0.09, -0.16, 1.0 + i * 0.09, 0.16, dark, 0.03);   // ventilación
+        x.fillStyle = '#1a1f29'; x.beginPath(); x.arc(0.95 * u, 0.32 * u, 0.36 * u, 0, 6.2832); x.fill();   // tambor
+        x.strokeStyle = '#7b8494'; x.lineWidth = lw * 1.5; x.stroke();
+        x.fillStyle = '#323a49'; x.beginPath(); x.arc(0.95 * u, 0.32 * u, 0.22 * u, 0, 6.2832); x.fill();
+        for (let i = 0; i < 6; i++) { const a = i * 1.0472; dot(0.95 + Math.cos(a) * 0.14, 0.32 + Math.sin(a) * 0.14, 0.04, '#0b0d12'); }
+        box(1.45, 2.1, 0, 0.19, MET, 0.04); line(1.5, -0.02, 2.05, -0.02, '#e5e7eb', 0.03);
+        box(2.0, 2.13, 0, 0.26, MET, 0.03);
+        break;
+      case 'hmg':
+        box(-0.25, 0.5, 0, 0.44, POLY, 0.1);                         // culata
+        box(0.42, 1.3, 0, 0.56, [[0, '#07080c'], [0.5, '#3a4150'], [1, '#07080c']], 0.06);   // caja
+        line(0.6, -0.22, 0.6, 0.22, dark, 0.04); line(1.1, -0.22, 1.1, 0.22, dark, 0.04); line(0.5, -0.25, 1.25, -0.25, hi, 0.03);
+        box(0.55, 1.15, 0.54, 0.46, OLIVE, 0.05); line(0.62, 0.45, 1.08, 0.45, '#cbd5c0', 0.04);   // caja de munición
+        for (let k = 0; k < 6; k++) { x.save(); x.translate((0.7 + k * 0.1) * u, (0.3 - k * 0.04) * u); x.rotate(-0.5); box(-0.09, 0.09, 0, 0.14, GOLD, 0.03); x.restore(); }   // cinta de balas
+        box(1.25, 2.05, 0, 0.36, MET, 0.06);                         // funda perforada
+        for (let i = 0; i < 6; i++) { dot(1.36 + i * 0.12, -0.08, 0.035, '#05070b'); dot(1.36 + i * 0.12, 0.08, 0.035, '#05070b'); }
+        box(2.0, 2.42, 0, 0.14, MET, 0.03); box(2.3, 2.46, 0, 0.26, MET, 0.03);
+        box(0.85, 1.2, -0.38, 0.09, MET, 0.03);                      // manija de transporte
+        line(1.7, 0.18, 2.05, 0.46, '#9aa3b2', 0.05); line(1.7, -0.18, 2.05, -0.46, '#9aa3b2', 0.05);   // bípode
+        break;
       default: break;
     }
-    if (glow) { x.strokeStyle = glow; x.lineWidth = Math.max(1, u * 0.1); x.globalAlpha = 0.9; x.beginPath(); x.roundRect(-0.35 * u, -0.45 * u, (GUNS[type].len + 0.5) * u, 0.9 * u, 0.2 * u); x.stroke(); x.globalAlpha = 1; }
+    if (glow) { x.strokeStyle = glow; x.lineWidth = Math.max(1, u * 0.1); x.globalAlpha = 0.9; x.beginPath(); x.roundRect(-0.4 * u, -0.62 * u, (GUNS[type].len + 0.6) * u, 1.24 * u, 0.25 * u); x.stroke(); x.globalAlpha = 1; }
   }
 
   /* ---------- soldado vivo ---------- */
