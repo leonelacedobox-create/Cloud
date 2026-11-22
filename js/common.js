@@ -20,8 +20,8 @@ const App = (() => {
     players: Array.from({ length: 4 }, (_, i) => newPlayer(i)),
     coin: { mode: 'libre', best: 1, leaver: 'winner', totals: { milei: 0, cristina: 0 }, history: [] },
     battle: {
-      teamMode: 'ffa', teamCount: 2, lives: 5, map: 'maze', size: 'm',
-      powerups: true, zone: true, varied: true, speed: 1,
+      teamMode: 'ffa', teamCount: 2, lives: 3, map: 'maze', size: 'm',
+      powerups: true, zone: true, varied: true, loot: true, speed: 1,
       wins: [], winRange: 'week',
     },
   });
@@ -146,7 +146,15 @@ const App = (() => {
     },
     whoosh() { noise(0.45, { vol: 0.16, freq: 400, q: 0.8, sweepTo: 2400 }); },
     clink() { sfx.coinRing(0.35); },
-    shot() { noise(0.09, { vol: 0.07, freq: 2200, q: 0.9, sweepTo: 500 }); tone(520, 0.08, { type: 'square', vol: 0.03, slide: -300 }); },
+    // cada arma suena distinto
+    shot(kind) {
+      switch (kind) {
+        case 'sniper': noise(0.35, { vol: 0.2, freq: 3200, q: 0.6, sweepTo: 300 }); tone(140, 0.3, { type: 'sawtooth', vol: 0.09, slide: -90 }); break;
+        case 'shotgun': case 'ashotgun': noise(0.22, { vol: 0.2, freq: 1200, q: 0.5, type: 'lowpass', sweepTo: 150 }); tone(110, 0.18, { type: 'square', vol: 0.07, slide: -60 }); break;
+        case 'lmg': case 'hmg': noise(0.06, { vol: 0.09, freq: 1800, q: 0.8, sweepTo: 400 }); tone(kind === 'hmg' ? 140 : 220, 0.06, { type: 'square', vol: 0.05, slide: -80 }); break;
+        default: noise(0.09, { vol: 0.07, freq: 2200, q: 0.9, sweepTo: 500 }); tone(520, 0.08, { type: 'square', vol: 0.03, slide: -300 });
+      }
+    },
     hit() { noise(0.12, { vol: 0.14, freq: 900, q: 1.2 }); tone(180, 0.12, { type: 'sawtooth', vol: 0.06, slide: -90 }); },
     boom() { noise(0.55, { vol: 0.3, freq: 700, q: 0.7, type: 'lowpass', sweepTo: 80 }); tone(90, 0.5, { type: 'sine', vol: 0.2, slide: -60 }); },
     pickup() { tone(660, 0.1, { type: 'triangle', vol: 0.1 }); tone(990, 0.16, { type: 'triangle', vol: 0.1, delay: 0.08 }); },

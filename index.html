@@ -139,7 +139,7 @@
       <div class="card">
         <div class="label">Vidas por soldado</div>
         <div class="seg" id="segLives">
-          <button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button><button data-v="8">8</button>
+          <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button>
         </div>
         <div class="label">Mapa</div>
         <div class="seg" id="segMap">
@@ -151,7 +151,8 @@
         <div class="seg" id="segSize">
           <button data-v="s">Chico</button><button data-v="m">Medio</button><button data-v="l">Grande</button>
         </div>
-        <label class="switch"><input type="checkbox" id="optPowerups"><span>Power-ups (escudo, triple disparo, velocidad, vida)</span></label>
+        <label class="switch"><input type="checkbox" id="optLoot"><span>Armas en el piso (sniper, ametralladoras, escopetas…) y munición</span></label>
+        <label class="switch"><input type="checkbox" id="optPowerups"><span>Power-ups (escudo, velocidad, vida extra)</span></label>
         <label class="switch"><input type="checkbox" id="optZone"><span>Zona que se achica (evita partidas eternas)</span></label>
         <label class="switch"><input type="checkbox" id="optVaried"><span>Personalidades variadas (agresivo, cauteloso, francotirador)</span></label>
       </div>
@@ -186,6 +187,7 @@
       </div>
       <div class="controls">
         <button class="btn small" id="btnPause">⏸</button>
+        <button class="btn small" id="btnCam">🎥 Auto</button>
         <div class="seg small" id="segSpeed">
           <button data-v="1">1×</button><button data-v="2">2×</button><button data-v="4">4×</button>
         </div>

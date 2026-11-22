@@ -1,36 +1,50 @@
-/* Batalla en el laberinto: soldados autónomos con vista, oído, puertas y tácticas distintas. */
+/* Batalla en el laberinto: soldados autónomos con vista, oído, puertas, armas y tácticas distintas. */
 'use strict';
 
 (() => {
   const { state, $, $$, el, rnd, rint, shuffle, pname, sfx, vibrate, bindSeg, save, PALETTE, TEAMS } = App;
   const B = state.battle;
   const STEP = 1 / 60;
+  const HPL = 100;                        // puntos de vida de cada "vida"
 
-  /* ================= configuración ================= */
-  // base: tendencia de cada personalidad para cada táctica (0..1). Cada soldado la varía al azar.
+  /* ================= armas ================= */
+  // dmg: daño por bala (x pellets) · cd: segundos entre disparos · mag/res: cargador y reserva
+  // pref: distancia (en casilleros) a la que rinde mejor · tier: qué tan buena es en general
+  const WEAPONS = {
+    pistol:   { name: 'Pistola', short: 'PIS', dmg: 22, pellets: 1, cd: 0.5, mag: 12, res: 24, reload: 1.4, bspeed: 12, spread: 0.05, range: 9, noise: 11, move: 1.0, auto: false, tier: 2, pref: [2.5, 6.5] },
+    sniper:   { name: 'Sniper', short: 'SNI', dmg: 95, pellets: 1, cd: 1.6, mag: 5, res: 10, reload: 2.8, bspeed: 26, spread: 0.008, range: 24, noise: 18, move: 0.9, auto: false, tier: 6, pref: [7, 20], scope: 8 },
+    lmg:      { name: 'Ametralladora ligera', short: 'AML', dmg: 11, pellets: 1, cd: 0.11, mag: 30, res: 60, reload: 2.1, bspeed: 15, spread: 0.09, range: 11, noise: 14, move: 0.97, auto: true, tier: 5, pref: [3, 8] },
+    shotgun:  { name: 'Escopeta', short: 'ESC', dmg: 9, pellets: 8, cd: 0.95, mag: 6, res: 12, reload: 2.6, bspeed: 12, spread: 0.2, range: 5.5, noise: 15, move: 0.95, auto: false, tier: 4, pref: [1.2, 3.8] },
+    ashotgun: { name: 'Escopeta automática', short: 'EAU', dmg: 7, pellets: 6, cd: 0.38, mag: 8, res: 16, reload: 3.0, bspeed: 12, spread: 0.24, range: 5.2, noise: 15, move: 0.93, auto: true, tier: 5, pref: [1.2, 4] },
+    hmg:      { name: 'Ametralladora pesada', short: 'AMP', dmg: 15, pellets: 1, cd: 0.09, mag: 80, res: 120, reload: 4.2, bspeed: 15, spread: 0.13, range: 12, noise: 17, move: 0.78, auto: true, tier: 7, pref: [4, 9.5] },
+  };
+  const KNIFE = { name: 'Cuchillo', short: 'CUC', dmg: 55, cd: 0.55, range: 1.2, noise: 2.5, move: 1.12, pref: [0, 0.9] };
+  const LOOT_WEIGHTS = [['shotgun', 20], ['ashotgun', 12], ['lmg', 20], ['sniper', 14], ['hmg', 8]];
+  const cap = (def) => def.mag + def.res * 2;     // máximo de balas que se pueden llevar
+
+  /* ================= personalidades ================= */
+  // base: tendencia a cada táctica (0..1). Cada soldado la varía al azar.
   const PERS = {
     agresivo: {
-      emoji: '🔥', label: 'agresivo', speed: 3.0, cd: 1.8, bspeed: 8, spread: 0.36, pmin: 1.8, pmax: 3.6, strafe: 0.7,
-      range: 9, sight: 12, shotR: 15, loud: true, sneak: false, run: 1.12,
+      emoji: '🔥', label: 'agresivo', speed: 3.0, sight: 12, loud: true, sneak: false, run: 1.12, distMul: 0.75, accMul: 1.35, burst: [8, 8],
+      wpref: { shotgun: 1.2, ashotgun: 1.4, hmg: 0.8 },
       base: { peek: 0.25, door: 0.25, blind: 0.55, listen: 0.95, ambush: 0.12 },
     },
     cauteloso: {
-      emoji: '🛡️', label: 'cauteloso', speed: 2.8, cd: 2.1, bspeed: 8, spread: 0.25, pmin: 4.5, pmax: 7.5, strafe: 0.9,
-      range: 10, sight: 12, shotR: 15, loud: false, sneak: true, run: 1,
+      emoji: '🛡️', label: 'cauteloso', speed: 2.8, sight: 12, loud: false, sneak: true, run: 1, distMul: 1.3, accMul: 0.9, burst: [3, 3],
+      wpref: { lmg: 0.8, sniper: 0.8 },
       base: { peek: 0.9, door: 0.75, blind: 0.35, listen: 1.15, ambush: 0.7 },
     },
     francotirador: {
-      emoji: '🎯', label: 'francotirador', speed: 2.4, cd: 3.3, bspeed: 13, spread: 0.06, pmin: 4.0, pmax: 14, strafe: 0.0,
-      range: 18, sight: 20, shotR: 17, loud: false, sneak: true, run: 1,
+      emoji: '🎯', label: 'francotirador', speed: 2.5, sight: 15, loud: false, sneak: true, run: 1, distMul: 1.5, accMul: 0.7, burst: [3, 3],
+      wpref: { sniper: 2.5, lmg: 0.4 },
       base: { peek: 0.75, door: 0.5, blind: 0.2, listen: 1.05, ambush: 0.9 },
     },
   };
-  const SIZES = { s: 6, m: 7, l: 9 };   // celdas en el lado corto de la pantalla; el lado largo se calcula
-  const ZONE_DELAY = 60, ZONE_TIME = 140; // segundos de juego
-  const FOV = 2.3;                        // campo de visión (radianes, ~130°)
-  const PU_TYPES = ['shield', 'shield', 'shield', 'triple', 'triple', 'triple', 'speed', 'speed', 'speed', 'heal', 'heal'];
-  const PU_COLOR = { shield: '#38bdf8', triple: '#fb923c', speed: '#facc15', heal: '#f472b6' };
-  const PU_NAME = { shield: 'escudo', triple: 'triple disparo', speed: 'velocidad', heal: 'vida extra' };
+  const SIZES = { s: [9, 13], m: [13, 19], l: [17, 25] };   // celdas (columnas, filas) en pantalla vertical
+  const FOV = 2.3;                                          // campo de visión (radianes, ~130°)
+  const PU_COLOR = { shield: '#38bdf8', speed: '#facc15', heal: '#f472b6' };
+  const PU_NAME = { shield: 'escudo', speed: 'velocidad', heal: 'vida extra' };
   const RING_COLOR = { shot: '#ffd166', shout: '#ff6b6b', door: '#c9955a', boom: '#ff9f43' };
 
   const LINES = {
@@ -38,6 +52,7 @@
     hunt: (n) => [`¡Salí de ahí, ${n}!`, '¡Te escucho, gallina!', `¡${n}, te voy a encontrar!`, '¿Dónde te metiste, cobarde?', '¡No te escondás, pollito!'],
     kill: (n) => [`¡Chau, ${n}!`, '¡Uno menos!', '¡Eso te pasa, boludo!', '¡Fácil!'],
     hurt: () => ['¡Auch! ¡Cobarde!', '¡Me pegaste, bobo!', '¡Esto no se queda así!'],
+    dry: () => ['¡Sin balas! ¡A cuchillazos!', '¡Se acabó la munición! ¡Vení!', '¡Con el cuchillo te alcanza, boludo!'],
   };
   const pickLine = (kind, n) => { const a = LINES[kind](n); return a[rint(a.length)]; };
 
@@ -134,7 +149,8 @@
 
   /* ================= utilidades ================= */
   const angDiff = (a, b) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return d; };
-  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const clamp01 = (v) => clamp(v, 0, 1);
   const lighten = (hex, k) => {
     const n = parseInt(hex.slice(1), 16);
     const c = (v) => Math.round(v + (255 - v) * k);
@@ -142,6 +158,13 @@
   };
   const DX = [1, -1, 0, 0, 1, 1, -1, -1], DY = [0, 0, 1, -1, 1, -1, 1, -1];
   const doorClosed = (d) => !d.open || d.anim < 0.6;
+  const ammoOf = (w) => (w ? w.mag + w.res : 0);
+  const fitRange = (def, d) => {        // qué tan bien rinde un arma a la distancia d (0..1)
+    const [a, b] = def.pref;
+    if (d < a) return Math.max(0.2, 1 - (a - d) * 0.3);
+    if (d > b) return Math.max(0.15, 1 - (d - b) * 0.1);
+    return 1;
+  };
 
   /* ================= la partida ================= */
   class Game {
@@ -151,18 +174,19 @@
       this.phase = 'countdown'; this.cdT = 3.4; this.lastBeep = 4;
       this.paused = false; this.speed = B.speed || 1;
       this.time = 0; this.acc = 0; this.last = 0; this.raf = 0;
-      this.bullets = []; this.parts = []; this.pus = []; this.corpses = []; this.rings = [];
-      this.puTimer = 8; this.endT = 0; this.deaths = 0; this.winners = []; this.zone = null;
+      this.bullets = []; this.parts = []; this.items = []; this.corpses = []; this.rings = [];
+      this.itemId = 1; this.lootTimer = 14;
+      this.endT = 0; this.deaths = 0; this.winners = []; this.zone = null;
+      this.camMode = 'auto'; this.followId = null; this.focus = null; this.focusUntil = 0; this.camX = 0; this.camY = 0;
 
-      // el mapa se adapta a la forma de la pantalla para no dejar huecos vacíos
       const wrap = canvas.parentElement;
-      const base = SIZES[cfg.size] || SIZES.m;
       const portrait = wrap.clientHeight >= wrap.clientWidth;
-      const ratio = portrait ? wrap.clientHeight / Math.max(1, wrap.clientWidth) : wrap.clientWidth / Math.max(1, wrap.clientHeight);
-      const long = Math.max(base, Math.min(Math.round(base * ratio), Math.round(base * 2.1)));
-      const cols = portrait ? base : long, rows = portrait ? long : base;
+      let [cols, rows] = SIZES[cfg.size] || SIZES.m;
+      if (!portrait) [cols, rows] = [rows, cols];
       const m = genMap(cfg.map, cols, rows);
       this.W = m.W; this.H = m.H; this.g = m.g; this.center = m.center;
+      const f = clamp(Math.sqrt((this.W * this.H) / (27 * 39)), 0.8, 1.7);
+      this.zoneDelay = 70 * f; this.zoneTime = 150 * f;
       const N = this.W * this.H;
       this.seen = new Uint32Array(N); this.stamp = 0; this.prev = new Int32Array(N); this.dist = new Int32Array(N); this.queue = new Int32Array(N);
       this.doorGrid = new Uint8Array(N); this.doors = new Map();
@@ -170,9 +194,11 @@
       this.floor = [];
       for (let i = 0; i < N; i++) if (!this.g[i] && !this.doorGrid[i]) this.floor.push(i);
       this.spawn();
+      this.initLoot();
       this.resize = this.resize.bind(this);
       this.frame = this.frame.bind(this);
       this.resize();
+      const f0 = this.soldiers[0]; this.camX = f0.x; this.camY = f0.y; this.clampCam();
       window.addEventListener('resize', this.resize);
     }
 
@@ -198,8 +224,8 @@
     }
     /** Primera puerta cerrada en línea recta (si no hay paredes antes). Sirve para disparar "a ciegas". */
     doorOnLine(x0, y0, x1, y1, maxD) {
-      const dx = x1 - x0, dy = y1 - y0, d = Math.min(Math.hypot(dx, dy), maxD), n = Math.ceil(d / 0.25);
-      const ux = dx / (Math.hypot(dx, dy) || 1), uy = dy / (Math.hypot(dx, dy) || 1);
+      const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1, d = Math.min(len, maxD), n = Math.ceil(d / 0.25);
+      const ux = dx / len, uy = dy / len;
       for (let i = 1; i <= n; i++) {
         const px = x0 + ux * d * (i / n), py = y0 + uy * d * (i / n), tx = Math.floor(px), ty = Math.floor(py);
         if (this.isWall(tx, ty)) return -1;
@@ -280,19 +306,23 @@
         while (chosen.length < players.length) chosen.push(pickFar(chosen, flo));
         places = shuffle(chosen);
       }
+      this.spawnPoints = places.slice();
       const names = Object.keys(PERS), looks = Art.makeLooks(players.length), N = this.W * this.H;
       const jitter = (v) => clamp01(v + (rnd() - 0.5) * 0.55);
       this.soldiers = players.map((p, i) => {
         const pers = cfg.varied ? names[[0, 0, 0, 1, 1, 1, 2, 2][rint(8)]] : 'agresivo';
-        const P = PERS[pers];
+        const P = PERS[pers], pd = WEAPONS.pistol;
         return {
           id: i, name: p.name, color: p.color, team: cfg.teamMode ? p.team : -1, teamColor: cfg.teamMode ? TEAMS[p.team].color : null,
           ap: looks[i], x: places[i][0], y: places[i][1], r: 0.3, angle: rnd() * 6.283, look: 0, moveAng: 0, headOff: 0, phase: rnd() * 6, gait: 0, recoil: 0, lastStep: 0,
-          hp: cfg.lives, maxHp: cfg.lives, alive: true, deathT: 0, kills: 0,
+          hp: cfg.lives * HPL, maxHp: cfg.lives * HPL, alive: true, deathT: 0, kills: 0,
           pers, P, sk: { peek: jitter(P.base.peek), door: jitter(P.base.door), blind: jitter(P.base.blind), listen: 0.75 + jitter(P.base.listen) * 0.5, ambush: jitter(P.base.ambush) },
+          // inventario: pistola y cuchillo de fábrica + un espacio para una tercera arma
+          inv: { pistol: { type: 'pistol', mag: pd.mag, res: pd.res }, primary: null }, cur: 'pistol', wtype: 'pistol',
+          reloadT: 0, reloadTot: 1, swapT: 0, meleeT: 0, bloom: 0, burstLeft: 0, wT: rnd() * 0.3, seenItems: new Map(), dryTold: false,
           cd: 0.8 + rnd() * 1.2, path: [], thinkT: rnd() * 0.3, mode: 'search',
-          shield: 0, triple: 0, speedT: 0, flash: 0, strafeDir: rnd() < 0.5 ? 1 : -1, strafeT: 0,
-          zoneT: 0, stuckT: 0, lx: 0, ly: 0, target: null, td: 0,
+          shieldHp: 0, shieldT: 0, speedT: 0, flash: 0, strafeDir: rnd() < 0.5 ? 1 : -1, strafeT: 0,
+          zoneT: 0, stuckT: 0, lx: 0, ly: 0, target: null, td: 0, lastShot: -99, lastNoise: -99,
           know: {}, explored: new Float32Array(N).fill(-60), act: null, closeIdx: null, peekFor: -1, huntStamp: -1,
           talkCd: 2 + rnd() * 4, burstCd: 3 + rnd() * 4, radioCd: 0, alertT: -99, bubble: null, icon: null, sneak: false,
         };
@@ -301,6 +331,232 @@
     }
 
     enemiesOf(s) { return this.soldiers.filter((o) => o.alive && o !== s && (s.team < 0 || o.team !== s.team)); }
+
+    /* ---------- armas del soldado ---------- */
+    weaponOf(s) { return s.cur === 'knife' ? null : s.cur === 'pistol' ? s.inv.pistol : s.inv.primary; }
+    defOf(s) { const w = this.weaponOf(s); return w ? WEAPONS[w.type] : KNIFE; }
+    weaponValue(s, type, total) {
+      const def = WEAPONS[type], f = Math.min(1.2, total / (def.mag + def.res * 0.6));
+      return def.tier * (0.35 + 0.65 * f) + (s.P.wpref[type] || 0);
+    }
+    switchTo(s, which) {
+      if (s.cur === which) return;
+      s.cur = which; s.swapT = which === 'knife' ? 0.3 : 0.45; s.reloadT = 0;
+      const w = this.weaponOf(s); s.wtype = w ? w.type : 'knife';
+      if (which === 'knife' && s.P.loud && s.bubble == null && !s.dryTold && ammoOf(s.inv.pistol) + ammoOf(s.inv.primary) === 0) {
+        s.dryTold = true; this.say(s, pickLine('dry'));
+      }
+    }
+    chooseWeapon(s) {
+      const has = (w) => w && ammoOf(w) > 0;
+      const d = s.target ? s.td : null;
+      const sc = {};
+      for (const key of ['pistol', 'primary']) {
+        const w = key === 'pistol' ? s.inv.pistol : s.inv.primary;
+        if (!has(w)) { sc[key] = -1; continue; }
+        const def = WEAPONS[w.type], load = w.mag > 0 ? 1 : 0.55;
+        sc[key] = d == null ? def.tier * load + (key === 'primary' ? 2 : 0) : def.tier * fitRange(def, d) * load;
+      }
+      sc.knife = d != null && d < 1.5 ? 2.0 : 0.1;
+      let best = 'knife', bs = -9;
+      for (const k of ['primary', 'pistol', 'knife']) if (sc[k] > bs) { bs = sc[k]; best = k; }
+      const cs = sc[s.cur] == null ? -1 : sc[s.cur];
+      if (best !== s.cur && (cs < 0 || bs > cs * 1.3 + 0.3)) this.switchTo(s, best);
+    }
+    startReload(s) {
+      const w = this.weaponOf(s); if (!w) return false;
+      const def = WEAPONS[w.type];
+      if (w.res <= 0 || w.mag >= def.mag) return false;
+      s.reloadT = s.reloadTot = def.reload;
+      this.emitSound(s.x, s.y, 4.5, 'reload', s);
+      return true;
+    }
+    finishReload(s) {
+      const w = this.weaponOf(s); if (!w) return;
+      const def = WEAPONS[w.type], take = Math.min(def.mag - w.mag, w.res);
+      w.mag += take; w.res -= take;
+    }
+    manageWeapon(s, dt) {
+      if (s.reloadT > 0) { s.reloadT -= dt; if (s.reloadT <= 0) { s.reloadT = 0; this.finishReload(s); } }
+      if (s.swapT > 0) s.swapT -= dt;
+      if (s.meleeT > 0) s.meleeT -= dt;
+      s.bloom = Math.max(0, s.bloom - dt * 1.2);
+      const pr = s.inv.primary;
+      if (pr && ammoOf(pr) <= 0) { s.inv.primary = null; if (s.cur === 'primary') { s.cur = 'pistol'; s.reloadT = 0; this.chooseWeapon(s); } }
+      s.wT -= dt;
+      if (s.wT <= 0) { s.wT = 0.25; this.chooseWeapon(s); }
+      s.wtype = s.cur === 'knife' ? 'knife' : (this.weaponOf(s) || s.inv.pistol).type;
+      // recarga
+      const w = this.weaponOf(s);
+      if (w && s.reloadT <= 0 && s.swapT <= 0 && w.res > 0) {
+        const def = WEAPONS[w.type];
+        if (w.mag <= 0 || (!s.target && s.mode !== 'attack' && w.mag < def.mag * 0.4)) this.startReload(s);
+      }
+    }
+
+    fire(s, extra = 0) {
+      const w = this.weaponOf(s);
+      if (!w || w.mag <= 0 || s.reloadT > 0 || s.swapT > 0) return false;
+      const def = WEAPONS[w.type], P = s.P;
+      w.mag--; s.recoil = 1; s.lastShot = this.time;
+      s.cd = def.cd * (0.92 + rnd() * 0.16);
+      if (def.auto) {                      // ráfagas: dispara varias veces y hace una pausa
+        if (s.burstLeft <= 0) s.burstLeft = P.burst[0] + rint(P.burst[1] + 1);
+        if (--s.burstLeft <= 0) s.cd += 0.5 + rnd() * 0.9;
+        s.bloom = Math.min(def.spread * 1.3, s.bloom + def.spread * 0.14);
+      }
+      const move = s.gait > 0.5 ? 1.3 : s.sneak ? 0.8 : 1;
+      const spread = def.spread * P.accMul * move + s.bloom + extra;
+      const life = def.range / def.bspeed + 0.15;
+      for (let i = 0; i < def.pellets; i++) {
+        const a = s.angle + (rnd() - 0.5) * 2 * spread * (def.pellets > 1 ? 1.15 : 1);
+        const sp = def.bspeed * (def.pellets > 1 ? 0.85 + rnd() * 0.3 : 1);
+        this.bullets.push({
+          x: s.x + Math.cos(a) * 0.5, y: s.y + Math.sin(a) * 0.5,
+          vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          owner: s, color: s.color, life, dmg: def.dmg, w: w.type,
+        });
+      }
+      if (!def.auto || this.time - s.lastNoise > 0.3) { s.lastNoise = this.time; this.emitSound(s.x, s.y, def.noise, 'shot', s); }
+      if (this.audible()) sfx.shot(w.type);
+      return true;
+    }
+    melee(s, tgt) {
+      s.cd = KNIFE.cd; s.meleeT = 0.25; s.recoil = 0;
+      // por la espalda el golpe es mucho más fuerte
+      const behind = Math.abs(angDiff(tgt.look, Math.atan2(s.y - tgt.y, s.x - tgt.x))) > 2.1;
+      this.spark(tgt.x, tgt.y, '#ffffff', 4);
+      this.emitSound(s.x, s.y, KNIFE.noise, 'step', s);
+      if (this.audible()) sfx.hit();
+      this.damage(tgt, s, KNIFE.dmg * (behind ? 1.8 : 1), false);
+    }
+    audible() { return this.speed === 1 || (this.speed === 2 && ((this._sfxN = (this._sfxN || 0) + 1) % 2 === 0)); }
+
+    /* ---------- botín en el piso ---------- */
+    addItem(kind, type, x, y, mag = 0, res = 0) {
+      const it = { id: this.itemId++, kind, type, x, y, mag, res, ang: rnd() * 6.283, t: 0, gone: false };
+      this.items.push(it); return it;
+    }
+    pickWeaponType() {
+      let r = rnd() * LOOT_WEIGHTS.reduce((a, b) => a + b[1], 0);
+      for (const [t, w] of LOOT_WEIGHTS) { r -= w; if (r <= 0) return t; }
+      return 'lmg';
+    }
+    spawnLootAt(i, forced) {
+      const x = (i % this.W) + 0.5, y = ((i / this.W) | 0) + 0.5;
+      const roll = rnd();
+      if ((forced === 'weapon' || roll < 0.6) && this.cfg.loot !== false) {
+        const t = this.pickWeaponType(), d = WEAPONS[t];
+        return this.addItem('weapon', t, x, y, d.mag, Math.round(d.res * (0.5 + rnd() * 0.5)));
+      }
+      if (roll < 0.85 || forced === 'ammo') return this.addItem('ammo', 'ammo', x, y);
+      if (this.cfg.powerups) return this.addItem('power', ['shield', 'speed', 'heal'][rint(3)], x, y);
+      return this.addItem('ammo', 'ammo', x, y);
+    }
+    initLoot() {
+      const n = this.soldiers.length;
+      const total = Math.max(4, Math.round(n * 1.4)) + 3;
+      const used = this.spawnPoints.slice();
+      for (let k = 0; k < total; k++) {
+        let best = this.floor[rint(this.floor.length)], bd = -1;
+        for (let t = 0; t < 14; t++) {                      // reparte el botín por todo el mapa
+          const i = this.floor[rint(this.floor.length)], x = (i % this.W) + 0.5, y = ((i / this.W) | 0) + 0.5;
+          let md = 1e9; for (const u of used) md = Math.min(md, Math.hypot(u[0] - x, u[1] - y));
+          if (md > bd) { bd = md; best = i; }
+        }
+        used.push([(best % this.W) + 0.5, ((best / this.W) | 0) + 0.5]);
+        this.spawnLootAt(best, k < total - 3 ? 'weapon' : k === total - 3 ? 'ammo' : null);
+      }
+    }
+    spawnMoreLoot() {
+      if (this.items.length >= this.soldiers.length * 2 + 4) return;
+      this.spawnLootAt(this.floor[rint(this.floor.length)], null);
+    }
+    dropWeapons(s) {
+      const drop = (w) => {
+        if (!w || ammoOf(w) <= 0) return;
+        const a = rnd() * 6.283, m = 0.15 + rnd() * 0.3;
+        let x = s.x + Math.cos(a) * m, y = s.y + Math.sin(a) * m;
+        if (this.isWall(Math.floor(x), Math.floor(y))) { x = s.x; y = s.y; }
+        this.addItem('weapon', w.type, x, y, w.mag, w.res);
+      };
+      drop(s.inv.pistol); drop(s.inv.primary);
+      s.inv.pistol = { type: 'pistol', mag: 0, res: 0 }; s.inv.primary = null;
+    }
+
+    /** Cuánto le conviene a este soldado agarrar esto (0 = nada). */
+    evalItem(s, it) {
+      if (it.kind === 'weapon') {
+        const def = WEAPONS[it.type], tot = it.mag + it.res;
+        if (it.type === 'pistol') return Math.min(tot, cap(def) - ammoOf(s.inv.pistol)) / 24;    // solo sirve por las balas
+        const pr = s.inv.primary;
+        if (pr && pr.type === it.type) return Math.min(tot, cap(def) - ammoOf(pr)) / (def.mag + def.res) * 1.4;
+        const nv = this.weaponValue(s, it.type, tot), cv = pr ? this.weaponValue(s, pr.type, ammoOf(pr)) : 0;
+        return nv - cv > 0.6 ? (nv - cv) / 3 : 0;
+      }
+      if (it.kind === 'ammo') {
+        let g = 0;
+        for (const w of [s.inv.pistol, s.inv.primary]) {
+          if (!w) continue;
+          const def = WEAPONS[w.type];
+          g += Math.min(Math.ceil(def.mag * 1.5), cap(def) - ammoOf(w)) / (def.mag + def.res) * 1.2;
+        }
+        return g;
+      }
+      if (it.type === 'shield') return s.shieldHp > 0 ? 0 : 0.7;
+      if (it.type === 'speed') return s.speedT > 0 ? 0 : 0.35;
+      return s.hp >= s.maxHp ? 0 : (s.maxHp - s.hp) / s.maxHp * 1.6 + 0.1;
+    }
+    applyPickup(s, it) {
+      let label = '';
+      if (it.kind === 'weapon') {
+        const def = WEAPONS[it.type], tot = it.mag + it.res;
+        const own = it.type === 'pistol' ? s.inv.pistol : (s.inv.primary && s.inv.primary.type === it.type ? s.inv.primary : null);
+        if (own) {                                           // misma arma: se queda con las balas
+          const take = Math.min(tot, cap(def) - ammoOf(own));
+          if (take <= 0) return false;
+          own.res += take;
+          const left = tot - take; it.mag = 0; it.res = left;
+          if (left <= 0) it.gone = true;
+          label = `balas de ${def.name.toLowerCase()}`;
+        } else {                                             // arma nueva: suelta la que tenía
+          const old = s.inv.primary;
+          if (old && ammoOf(old) > 0) this.addItem('weapon', old.type, s.x + (rnd() - 0.5) * 0.5, s.y + (rnd() - 0.5) * 0.5, old.mag, old.res);
+          s.inv.primary = { type: it.type, mag: it.mag, res: it.res };
+          s.cur = 'primary'; s.swapT = 0.6; s.reloadT = 0; s.wtype = it.type; s.dryTold = false;
+          it.gone = true; label = def.name.toLowerCase();
+        }
+      } else if (it.kind === 'ammo') {
+        let any = false;
+        for (const w of [s.inv.pistol, s.inv.primary]) {
+          if (!w) continue;
+          const def = WEAPONS[w.type], add = Math.min(Math.ceil(def.mag * 1.5), cap(def) - ammoOf(w));
+          if (add > 0) { w.res += add; any = true; }
+        }
+        if (!any) return false;
+        it.gone = true; label = 'munición'; s.dryTold = false;
+        if (s.cur === 'knife') { s.cur = s.inv.primary && ammoOf(s.inv.primary) > 0 ? 'primary' : 'pistol'; s.swapT = 0.4; }
+      } else {
+        if (it.type === 'shield') { s.shieldHp = 70; s.shieldT = 15; } else if (it.type === 'speed') s.speedT = 9;
+        else s.hp = Math.min(s.maxHp + HPL * 0.5, s.hp + HPL * 0.6);
+        it.gone = true; label = PU_NAME[it.type];
+      }
+      this.spark(s.x, s.y, it.kind === 'power' ? PU_COLOR[it.type] : '#a3e635', 10);
+      this.emitSound(s.x, s.y, 3, 'step', s);
+      if (this.speed <= 2) sfx.pickup();
+      this.hooks.onPickup(s, label);
+      return true;
+    }
+    collectItems() {
+      for (const s of this.soldiers) {
+        if (!s.alive) continue;
+        for (const it of this.items) {
+          if (it.gone || Math.hypot(it.x - s.x, it.y - s.y) > 0.62) continue;
+          if (this.evalItem(s, it) >= 0.15) this.applyPickup(s, it);
+        }
+      }
+      for (let i = this.items.length - 1; i >= 0; i--) if (this.items[i].gone) this.items.splice(i, 1);
+    }
 
     /* ---------- sonido ---------- */
     emitSound(x, y, r, kind, src) {
@@ -367,9 +623,10 @@
     }
 
     /* ---------- percepción ---------- */
+    sightOf(s) { const d = this.defOf(s); return s.P.sight + (d.scope || 0); }
     sense(s) {
       let tgt = null, td = 1e9;
-      const sight = s.P.sight;
+      const sight = this.sightOf(s);
       for (const e of this.enemiesOf(s)) {
         const dx = e.x - s.x, dy = e.y - s.y, d = Math.hypot(dx, dy);
         if (d > sight) continue;
@@ -396,6 +653,12 @@
       for (const id in s.know) { const k = s.know[id]; if (!best || k.t > best.t) best = k; }
       return best;
     }
+    /** Distancia preferida de combate según el arma que tiene en la mano. */
+    prefRange(s) {
+      const def = this.defOf(s), k = this.time > 130 ? 0.55 : 1;
+      if (s.cur === 'knife') return [0, 0.9];
+      return [def.pref[0] * s.P.distMul * k, def.pref[1] * s.P.distMul * k];
+    }
 
     /* ---------- cerebro ---------- */
     think(s) {
@@ -407,6 +670,11 @@
         const nx = tx + dx, ny = ty + dy;
         if (nx >= 0 && ny >= 0 && nx < W && ny < this.H) s.explored[ny * W + nx] = now;
       }
+      // objetos que ve (con línea de visión) o que tiene muy cerca
+      for (const it of this.items) {
+        const d = Math.hypot(it.x - s.x, it.y - s.y);
+        if (d < 3 || (d < 11 && this.los(s.x, s.y, it.x, it.y))) s.seenItems.set(it.id, it);
+      }
       const prevMode = s.mode;
       let path = null;
 
@@ -417,9 +685,9 @@
       }
       // 2) enemigo a la vista
       if (!path && s.target) {
-        const lowHp = s.maxHp > 1 && s.hp <= 1;
-        const closeThreat = s.td < 2.8;
-        if ((s.pers === 'cauteloso' && lowHp && now < 90) || (s.pers === 'francotirador' && closeThreat)) {
+        const lowHp = s.hp <= s.maxHp * 0.34;
+        const closeThreat = s.td < 2.8 && s.cur !== 'knife' && this.defOf(s).pref[0] > 3;
+        if ((s.pers === 'cauteloso' && lowHp && s.maxHp > HPL && now < 120) || (s.pers === 'francotirador' && closeThreat && ammoOf(s.inv.pistol) === 0)) {
           const n = this.bfs(tx, ty, null, 11, true);
           let bestI = -1, bs = -1;
           for (let k = 0; k < n; k++) {
@@ -435,14 +703,23 @@
           path = this.bfs(tx, ty, (i) => i === goal); s.mode = 'attack';
         }
       }
-      // 3) lo que sabe por oído / memoria
+      // 3) lo que sabe por oído / memoria, y botín que le conviene
       let k = null;
       if (!path && !s.target) k = this.bestKnowledge(s);
-      // power-ups cercanos (solo si no persigue algo fresco)
-      if (!path && !s.target && this.pus.length && (!k || now - k.t > 4)) {
-        const marks = new Set(this.pus.map((p) => p.ty * W + p.tx));
-        const p2 = this.bfs(tx, ty, (i) => marks.has(i), s.sneak ? 10 : 8);
-        if (p2) { path = p2; s.mode = 'powerup'; }
+      if (!path && !s.target) {
+        let bestIt = null, bsc = 0.2;
+        for (const it of s.seenItems.values()) {
+          if (it.gone) { s.seenItems.delete(it.id); continue; }
+          const gain = this.evalItem(s, it);
+          if (gain < 0.2) continue;
+          const sc = gain * 3 - Math.hypot(it.x - s.x, it.y - s.y) * 0.12;
+          if (sc > bsc && (!k || now - k.t > 4 || gain > 0.8)) { bsc = sc; bestIt = it; }
+        }
+        if (bestIt) {
+          const goal = Math.floor(bestIt.y) * W + Math.floor(bestIt.x);
+          const p2 = this.bfs(tx, ty, (i) => i === goal, 26);
+          if (p2) { path = p2; s.mode = 'loot'; }
+        }
       }
       if (!path && k) {
         const age = now - k.t, dist = Math.hypot(k.x - s.x, k.y - s.y);
@@ -457,7 +734,8 @@
             s.mode = 'hold'; return;
           }
           // disparar a ciegas a través de una puerta cerrada
-          if (age < 7 && dist < 9 && s.burstCd <= 0 && rnd() < s.sk.blind * 0.7) {
+          const w = this.weaponOf(s);
+          if (w && w.mag > 0 && age < 7 && dist < 9 && s.burstCd <= 0 && rnd() < s.sk.blind * 0.7) {
             const di = this.doorOnLine(s.x, s.y, k.x, k.y, 9);
             if (di >= 0) {
               s.burstCd = 7 + rnd() * 6;
@@ -529,10 +807,12 @@
       if (!s.alive) return;
       if (this.phase !== 'run') { s.gait *= 0.85; return; }
       s.cd -= dt; s.burstCd -= dt; s.talkCd -= dt; s.radioCd -= dt;
-      s.shield = Math.max(0, s.shield - dt); s.triple = Math.max(0, s.triple - dt); s.speedT = Math.max(0, s.speedT - dt);
+      s.shieldT = Math.max(0, s.shieldT - dt); if (s.shieldT <= 0) s.shieldHp = 0;
+      s.speedT = Math.max(0, s.speedT - dt);
       const P = s.P;
 
       this.sense(s);
+      this.manageWeapon(s, dt);
       for (const id in s.know) if (this.time - s.know[id].t > 30) delete s.know[id];
 
       s.thinkT -= dt;
@@ -541,7 +821,7 @@
       // zona: daño fuera del área segura
       if (this.zone && this.outsideZone(s.x, s.y)) {
         s.zoneT += dt;
-        if (s.zoneT >= 1) { s.zoneT = 0; this.damage(s, null, true); if (!s.alive) return; }
+        if (s.zoneT >= 1) { s.zoneT = 0; this.damage(s, null, 14, true); if (!s.alive) return; }
       } else s.zoneT = 0;
 
       // insultos de los agresivos (y delatan dónde están)
@@ -573,9 +853,9 @@
           if (act.t >= act.dur) s.act = null;
         } else if (act.type === 'burst') {
           desired = act.face;
-          if (Math.abs(angDiff(s.angle, desired)) < 0.12) {
+          if (Math.abs(angDiff(s.angle, desired)) < 0.12 && s.cd <= 0) {
             act.next -= dt;
-            if (act.next <= 0 && act.shots > 0) { this.fire(s, 0.14); act.shots--; act.next = 0.22; }
+            if (act.next <= 0 && act.shots > 0) { if (this.fire(s, 0.14)) act.shots--; else act.shots = 0; act.next = 0.22; }
           }
           if (act.shots <= 0 || act.t > 3) s.act = null;
         } else if (act.type === 'peek') {
@@ -586,8 +866,7 @@
         }
       } else {
         // ----- comportamiento normal -----
-        const k = this.time > 110 ? 0.55 : 1;
-        const pmin = P.pmin * k, pmax = P.pmax * k, tgt = s.target, td = s.td;
+        const [pmin, pmax] = this.prefRange(s), tgt = s.target, td = s.td;
         // cerrar la puerta que abrió, para tapar la vista
         if (s.closeIdx != null && !tgt) {
           const dr = this.doors.get(s.closeIdx), dd = dr ? Math.hypot(dr.tx + 0.5 - s.x, dr.ty + 0.5 - s.y) : 0;
@@ -603,17 +882,19 @@
             desired = Math.atan2(dy, dx); sneak = false;
             if (td < pmin) { vx = -dx / td; vy = -dy / td; }                  // retroceder
             else if (td <= pmax) {                                             // mantener y moverse de costado
-              s.strafeT -= dt;
-              if (s.strafeT <= 0) { s.strafeT = 0.6 + rnd() * 0.9; s.strafeDir = rnd() < 0.5 ? 1 : -1; s.doStrafe = rnd() < P.strafe; }
-              if (s.doStrafe) { vx = (-dy / td) * s.strafeDir * 0.7; vy = (dx / td) * s.strafeDir * 0.7; }
+              if (s.cur !== 'knife') {
+                s.strafeT -= dt;
+                if (s.strafeT <= 0) { s.strafeT = 0.6 + rnd() * 0.9; s.strafeDir = rnd() < 0.5 ? 1 : -1; s.doStrafe = rnd() < (P.sneak ? (s.pers === 'francotirador' ? 0.1 : 0.8) : 0.65); }
+                if (s.doStrafe) { vx = (-dy / td) * s.strafeDir * 0.7; vy = (dx / td) * s.strafeDir * 0.7; }
+              }
             } else { const v = this.followPath(s, false); if (v) { vx = v[0]; vy = v[1]; } }
           } else {
             const v = this.followPath(s, !tgt && s.mode !== 'zone' && s.mode !== 'flee');
             if (v) { vx = v[0]; vy = v[1]; desired = Math.atan2(vy, vx); }
             if (s.mode === 'flee' && tgt) desired = Math.atan2(tgt.y - s.y, tgt.x - s.x);
             if (!tgt) scanning = true;
-            if (!P.sneak || s.mode === 'zone' || s.mode === 'flee') sneak = false;
-            if (s.mode === 'hunt' && !P.sneak) speedMul = P.run;
+            if (!P.sneak || s.mode === 'zone' || s.mode === 'flee' || s.mode === 'loot') sneak = false;
+            if ((s.mode === 'hunt' || s.mode === 'loot') && !P.sneak) speedMul = P.run;
           }
         }
       }
@@ -623,7 +904,7 @@
       // ----- movimiento -----
       let dm = 0;
       if (vx || vy) {
-        const sp = P.speed * (s.speedT > 0 ? 1.6 : 1) * speedMul * dt;
+        const sp = P.speed * this.defOf(s).move * (s.speedT > 0 ? 1.6 : 1) * speedMul * dt;
         const ox = s.x, oy = s.y;
         const moved = this.tryMove(s, vx * sp, vy * sp);
         dm = Math.hypot(s.x - ox, s.y - oy);
@@ -653,32 +934,24 @@
       const lookTarget = s.angle + s.headOff;
       s.look += angDiff(s.look, lookTarget) * Math.min(1, dt * 10);
 
-      if (s.target && !act && s.cd <= 0 && s.td <= P.range && Math.abs(angDiff(s.angle, Math.atan2(s.target.y - s.y, s.target.x - s.x))) < 0.14) this.fire(s, 0);
-    }
-
-    fire(s, extraSpread = 0) {
-      const P = s.P;
-      s.cd = P.cd * (0.85 + rnd() * 0.3); s.recoil = 1;
-      const base = s.angle + (rnd() - 0.5) * 2 * (P.spread + extraSpread);
-      const angles = s.triple > 0 ? [base - 0.2, base, base + 0.2] : [base];
-      for (const a of angles) {
-        this.bullets.push({
-          x: s.x + Math.cos(a) * 0.5, y: s.y + Math.sin(a) * 0.5,
-          vx: Math.cos(a) * P.bspeed, vy: Math.sin(a) * P.bspeed,
-          owner: s, color: s.color, life: P.range / P.bspeed + 0.2,
-        });
+      // ----- atacar -----
+      if (s.target && !act && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0) {
+        const bearing = Math.atan2(s.target.y - s.y, s.target.x - s.x);
+        if (s.cur === 'knife') { if (s.td <= KNIFE.range + 0.2 && Math.abs(angDiff(s.angle, bearing)) < 0.6) this.melee(s, s.target); }
+        else if (s.td <= this.defOf(s).range && Math.abs(angDiff(s.angle, bearing)) < 0.14) this.fire(s, 0);
       }
-      this.emitSound(s.x, s.y, P.shotR, 'shot', s);
-      if (this.audible()) sfx.shot();
     }
-    audible() { return this.speed === 1 || (this.speed === 2 && ((this._sfxN = (this._sfxN || 0) + 1) % 2 === 0)); }
 
-    damage(s, by, zone) {
+    damage(s, by, dmg, zone) {
       if (!s.alive || (this.phase === 'ending' && !zone)) return;
-      if (!zone && s.shield > 0) { s.shield = 0; this.spark(s.x, s.y, '#38bdf8', 8); if (this.speed <= 2) sfx.pickup(); return; }
-      s.hp -= 1; s.flash = 0.18;
-      this.spark(s.x, s.y, s.color, 6);
-      if (this.speed <= 2) sfx.hit();
+      if (!zone && s.shieldHp > 0) {
+        const ab = Math.min(s.shieldHp, dmg); s.shieldHp -= ab; dmg -= ab;
+        this.spark(s.x, s.y, '#38bdf8', 4);
+        if (dmg <= 0) return;
+      }
+      s.hp -= dmg; s.flash = 0.18;
+      this.spark(s.x, s.y, s.color, 5);
+      if (this.speed <= 2 && (!by || by.cur !== 'knife')) sfx.hit();
       if (by && by !== s) {      // sabe de dónde le dispararon (más o menos)
         const a = rnd() * 6.283, m = rnd() * 1.6;
         s.know[by.id] = { id: by.id, x: by.x + Math.cos(a) * m, y: by.y + Math.sin(a) * m, t: this.time, exact: false, kind: 'hit' };
@@ -690,6 +963,7 @@
     kill(s, by, zone) {
       s.alive = false; s.hp = 0; s.deathT = this.time; s.deathOrder = this.deaths++; s.bubble = null; s.act = null;
       this.corpses.push({ x: s.x, y: s.y, color: s.color, ap: s.ap, ang: s.angle + (rnd() - 0.5) });
+      this.dropWeapons(s);                                   // suelta todo lo que le quedaba
       for (let i = 0; i < 30; i++) {
         const a = rnd() * 6.283, v = 1.5 + rnd() * 5;
         this.parts.push({ x: s.x, y: s.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.5 + rnd() * 0.7, max: 1.2, color: i % 3 === 0 ? '#ffb347' : s.color, size: 0.08 + rnd() * 0.12 });
@@ -710,68 +984,39 @@
       }
     }
 
-    /* ---------- power-ups ---------- */
-    spawnPowerup() {
-      if (this.pus.length >= 3 || !this.floor.length) return;
-      for (let tries = 0; tries < 20; tries++) {
-        const i = this.floor[rint(this.floor.length)], tx = i % this.W, ty = (i / this.W) | 0;
-        if (this.pus.some((p) => p.tx === tx && p.ty === ty)) continue;
-        this.pus.push({ type: PU_TYPES[rint(PU_TYPES.length)], tx, ty, t: 0 });
-        return;
-      }
-    }
-    collectPowerups() {
-      for (const s of this.soldiers) {
-        if (!s.alive) continue;
-        for (let k = this.pus.length - 1; k >= 0; k--) {
-          const p = this.pus[k];
-          if (Math.hypot(p.tx + 0.5 - s.x, p.ty + 0.5 - s.y) < 0.55) {
-            this.pus.splice(k, 1);
-            if (p.type === 'shield') s.shield = 12;
-            else if (p.type === 'triple') s.triple = 12;
-            else if (p.type === 'speed') s.speedT = 9;
-            else s.hp = Math.min(s.maxHp + 1, s.hp + 1);
-            this.spark(s.x, s.y, PU_COLOR[p.type], 12);
-            if (this.speed <= 2) sfx.pickup();
-            this.hooks.onPickup(s, p.type);
-          }
-        }
-      }
-    }
-
     /* ---------- simulación ---------- */
     step(dt) {
       this.time += dt;
       if (this.cfg.zone) {
-        const t = Math.min(1, Math.max(0, (this.time - ZONE_DELAY) / ZONE_TIME));
+        const t = Math.min(1, Math.max(0, (this.time - this.zoneDelay) / this.zoneTime));
         const [cx, cy] = this.center, W = this.W, H = this.H;
         const e = t * t * (3 - 2 * t);
         this.zone = t > 0 ? { x0: e * (cx - 1.5), y0: e * (cy - 1.5), x1: W - e * (W - cx - 2.5), y1: H - e * (H - cy - 2.5) } : null;
       }
-      if (this.cfg.powerups) {
-        this.puTimer -= dt;
-        if (this.puTimer <= 0) { this.puTimer = 8 + rnd() * 7; this.spawnPowerup(); }
-        this.pus.forEach((p) => { p.t += dt; });
-        if (this.phase === 'run') this.collectPowerups();
-      }
+      this.lootTimer -= dt;
+      if (this.lootTimer <= 0) { this.lootTimer = 12 + rnd() * 8; this.spawnMoreLoot(); }
+      this.items.forEach((it) => { it.t += dt; });
+      if (this.phase === 'run') this.collectItems();
       for (const d of this.doors.values()) d.anim = Math.max(0, Math.min(1, d.anim + (d.open ? 1 : -1) * dt * 3.2));
       for (const s of this.soldiers) this.updateSoldier(s, dt);
 
-      // balas (atraviesan las puertas de madera, no las paredes)
+      // balas (atraviesan las puertas de madera, no las paredes). Las rápidas se avanzan en tramos cortos.
       for (let i = this.bullets.length - 1; i >= 0; i--) {
         const b = this.bullets[i];
-        b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
-        let gone = b.life <= 0;
-        const bx = Math.floor(b.x), by = Math.floor(b.y);
-        if (!gone && this.isWall(bx, by)) { gone = true; this.spark(b.x - b.vx * dt, b.y - b.vy * dt, '#ffe08a', 3); }
-        if (!gone && !b.door && this.doorGrid[by * this.W + bx]) { b.door = true; this.spark(b.x, b.y, '#c9955a', 5); }
-        if (!gone) {
+        const n = Math.max(1, Math.ceil(Math.hypot(b.vx, b.vy) * dt / 0.22)), sd = dt / n;
+        let gone = false;
+        for (let k = 0; k < n && !gone; k++) {
+          b.x += b.vx * sd; b.y += b.vy * sd;
+          const bx = Math.floor(b.x), by = Math.floor(b.y);
+          if (this.isWall(bx, by)) { gone = true; this.spark(b.x - b.vx * sd, b.y - b.vy * sd, '#ffe08a', 3); break; }
+          if (!b.door && this.doorGrid[by * this.W + bx]) { b.door = true; this.spark(b.x, b.y, '#c9955a', 5); }
           for (const s of this.soldiers) {
             if (!s.alive || s === b.owner || (b.owner.team >= 0 && s.team === b.owner.team)) continue;
-            if (Math.hypot(s.x - b.x, s.y - b.y) < s.r + 0.1) { gone = true; this.damage(s, b.owner, false); break; }
+            if (Math.hypot(s.x - b.x, s.y - b.y) < s.r + 0.1) { gone = true; this.damage(s, b.owner, b.dmg, false); break; }
           }
         }
-        if (gone) this.bullets.splice(i, 1);
+        b.life -= dt;
+        if (gone || b.life <= 0) this.bullets.splice(i, 1);
       }
       for (let i = this.parts.length - 1; i >= 0; i--) {
         const p = this.parts[i];
@@ -800,6 +1045,48 @@
       return { ranking: order, winners: this.winners, teamMode: this.cfg.teamMode, time: this.time };
     }
 
+    /* ---------- cámara ---------- */
+    setScale() {
+      const cw = this.cw, ch = this.ch;
+      const fits = this.followTs * this.W <= cw + 0.5 && this.followTs * this.H <= ch + 0.5;
+      this.isFull = this.camMode === 'full' || fits;
+      this.ts = this.isFull ? this.fitTs : this.followTs;
+      if (this.isFull) { this.camX = this.W / 2; this.camY = this.H / 2; }
+      this.buildStatic(); this.buildMini();
+      this.clampCam();
+    }
+    clampCam() {
+      if (this.isFull) { this.camX = this.W / 2; this.camY = this.H / 2; return; }
+      const vw = this.cw / this.ts, vh = this.ch / this.ts;
+      this.camX = vw >= this.W ? this.W / 2 : clamp(this.camX, vw / 2, this.W - vw / 2);
+      this.camY = vh >= this.H ? this.H / 2 : clamp(this.camY, vh / 2, this.H - vh / 2);
+    }
+    /** Elige a quién mostrar: al soldado seguido o a donde hay más acción. */
+    focusSoldier() {
+      if (this.followId != null) { const f = this.soldiers[this.followId]; if (f && f.alive) return f; }
+      const alive = this.soldiers.filter((s) => s.alive);
+      if (!alive.length) return this.focus;
+      if (this.focus && this.focus.alive && this.time < this.focusUntil) return this.focus;
+      let best = null, bs = -1;
+      for (const s of alive) {
+        let sc = (s.target ? 3 : 0) + (this.time - s.lastShot < 1.5 ? 2.5 : 0) + (s.flash > 0 ? 1.5 : 0) + (s.mode === 'attack' ? 1 : 0) + (s.mode === 'hunt' ? 0.5 : 0);
+        for (const o of alive) if (o !== s && Math.hypot(o.x - s.x, o.y - s.y) < 8) sc += 0.7;
+        sc += rnd() * 0.8;
+        if (sc > bs) { bs = sc; best = s; }
+      }
+      this.focus = best; this.focusUntil = this.time + 2.5;
+      return best;
+    }
+    updateCamera(dt) {
+      if (this.isFull) return;
+      const f = this.focusSoldier();
+      if (f) {
+        const k = 1 - Math.exp(-dt * 3);
+        this.camX += (f.x - this.camX) * k; this.camY += (f.y - this.camY) * k;
+      }
+      this.clampCam();
+    }
+
     /* ---------- bucle ---------- */
     start() { this.last = performance.now(); this.raf = requestAnimationFrame(this.frame); }
     frame(now) {
@@ -818,6 +1105,7 @@
           while (this.acc >= STEP && n < 30) { this.step(STEP); this.acc -= STEP; n++; if (this.phase === 'done') break; }
           if (n >= 30) this.acc = 0;
         }
+        this.updateCamera(dt);
       }
       this.draw();
       this.hooks.onFrame(this);
@@ -832,13 +1120,14 @@
       const dpr = Math.min(3, window.devicePixelRatio || 1);
       cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
       this.dpr = dpr; this.cw = cw; this.ch = ch;
-      this.ts = Math.floor(Math.min(cw / this.W, ch / this.H) * 100) / 100;
-      this.ox = (cw - this.ts * this.W) / 2; this.oy = (ch - this.ts * this.H) / 2;
-      this.buildStatic();
+      this.fitTs = Math.floor(Math.min(cw / this.W, ch / this.H) * 100) / 100;
+      this.followTs = clamp(Math.min(cw, ch) / 13, 20, 40);
+      this.setScale();
     }
 
     buildStatic() {
-      const ts = this.ts, dpr = this.dpr, W = this.W, H = this.H, g = this.g;
+      const ts = this.ts, dpr = Math.min(2, this.dpr), W = this.W, H = this.H, g = this.g;
+      this.sdpr = dpr;
       const c = document.createElement('canvas');
       c.width = Math.ceil(W * ts * dpr); c.height = Math.ceil(H * ts * dpr);
       const x = c.getContext('2d'); x.scale(dpr, dpr);
@@ -869,33 +1158,47 @@
       }
       this.static = c;
     }
+    buildMini() {
+      const k = Math.min(86 / this.W, 120 / this.H), W = this.W, H = this.H;
+      const c = document.createElement('canvas'); c.width = Math.ceil(W * k); c.height = Math.ceil(H * k);
+      const x = c.getContext('2d');
+      x.fillStyle = 'rgba(10,14,26,.85)'; x.fillRect(0, 0, c.width, c.height);
+      x.fillStyle = '#5b6fa8';
+      for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) if (this.g[y * W + xx]) x.fillRect(xx * k, y * k, k + 0.4, k + 0.4);
+      this.mini = c; this.miniK = k;
+    }
 
     draw() {
       if (!this.static) return;
-      const x = this.ctx, ts = this.ts, dpr = this.dpr;
+      const x = this.ctx, ts = this.ts, dpr = this.dpr, sd = this.sdpr, W = this.W, H = this.H;
       x.setTransform(dpr, 0, 0, dpr, 0, 0);
       x.fillStyle = '#0a0e1a'; x.fillRect(0, 0, this.cw, this.ch);
-      x.save(); x.translate(this.ox, this.oy);
-      x.drawImage(this.static, 0, 0, this.W * ts, this.H * ts);
+      const left = this.camX - this.cw / (2 * ts), top = this.camY - this.ch / (2 * ts);
+      const right = left + this.cw / ts, bottom = top + this.ch / ts;
+      const l = Math.max(0, left), t = Math.max(0, top), r = Math.min(W, right), b = Math.min(H, bottom);
+      if (r > l && b > t) x.drawImage(this.static, l * ts * sd, t * ts * sd, (r - l) * ts * sd, (b - t) * ts * sd, (l - left) * ts, (t - top) * ts, (r - l) * ts, (b - t) * ts);
+      x.save(); x.translate(-left * ts, -top * ts);
 
       for (const d of this.doors.values()) Art.drawDoor(x, d, ts);
       for (const c of this.corpses) Art.drawCorpse(x, c, ts);
-      for (const p of this.pus) this.drawPowerup(x, p);
+      for (const it of this.items) { if (it.kind === 'power') this.drawPowerup(x, it); else Art.drawItem(x, it, ts, this.time); }
       if (this.zone) this.drawZone(x);
       // ondas de sonido (disparos, gritos, puertas)
-      for (const r of this.rings) {
-        const k = r.t / 0.7;
-        x.strokeStyle = RING_COLOR[r.kind]; x.globalAlpha = (1 - k) * 0.4; x.lineWidth = 2;
-        x.beginPath(); x.arc(r.x * ts, r.y * ts, ts * r.r * (0.2 + 0.8 * k), 0, 6.2832); x.stroke();
+      for (const rg of this.rings) {
+        const k = rg.t / 0.7;
+        x.strokeStyle = RING_COLOR[rg.kind]; x.globalAlpha = (1 - k) * 0.4; x.lineWidth = 2;
+        x.beginPath(); x.arc(rg.x * ts, rg.y * ts, ts * rg.r * (0.2 + 0.8 * k), 0, 6.2832); x.stroke();
       }
       x.globalAlpha = 1;
-      const alive = this.soldiers.filter((s) => s.alive).sort((a, b) => a.y - b.y);
+      const alive = this.soldiers.filter((s) => s.alive).sort((a, b2) => a.y - b2.y);
       for (const s of alive) Art.drawSoldier(x, s, ts, this.time);
-      for (const b of this.bullets) {
-        const sp = Math.hypot(b.vx, b.vy), tx = b.vx / sp, ty = b.vy / sp, len = 0.55;
-        x.strokeStyle = lighten(b.color, 0.5); x.globalAlpha = 0.5; x.lineWidth = Math.max(2, ts * 0.12); x.lineCap = 'round';
-        x.beginPath(); x.moveTo((b.x - tx * len) * ts, (b.y - ty * len) * ts); x.lineTo(b.x * ts, b.y * ts); x.stroke();
-        x.globalAlpha = 1; x.fillStyle = '#fff'; x.beginPath(); x.arc(b.x * ts, b.y * ts, Math.max(1.8, ts * 0.09), 0, 6.283); x.fill();
+      for (const bu of this.bullets) {
+        const sp = Math.hypot(bu.vx, bu.vy), tx = bu.vx / sp, ty = bu.vy / sp;
+        const len = bu.w === 'sniper' ? 1.4 : bu.w === 'shotgun' || bu.w === 'ashotgun' ? 0.25 : 0.55;
+        x.strokeStyle = bu.w === 'sniper' ? '#bae6fd' : bu.w === 'shotgun' || bu.w === 'ashotgun' ? '#fdba74' : lighten(bu.color, 0.5);
+        x.globalAlpha = 0.55; x.lineWidth = Math.max(2, ts * (bu.w === 'sniper' ? 0.14 : 0.1)); x.lineCap = 'round';
+        x.beginPath(); x.moveTo((bu.x - tx * len) * ts, (bu.y - ty * len) * ts); x.lineTo(bu.x * ts, bu.y * ts); x.stroke();
+        x.globalAlpha = 1; x.fillStyle = '#fff'; x.beginPath(); x.arc(bu.x * ts, bu.y * ts, Math.max(1.5, ts * 0.075), 0, 6.283); x.fill();
       }
       for (const p of this.parts) {
         const a = Math.max(0, p.life / p.max);
@@ -906,6 +1209,8 @@
       x.globalAlpha = 1;
       for (const s of alive) this.drawLabel(x, s);
       x.restore();
+
+      if (!this.isFull) this.drawMini(x);
 
       // cuenta regresiva y cartel de arranque
       let txt = '', size = 0, alpha = 1;
@@ -924,6 +1229,18 @@
       }
     }
 
+    drawMini(x) {
+      const k = this.miniK, mw = this.mini.width, mh = this.mini.height, ox = this.cw - mw - 6, oy = this.ch - mh - 6;
+      x.globalAlpha = 0.9; x.drawImage(this.mini, ox, oy); x.globalAlpha = 1;
+      for (const s of this.soldiers) {
+        if (!s.alive) continue;
+        x.fillStyle = s.color; x.beginPath(); x.arc(ox + s.x * k, oy + s.y * k, Math.max(1.8, k * 0.55), 0, 6.283); x.fill();
+        if (this.focus === s || this.followId === s.id) { x.strokeStyle = '#fff'; x.lineWidth = 1; x.stroke(); }
+      }
+      x.strokeStyle = 'rgba(255,255,255,.8)'; x.lineWidth = 1;
+      x.strokeRect(ox + (this.camX - this.cw / this.ts / 2) * k, oy + (this.camY - this.ch / this.ts / 2) * k, (this.cw / this.ts) * k, (this.ch / this.ts) * k);
+    }
+
     drawZone(x) {
       const z = this.zone, ts = this.ts, W = this.W, H = this.H;
       x.fillStyle = 'rgba(255,40,60,.22)';
@@ -936,7 +1253,7 @@
     }
 
     drawPowerup(x, p) {
-      const ts = this.ts, cx = (p.tx + 0.5) * ts, cy = (p.ty + 0.5) * ts, col = PU_COLOR[p.type];
+      const ts = this.ts, cx = p.x * ts, cy = p.y * ts, col = PU_COLOR[p.type];
       const pulse = 1 + Math.sin(p.t * 5) * 0.08, r = ts * 0.34 * pulse;
       x.save(); x.translate(cx, cy);
       x.fillStyle = col; x.globalAlpha = 0.22; x.beginPath(); x.arc(0, 0, r * 1.5, 0, 6.283); x.fill(); x.globalAlpha = 1;
@@ -946,8 +1263,6 @@
       const u = r * 0.55;
       if (p.type === 'shield') {
         x.beginPath(); x.moveTo(0, -u); x.lineTo(u, -u * 0.55); x.lineTo(u * 0.8, u * 0.4); x.lineTo(0, u); x.lineTo(-u * 0.8, u * 0.4); x.lineTo(-u, -u * 0.55); x.closePath(); x.fill();
-      } else if (p.type === 'triple') {
-        [-0.5, 0, 0.5].forEach((a) => { x.beginPath(); x.moveTo(-u * 0.3, u * 0.7); x.lineTo(Math.sin(a) * u * 1.2, -Math.cos(a) * u * 0.9); x.stroke(); });
       } else if (p.type === 'speed') {
         x.beginPath(); x.moveTo(u * 0.25, -u); x.lineTo(-u * 0.6, u * 0.15); x.lineTo(0, u * 0.15); x.lineTo(-u * 0.25, u); x.lineTo(u * 0.6, -u * 0.15); x.lineTo(0, -u * 0.15); x.closePath(); x.fill();
       } else {
@@ -958,32 +1273,38 @@
 
     drawLabel(x, s) {
       const ts = this.ts, cx = s.x * ts, top = s.y * ts - ts * 0.4 * s.ap.build * 1.95 - 3;
-      const pw = Math.max(4, ts * 0.2), gap = 1.5, total = s.maxHp + (s.hp > s.maxHp ? 1 : 0);
-      const wTot = total * pw + (total - 1) * gap;
-      for (let i = 0; i < total; i++) {
-        x.fillStyle = i < s.hp ? '#ff4d6a' : 'rgba(255,255,255,.25)';
-        x.fillRect(cx - wTot / 2 + i * (pw + gap), top - 3, pw, 3);
+      // una barrita por cada vida; la que se está gastando se va vaciando
+      const lives = Math.ceil(s.maxHp / HPL) + (s.hp > s.maxHp ? 1 : 0);
+      const pw = Math.max(5, ts * 0.22), gap = 1.5, wTot = lives * pw + (lives - 1) * gap;
+      for (let i = 0; i < lives; i++) {
+        const px = cx - wTot / 2 + i * (pw + gap), f = clamp01((s.hp - i * HPL) / HPL);
+        x.fillStyle = 'rgba(255,255,255,.25)'; x.fillRect(px, top - 3, pw, 3);
+        x.fillStyle = f > 0.35 ? '#ff4d6a' : '#ffb347'; x.fillRect(px, top - 3, pw * f, 3);
       }
-      const fs = Math.max(9, Math.min(14, ts * 0.52));
+      if (s.reloadT > 0) {                                     // barrita amarilla de recarga
+        x.fillStyle = 'rgba(0,0,0,.5)'; x.fillRect(cx - wTot / 2, top - 8, wTot, 3);
+        x.fillStyle = '#facc15'; x.fillRect(cx - wTot / 2, top - 8, wTot * (1 - s.reloadT / Math.max(0.01, s.reloadTot)), 3);
+      }
+      const fs = Math.max(9, Math.min(14, ts * 0.5));
       x.font = `800 ${fs}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'bottom';
       x.lineWidth = 3.2; x.strokeStyle = 'rgba(0,0,0,.85)'; x.lineJoin = 'round';
-      x.strokeText(s.name, cx, top - 5); x.fillStyle = '#fff'; x.fillText(s.name, cx, top - 5);
-      let y0 = top - 5 - fs - 2;
+      const ny = top - (s.reloadT > 0 ? 10 : 5);
+      x.strokeText(s.name, cx, ny); x.fillStyle = '#fff'; x.fillText(s.name, cx, ny);
+      let y0 = ny - fs - 2;
       if (s.icon) {                                            // "?" oyó algo, "!" vio a alguien
         x.font = `900 ${fs + 3}px system-ui, sans-serif`;
         x.fillStyle = s.icon.ch === '!' ? '#ff5a5a' : '#ffd24a'; x.strokeText(s.icon.ch, cx, y0); x.fillText(s.icon.ch, cx, y0);
         y0 -= fs + 2;
       }
       if (s.bubble) {                                          // globo de texto (insultos)
-        const bf = Math.max(9, Math.min(12, ts * 0.46));
+        const bf = Math.max(9, Math.min(12, ts * 0.44));
         x.font = `700 ${bf}px system-ui, sans-serif`;
         const tw = x.measureText(s.bubble.text).width, bw = tw + 10, bh = bf + 8;
-        let bx = cx - bw / 2; bx = Math.max(2, Math.min(this.W * ts - bw - 2, bx));
-        const by = Math.max(2, y0 - bh);
+        const by = y0 - bh;
         x.globalAlpha = Math.min(1, s.bubble.t * 3);
-        x.fillStyle = '#fff'; x.beginPath(); x.roundRect(bx, by, bw, bh, 7); x.fill();
+        x.fillStyle = '#fff'; x.beginPath(); x.roundRect(cx - bw / 2, by, bw, bh, 7); x.fill();
         x.beginPath(); x.moveTo(cx - 4, by + bh); x.lineTo(cx, by + bh + 5); x.lineTo(cx + 4, by + bh); x.fill();
-        x.fillStyle = '#111'; x.textBaseline = 'middle'; x.fillText(s.bubble.text, bx + bw / 2, by + bh / 2 + 0.5);
+        x.fillStyle = '#111'; x.textBaseline = 'middle'; x.fillText(s.bubble.text, cx, by + bh / 2 + 0.5);
         x.globalAlpha = 1;
       }
     }
@@ -996,6 +1317,7 @@
   const feed = $('#feed');
   const zoneInfo = $('#zoneInfo');
   let chips = [];
+  B.lives = Math.min(3, +B.lives || 3);                       // máximo 3 vidas
 
   function renderRoster() {
     const box = $('#battleRoster');
@@ -1054,7 +1376,7 @@
   function buildConfig() {
     const tm = B.teamMode === 'teams';
     const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: Math.min(p.team || 0, B.teamCount - 1) }));
-    return { players, teamMode: tm, lives: +B.lives, map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied };
+    return { players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false };
   }
 
   async function startGame() {
@@ -1071,6 +1393,7 @@
     game = new Game($('#battleCanvas'), cfg, { onKill, onPickup, onEnd, onFrame });
     App.game = game;
     buildHud(game);
+    paintCam();
     game.start();
     try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { wakeLock = null; }
     announce(game);
@@ -1093,13 +1416,21 @@
   function buildHud(g) {
     hud.innerHTML = '';
     chips = g.soldiers.map((s) => {
-      const hp = el('span', { class: 'hp' });
-      const chip = el('div', { class: 'chip', style: s.team >= 0 ? `border-color:${TEAMS[s.team].color}` : '', title: `${s.name} (${PERS[s.pers].label})` },
-        el('span', { class: 'dot', style: `background:${s.color}` }),
-        el('span', { class: 'nm' }, (g.cfg.varied ? PERS[s.pers].emoji + ' ' : '') + s.name), hp);
+      const hp = el('span', { class: 'hp' }), wp = el('span', { class: 'wp' });
+      const chip = el('div', {
+        class: 'chip', style: s.team >= 0 ? `border-color:${TEAMS[s.team].color}` : '', title: `${s.name} (${PERS[s.pers].label}) · tocá para seguirlo`,
+        onclick: () => { if (!game) return; game.followId = game.followId === s.id ? null : s.id; game.camMode = 'auto'; game.setScale(); paintCam(); },
+      }, el('span', { class: 'dot', style: `background:${s.color}` }),
+      el('span', { class: 'nm' }, (g.cfg.varied ? PERS[s.pers].emoji + ' ' : '') + s.name), hp, wp);
       hud.append(chip);
-      return { chip, hp, last: -1 };
+      return { chip, hp, wp, last: '' };
     });
+  }
+
+  function paintCam() {
+    const b = $('#btnCam'); if (!game) return;
+    b.textContent = game.camMode === 'full' ? '🗺️ Todo' : game.followId != null ? '👁️ Siguiendo' : '🎥 Auto';
+    chips.forEach((c, i) => c.chip.classList.toggle('follow', game.followId === i));
   }
 
   function addFeed(text, ms = 3800) {
@@ -1112,20 +1443,29 @@
     if (zone || !by) addFeed(`🔥 ${s.name} cayó fuera de la zona`);
     else addFeed(`💥 ${by.name} eliminó a ${s.name}`);
   }
-  function onPickup(s, type) { addFeed(`✨ ${s.name} agarró ${PU_NAME[type]}`, 2500); }
+  function onPickup(s, label) { addFeed(`✨ ${s.name} agarró ${label}`, 2500); }
+
+  function weaponLine(s) {
+    if (!s.alive) return '';
+    if (s.cur === 'knife') return '🔪 cuchillo';
+    const w = s.cur === 'pistol' ? s.inv.pistol : s.inv.primary;
+    if (!w) return '';
+    return `${WEAPONS[w.type].short} ${w.mag}/${w.res}${s.reloadT > 0 ? ' ⟳' : ''}`;
+  }
 
   function onFrame(g) {
     g.soldiers.forEach((s, i) => {
       const c = chips[i]; if (!c) return;
-      const key = s.alive ? s.hp : -1;
+      const key = `${s.alive ? Math.ceil(s.hp / HPL) : -1}|${weaponLine(s)}`;
       if (c.last !== key) {
-        c.last = key; c.hp.textContent = s.alive ? '♥'.repeat(Math.max(0, s.hp)) : '✖';
+        c.last = key; c.hp.textContent = s.alive ? '♥'.repeat(Math.max(0, Math.ceil(s.hp / HPL))) : '✖';
+        c.wp.textContent = weaponLine(s);
         c.chip.classList.toggle('dead', !s.alive);
       }
     });
     if (g.cfg.zone && g.phase === 'run') {
-      const left = Math.ceil(ZONE_DELAY - g.time);
-      zoneInfo.textContent = left > 0 ? `⚠️ Zona en ${left}s` : g.time < ZONE_DELAY + ZONE_TIME ? '🔴 Zona achicándose' : '🔴 Zona final';
+      const left = Math.ceil(g.zoneDelay - g.time);
+      zoneInfo.textContent = left > 0 ? `⚠️ Zona en ${left}s` : g.time < g.zoneDelay + g.zoneTime ? '🔴 Zona achicándose' : '🔴 Zona final';
     } else if (g.phase !== 'run') zoneInfo.textContent = '';
   }
 
@@ -1181,6 +1521,11 @@
   const quit = () => { if (game && game.phase !== 'done' && !confirm('¿Salir de la partida?')) return; leaveGame(true); };
   $('#btnQuit').addEventListener('click', () => leaveGame(true));
   $('#btnQuit2').addEventListener('click', quit);
+  $('#btnCam').addEventListener('click', () => {
+    if (!game) return;
+    if (game.camMode === 'full') { game.camMode = 'auto'; game.followId = null; } else if (game.followId != null) game.followId = null; else game.camMode = 'full';
+    game.setScale(); paintCam();
+  });
   document.addEventListener('visibilitychange', () => { if (document.hidden && game && game.phase === 'run') setPause(true); });
 
   bindSeg('segSpeed', () => B.speed, (v) => { B.speed = +v; if (game) game.speed = +v; });
@@ -1191,8 +1536,8 @@
   bindSeg('segSize', () => B.size, (v) => { B.size = v; });
   bindSeg('segWinRange', () => B.winRange, (v) => { B.winRange = v; renderWins(); });
 
-  [['optPowerups', 'powerups'], ['optZone', 'zone'], ['optVaried', 'varied']].forEach(([id, key]) => {
-    const input = $('#' + id); input.checked = !!B[key];
+  [['optPowerups', 'powerups'], ['optZone', 'zone'], ['optVaried', 'varied'], ['optLoot', 'loot']].forEach(([id, key]) => {
+    const input = $('#' + id); input.checked = key === 'loot' ? B.loot !== false : !!B[key];
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });
 
@@ -1214,5 +1559,5 @@
     enter() { renderRoster(); renderWins(); },
     leave() { if (game) leaveGame(false); },
   });
-  App.battle = { genMap, Game, PERS };
+  App.battle = { genMap, Game, PERS, WEAPONS, KNIFE };
 })();

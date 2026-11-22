@@ -240,6 +240,9 @@ body.in-game { overflow: hidden; }
 .hud .chip .dot { width: 10px; height: 10px; border-radius: 50%; }
 .hud .chip .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hud .chip .hp { grid-column: 1 / -1; letter-spacing: -1px; color: #ff5a6e; font-size: 10px; line-height: 1.1; min-height: 11px; }
+.hud .chip .wp { grid-column: 1 / -1; color: var(--muted); font-size: 9.5px; font-weight: 700; line-height: 1.1; min-height: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud .chip { cursor: pointer; }
+.hud .chip.follow { box-shadow: 0 0 0 2px var(--gold); }
 .hud .chip.dead { opacity: .35; filter: grayscale(1); text-decoration: line-through; }
 .canvas-wrap { position: relative; flex: 1; min-height: 0; border-radius: 14px; overflow: hidden; background: #0a0e1a; border: 1px solid var(--line); }
 #battleCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }

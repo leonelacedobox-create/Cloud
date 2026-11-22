@@ -11,8 +11,16 @@ Mini app para el celular (HTML + JavaScript, sin dependencias) con dos juegos pa
 ## 🔫 Batalla en el laberinto
 - 2 a 10 soldados, cada uno con nombre y color. Se mueven y disparan solos; gana el último en pie.
 - Todos contra todos o **por equipos** (2 a 4, con reparto al azar).
-- Mapas aleatorios: Laberinto, Habitaciones y Arena. Tres tamaños, adaptados a la forma de la pantalla.
-- 3 a 8 vidas (5 por defecto), power-ups (escudo, triple disparo, velocidad, vida) y zona que se achica. Con 10 soldados una partida dura entre 1,5 y 2 minutos.
+- Mapas aleatorios grandes: Laberinto, Habitaciones y Arena, en tres tamaños (Chico, Medio, Grande). Una **cámara sigue la acción** (o a un soldado si tocás su nombre arriba), hay **minimapa** y un botón 🎥 para alternar entre *Auto*, *Siguiendo* y *Todo el mapa*.
+- Máximo **3 vidas** por soldado (cada vida son 100 puntos de vida; cada arma hace un daño distinto), power-ups (escudo, velocidad, vida extra) y zona que se achica. Con 10 soldados una partida dura de 1 a 1,5 minutos en Medio y unos 3 en Grande.
+
+### Armas
+- Todos empiezan con **pistola** (12 balas + reserva) y **cuchillo**, y tienen un tercer espacio libre para recoger un arma del piso.
+- En el piso hay **sniper, ametralladora ligera, escopeta, escopeta automática y ametralladora pesada**, más cajas de munición. Cada arma tiene su cargador, su recarga, su alcance, su ruido y su velocidad de movimiento.
+- Hay que **recargar** (se ve la barrita amarilla). Las automáticas disparan en ráfagas y pierden puntería si no paran.
+- Cuando un soldado muere **suelta sus armas con las balas que le quedaban**. Los demás las recogen si son mejores que la que tienen o si les conviene por las balas (si es la misma arma, se quedan con la munición).
+- Sin balas en ningún arma, pelean con el **cuchillo** (por la espalda pega mucho más fuerte).
+- Cada soldado decide qué arma usar según la distancia al enemigo: escopeta de cerca, sniper de lejos, cuchillo en el cuerpo a cuerpo.
 - Velocidad 1×/2×/4×, pausa, cuenta regresiva, podio final, revancha y **tabla de victorias** (semana / total).
 
 ### Personajes
