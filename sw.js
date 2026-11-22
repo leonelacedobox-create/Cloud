@@ -1,10 +1,10 @@
 /* Service worker: deja la app disponible sin conexión.
    Subí el número de versión cuando cambies archivos para que los celulares actualicen. */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'moneda-batalla-' + VERSION;
 const FILES = [
   './', 'index.html', 'css/style.css',
-  'js/common.js', 'js/coin.js', 'js/battle.js', 'js/main.js',
+  'js/common.js', 'js/coin.js', 'js/art.js', 'js/battle.js', 'js/main.js',
   'manifest.webmanifest',
   'assets/coin-milei.png', 'assets/coin-cristina.png',
   'assets/icon-192.png', 'assets/icon-512.png', 'assets/icon-maskable-512.png',

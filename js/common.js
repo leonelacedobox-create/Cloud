@@ -20,7 +20,7 @@ const App = (() => {
     players: Array.from({ length: 4 }, (_, i) => newPlayer(i)),
     coin: { mode: 'libre', best: 1, leaver: 'winner', totals: { milei: 0, cristina: 0 }, history: [] },
     battle: {
-      teamMode: 'ffa', teamCount: 2, lives: 3, map: 'maze', size: 'm',
+      teamMode: 'ffa', teamCount: 2, lives: 5, map: 'maze', size: 'm',
       powerups: true, zone: true, varied: true, speed: 1,
       wins: [], winRange: 'week',
     },

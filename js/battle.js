@@ -1,4 +1,4 @@
-/* Batalla en el laberinto: soldados automáticos, mapas aleatorios, equipos, power-ups y zona. */
+/* Batalla en el laberinto: soldados autónomos con vista, oído, puertas y tácticas distintas. */
 'use strict';
 
 (() => {
@@ -7,16 +7,39 @@
   const STEP = 1 / 60;
 
   /* ================= configuración ================= */
+  // base: tendencia de cada personalidad para cada táctica (0..1). Cada soldado la varía al azar.
   const PERS = {
-    agresivo:      { emoji: '🔥', label: 'agresivo',      speed: 3.0, cd: 0.95, bspeed: 8,  spread: 0.30, pmin: 1.8, pmax: 3.6, strafe: 0.7, range: 9 },
-    cauteloso:     { emoji: '🛡️', label: 'cauteloso',     speed: 2.8, cd: 1.15, bspeed: 8,  spread: 0.20, pmin: 4.5, pmax: 7.5, strafe: 0.9, range: 10 },
-    francotirador: { emoji: '🎯', label: 'francotirador', speed: 2.4, cd: 2.00, bspeed: 13, spread: 0.05, pmin: 4.0, pmax: 14,  strafe: 0.0, range: 18 },
+    agresivo: {
+      emoji: '🔥', label: 'agresivo', speed: 3.0, cd: 1.8, bspeed: 8, spread: 0.36, pmin: 1.8, pmax: 3.6, strafe: 0.7,
+      range: 9, sight: 12, shotR: 15, loud: true, sneak: false, run: 1.12,
+      base: { peek: 0.25, door: 0.25, blind: 0.55, listen: 0.95, ambush: 0.12 },
+    },
+    cauteloso: {
+      emoji: '🛡️', label: 'cauteloso', speed: 2.8, cd: 2.1, bspeed: 8, spread: 0.25, pmin: 4.5, pmax: 7.5, strafe: 0.9,
+      range: 10, sight: 12, shotR: 15, loud: false, sneak: true, run: 1,
+      base: { peek: 0.9, door: 0.75, blind: 0.35, listen: 1.15, ambush: 0.7 },
+    },
+    francotirador: {
+      emoji: '🎯', label: 'francotirador', speed: 2.4, cd: 3.3, bspeed: 13, spread: 0.06, pmin: 4.0, pmax: 14, strafe: 0.0,
+      range: 18, sight: 20, shotR: 17, loud: false, sneak: true, run: 1,
+      base: { peek: 0.75, door: 0.5, blind: 0.2, listen: 1.05, ambush: 0.9 },
+    },
   };
-  const SIZES = { s: 7, m: 9, l: 11 };   // celdas en el lado corto de la pantalla; el lado largo se calcula
-  const ZONE_DELAY = 22, ZONE_TIME = 75;                  // segundos de juego
+  const SIZES = { s: 6, m: 7, l: 9 };   // celdas en el lado corto de la pantalla; el lado largo se calcula
+  const ZONE_DELAY = 60, ZONE_TIME = 140; // segundos de juego
+  const FOV = 2.3;                        // campo de visión (radianes, ~130°)
   const PU_TYPES = ['shield', 'shield', 'shield', 'triple', 'triple', 'triple', 'speed', 'speed', 'speed', 'heal', 'heal'];
   const PU_COLOR = { shield: '#38bdf8', triple: '#fb923c', speed: '#facc15', heal: '#f472b6' };
   const PU_NAME = { shield: 'escudo', triple: 'triple disparo', speed: 'velocidad', heal: 'vida extra' };
+  const RING_COLOR = { shot: '#ffd166', shout: '#ff6b6b', door: '#c9955a', boom: '#ff9f43' };
+
+  const LINES = {
+    seen: (n) => [`¡${n}, sos un pollito!`, `¡Vení, ${n}, no seas gallina!`, `¡Te voy a hacer pelota, ${n}!`, '¡Ahí estás, boludo!', `¡${n}, sos un cobarde!`, '¡Peleá, mocoso!', `¡Sos un pavo, ${n}!`],
+    hunt: (n) => [`¡Salí de ahí, ${n}!`, '¡Te escucho, gallina!', `¡${n}, te voy a encontrar!`, '¿Dónde te metiste, cobarde?', '¡No te escondás, pollito!'],
+    kill: (n) => [`¡Chau, ${n}!`, '¡Uno menos!', '¡Eso te pasa, boludo!', '¡Fácil!'],
+    hurt: () => ['¡Auch! ¡Cobarde!', '¡Me pegaste, bobo!', '¡Esto no se queda así!'],
+  };
+  const pickLine = (kind, n) => { const a = LINES[kind](n); return a[rint(a.length)]; };
 
   /* ================= generación de mapas ================= */
   function genMap(type, cols, rows) {
@@ -46,11 +69,11 @@
         if (g[at(x, y)] !== 1) continue;
         const v = x % 2 === 1 && y % 2 === 0 && !g[at(x, y - 1)] && !g[at(x, y + 1)];
         const h = x % 2 === 0 && y % 2 === 1 && !g[at(x - 1, y)] && !g[at(x + 1, y)];
-        if ((v || h) && rnd() < 0.24) g[at(x, y)] = 0;
+        if ((v || h) && rnd() < 0.22) g[at(x, y)] = 0;
       }
       // salas abiertas de 3x3
       if (cols >= 4 && rows >= 4) {
-        const n = Math.max(1, Math.round((cols * rows) / 16));
+        const n = Math.max(1, Math.round((cols * rows) / 18));
         for (let k = 0; k < n; k++) {
           const cx = 2 * (1 + rint(cols - 2)) + 1, cy = 2 * (1 + rint(rows - 2)) + 1;
           for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) g[at(cx + dx, cy + dy)] = 0;
@@ -111,16 +134,14 @@
 
   /* ================= utilidades ================= */
   const angDiff = (a, b) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return d; };
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
   const lighten = (hex, k) => {
     const n = parseInt(hex.slice(1), 16);
     const c = (v) => Math.round(v + (255 - v) * k);
     return `rgb(${c(n >> 16)},${c((n >> 8) & 255)},${c(n & 255)})`;
   };
-  const darken = (hex, k) => {
-    const n = parseInt(hex.slice(1), 16);
-    const c = (v) => Math.round(v * (1 - k));
-    return `rgb(${c(n >> 16)},${c((n >> 8) & 255)},${c(n & 255)})`;
-  };
+  const DX = [1, -1, 0, 0, 1, 1, -1, -1], DY = [0, 0, 1, -1, 1, -1, 1, -1];
+  const doorClosed = (d) => !d.open || d.anim < 0.6;
 
   /* ================= la partida ================= */
   class Game {
@@ -130,10 +151,8 @@
       this.phase = 'countdown'; this.cdT = 3.4; this.lastBeep = 4;
       this.paused = false; this.speed = B.speed || 1;
       this.time = 0; this.acc = 0; this.last = 0; this.raf = 0;
-      this.bullets = []; this.parts = []; this.pus = []; this.corpses = [];
-      this.puTimer = 5; this.endT = 0; this.deaths = 0;
-      this.winners = [];
-      this.zone = null;
+      this.bullets = []; this.parts = []; this.pus = []; this.corpses = []; this.rings = [];
+      this.puTimer = 8; this.endT = 0; this.deaths = 0; this.winners = []; this.zone = null;
 
       // el mapa se adapta a la forma de la pantalla para no dejar huecos vacíos
       const wrap = canvas.parentElement;
@@ -144,11 +163,12 @@
       const cols = portrait ? base : long, rows = portrait ? long : base;
       const m = genMap(cfg.map, cols, rows);
       this.W = m.W; this.H = m.H; this.g = m.g; this.center = m.center;
-      // buffers para búsqueda de caminos
       const N = this.W * this.H;
       this.seen = new Uint32Array(N); this.stamp = 0; this.prev = new Int32Array(N); this.dist = new Int32Array(N); this.queue = new Int32Array(N);
+      this.doorGrid = new Uint8Array(N); this.doors = new Map();
+      this.makeDoors(cfg.map);
       this.floor = [];
-      for (let i = 0; i < N; i++) if (!this.g[i]) this.floor.push(i);
+      for (let i = 0; i < N; i++) if (!this.g[i] && !this.doorGrid[i]) this.floor.push(i);
       this.spawn();
       this.resize = this.resize.bind(this);
       this.frame = this.frame.bind(this);
@@ -158,15 +178,74 @@
 
     destroy() { cancelAnimationFrame(this.raf); window.removeEventListener('resize', this.resize); this.dead = true; }
 
+    /* ---------- mundo ---------- */
     isWall(x, y) { return x < 0 || y < 0 || x >= this.W || y >= this.H || this.g[y * this.W + x] === 1; }
+    isSolid(x, y) {
+      if (x < 0 || y < 0 || x >= this.W || y >= this.H) return true;
+      const i = y * this.W + x;
+      if (this.g[i]) return true;
+      return this.doorGrid[i] === 1 && doorClosed(this.doors.get(i));
+    }
     blocked(x, y, r) {
       const x0 = Math.floor(x - r), x1 = Math.floor(x + r), y0 = Math.floor(y - r), y1 = Math.floor(y + r);
-      for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) if (this.isWall(xx, yy)) return true;
+      for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) if (this.isSolid(xx, yy)) return true;
       return false;
     }
     los(x0, y0, x1, y1) {
       const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy), n = Math.ceil(d / 0.2);
-      for (let i = 1; i < n; i++) { const t = i / n; if (this.isWall(Math.floor(x0 + dx * t), Math.floor(y0 + dy * t))) return false; }
+      for (let i = 1; i < n; i++) { const t = i / n; if (this.isSolid(Math.floor(x0 + dx * t), Math.floor(y0 + dy * t))) return false; }
+      return true;
+    }
+    /** Primera puerta cerrada en línea recta (si no hay paredes antes). Sirve para disparar "a ciegas". */
+    doorOnLine(x0, y0, x1, y1, maxD) {
+      const dx = x1 - x0, dy = y1 - y0, d = Math.min(Math.hypot(dx, dy), maxD), n = Math.ceil(d / 0.25);
+      const ux = dx / (Math.hypot(dx, dy) || 1), uy = dy / (Math.hypot(dx, dy) || 1);
+      for (let i = 1; i <= n; i++) {
+        const px = x0 + ux * d * (i / n), py = y0 + uy * d * (i / n), tx = Math.floor(px), ty = Math.floor(py);
+        if (this.isWall(tx, ty)) return -1;
+        const idx = ty * this.W + tx;
+        if (this.doorGrid[idx] && doorClosed(this.doors.get(idx))) return idx;
+      }
+      return -1;
+    }
+    /** Cuántas paredes (y puertas cerradas, a medias) hay entre dos puntos: apaga el sonido. */
+    wallsBetween(x0, y0, x1, y1) {
+      const dx = x1 - x0, dy = y1 - y0, n = Math.ceil(Math.hypot(dx, dy) / 0.4);
+      let c = 0, last = -1;
+      for (let i = 1; i < n; i++) {
+        const tx = Math.floor(x0 + dx * (i / n)), ty = Math.floor(y0 + dy * (i / n)), idx = ty * this.W + tx;
+        if (idx === last) continue; last = idx;
+        if (this.isWall(tx, ty)) c += 1; else if (this.doorGrid[idx] && doorClosed(this.doors.get(idx))) c += 0.5;
+      }
+      return c;
+    }
+
+    makeDoors(type) {
+      if (type === 'arena') return;
+      const { W, H, g } = this;
+      const p = type === 'rooms' ? 0.92 : 0.22;
+      const cands = [];
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+        if (g[y * W + x]) continue;
+        const wl = g[y * W + x - 1], wr = g[y * W + x + 1], wu = g[(y - 1) * W + x], wd = g[(y + 1) * W + x];
+        if (wl && wr && !wu && !wd) cands.push({ x, y, along: 'v' });        // pasillo vertical
+        else if (wu && wd && !wl && !wr) cands.push({ x, y, along: 'h' });   // pasillo horizontal
+      }
+      const placed = [];
+      for (const c of shuffle(cands)) {
+        if (rnd() > p || placed.some((q) => Math.abs(q.x - c.x) + Math.abs(q.y - c.y) < 4)) continue;
+        placed.push(c);
+        const idx = c.y * W + c.x, open = rnd() < 0.25;
+        this.doorGrid[idx] = 1;
+        this.doors.set(idx, { idx, tx: c.x, ty: c.y, along: c.along, open, anim: open ? 1 : 0, flip: rnd() < 0.5 ? 1 : -1 });
+      }
+    }
+
+    toggleDoor(idx, open, by) {
+      const d = this.doors.get(idx); if (!d || d.open === open) return false;
+      if (!open && this.soldiers.some((s) => s.alive && Math.hypot(s.x - (d.tx + 0.5), s.y - (d.ty + 0.5)) < 0.65)) return false;
+      d.open = open;
+      this.emitSound(d.tx + 0.5, d.ty + 0.5, by && by.sneak ? 3.5 : 8, 'door', by);
       return true;
     }
 
@@ -192,7 +271,7 @@
         teams.forEach((t) => anchors.push([t, pickFar(anchors.map((a) => a[1]), flo.length ? flo : [[1.5, 1.5]]) || flo[0]]));
         players.forEach((p) => {
           const a = anchors.find((x) => x[0] === p.team)[1];
-          const free = flo.filter((f) => !places.some((q) => Math.hypot(q[0] - f[0], q[1] - f[1]) < 1.4));
+          const free = flo.filter((f) => !places.some((q) => Math.hypot(q[0] - f[0], q[1] - f[1]) < 1.6));
           free.sort((u, v) => Math.hypot(u[0] - a[0], u[1] - a[1]) - Math.hypot(v[0] - a[0], v[1] - a[1]));
           places.push(free[0] || a);
         });
@@ -201,23 +280,50 @@
         while (chosen.length < players.length) chosen.push(pickFar(chosen, flo));
         places = shuffle(chosen);
       }
-      const names = Object.keys(PERS);
+      const names = Object.keys(PERS), looks = Art.makeLooks(players.length), N = this.W * this.H;
+      const jitter = (v) => clamp01(v + (rnd() - 0.5) * 0.55);
       this.soldiers = players.map((p, i) => {
-        const pers = cfg.varied ? names[[0, 0, 0, 0, 1, 1, 1, 2, 2][rint(9)]] : 'agresivo';
+        const pers = cfg.varied ? names[[0, 0, 0, 1, 1, 1, 2, 2][rint(8)]] : 'agresivo';
         const P = PERS[pers];
         return {
-          id: i, name: p.name, color: p.color, team: cfg.teamMode ? p.team : -1,
-          x: places[i][0], y: places[i][1], r: 0.3, angle: rnd() * 6.28, aim: 0,
+          id: i, name: p.name, color: p.color, team: cfg.teamMode ? p.team : -1, teamColor: cfg.teamMode ? TEAMS[p.team].color : null,
+          ap: looks[i], x: places[i][0], y: places[i][1], r: 0.3, angle: rnd() * 6.283, look: 0, moveAng: 0, headOff: 0, phase: rnd() * 6, gait: 0, recoil: 0, lastStep: 0,
           hp: cfg.lives, maxHp: cfg.lives, alive: true, deathT: 0, kills: 0,
-          pers, P, cd: 0.6 + rnd() * 0.8, path: [], thinkT: rnd() * 0.3, mode: 'attack',
+          pers, P, sk: { peek: jitter(P.base.peek), door: jitter(P.base.door), blind: jitter(P.base.blind), listen: 0.75 + jitter(P.base.listen) * 0.5, ambush: jitter(P.base.ambush) },
+          cd: 0.8 + rnd() * 1.2, path: [], thinkT: rnd() * 0.3, mode: 'search',
           shield: 0, triple: 0, speedT: 0, flash: 0, strafeDir: rnd() < 0.5 ? 1 : -1, strafeT: 0,
-          zoneT: 0, stuckT: 0, lx: 0, ly: 0, target: null,
+          zoneT: 0, stuckT: 0, lx: 0, ly: 0, target: null, td: 0,
+          know: {}, explored: new Float32Array(N).fill(-60), act: null, closeIdx: null, peekFor: -1, huntStamp: -1,
+          talkCd: 2 + rnd() * 4, burstCd: 3 + rnd() * 4, radioCd: 0, alertT: -99, bubble: null, icon: null, sneak: false,
         };
       });
-      this.soldiers.forEach((s) => { s.lx = s.x; s.ly = s.y; });
+      this.soldiers.forEach((s) => { s.lx = s.x; s.ly = s.y; s.look = s.angle; s.moveAng = s.angle; });
     }
 
     enemiesOf(s) { return this.soldiers.filter((o) => o.alive && o !== s && (s.team < 0 || o.team !== s.team)); }
+
+    /* ---------- sonido ---------- */
+    emitSound(x, y, r, kind, src) {
+      if (RING_COLOR[kind] && this.rings.length < 14) this.rings.push({ x, y, r: Math.min(r, 5), t: 0, kind });
+      if (!src) return;
+      for (const s of this.soldiers) {
+        if (!s.alive || s === src || (src.team >= 0 && s.team === src.team)) continue;
+        const d = Math.hypot(s.x - x, s.y - y);
+        if (d > r * 1.5) continue;
+        const eff = d * (1 + 0.55 * this.wallsBetween(x, y, s.x, s.y));
+        if (eff > r * s.sk.listen) continue;
+        const old = s.know[src.id];
+        if (old && old.exact && this.time - old.t < 1) continue;
+        const err = (kind === 'step' ? 1.3 : 0.6) + eff * 0.12, a = rnd() * 6.283, m = rnd() * err;
+        s.know[src.id] = { id: src.id, x: x + Math.cos(a) * m, y: y + Math.sin(a) * m, t: this.time, exact: false, kind };
+        if (!s.target) { s.alertT = this.time; s.thinkT = Math.min(s.thinkT, 0.05); s.icon = { ch: '?', t: 1.2 }; }
+      }
+    }
+
+    say(s, text, dur = 2.3) {
+      s.bubble = { text, t: dur };
+      this.emitSound(s.x, s.y, 11, 'shout', s);
+    }
 
     /* ---------- caminos (BFS en 8 direcciones) ---------- */
     bfs(sx, sy, goal, maxD = 9999, all = false) {
@@ -245,48 +351,136 @@
       const out = []; for (let c = idx; c !== -1; c = this.prev[c]) out.push(c);
       return out.reverse();
     }
+    floorIdxNear(x, y) {
+      const W = this.W, tx = Math.floor(x), ty = Math.floor(y);
+      for (let r = 0; r <= 4; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const nx = tx + dx, ny = ty + dy;
+        if (nx > 0 && ny > 0 && nx < W - 1 && ny < this.H - 1 && !this.g[ny * W + nx]) return ny * W + nx;
+      }
+      return this.floor[0];
+    }
 
     outsideZone(x, y, m = 0) {
       const z = this.zone; if (!z) return false;
       return x < z.x0 + m || x > z.x1 - m || y < z.y0 + m || y > z.y1 - m;
     }
 
+    /* ---------- percepción ---------- */
+    sense(s) {
+      let tgt = null, td = 1e9;
+      const sight = s.P.sight;
+      for (const e of this.enemiesOf(s)) {
+        const dx = e.x - s.x, dy = e.y - s.y, d = Math.hypot(dx, dy);
+        if (d > sight) continue;
+        if (d > 2.2 && Math.abs(angDiff(s.look, Math.atan2(dy, dx))) > FOV / 2) continue; // fuera del campo de visión
+        if (!this.los(s.x, s.y, e.x, e.y)) continue;
+        s.know[e.id] = { id: e.id, x: e.x, y: e.y, t: this.time, exact: true, kind: 'seen' };
+        if (d < td) { td = d; tgt = e; }
+      }
+      if (tgt && !s.target) s.icon = { ch: '!', t: 1.0 };
+      s.target = tgt; s.td = td;
+      // aviso por radio a los compañeros cercanos
+      if (tgt && s.team >= 0 && s.radioCd <= 0) {
+        s.radioCd = 0.7;
+        for (const m of this.soldiers) {
+          if (m.alive && m !== s && m.team === s.team && Math.hypot(m.x - s.x, m.y - s.y) < 12) {
+            const o = m.know[tgt.id];
+            if (!o || o.t < this.time - 1) m.know[tgt.id] = { id: tgt.id, x: tgt.x, y: tgt.y, t: this.time - 0.3, exact: false, kind: 'radio' };
+          }
+        }
+      }
+    }
+    bestKnowledge(s) {
+      let best = null;
+      for (const id in s.know) { const k = s.know[id]; if (!best || k.t > best.t) best = k; }
+      return best;
+    }
+
     /* ---------- cerebro ---------- */
     think(s) {
-      const W = this.W, tx = Math.floor(s.x), ty = Math.floor(s.y);
+      const W = this.W, tx = Math.floor(s.x), ty = Math.floor(s.y), now = this.time;
       const enemies = this.enemiesOf(s);
       if (!enemies.length) return;
-      const P = s.P;
-      let path = null; s.mode = 'attack';
+      // memoria de lugares ya recorridos / vistos
+      for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+        const nx = tx + dx, ny = ty + dy;
+        if (nx >= 0 && ny >= 0 && nx < W && ny < this.H) s.explored[ny * W + nx] = now;
+      }
+      const prevMode = s.mode;
+      let path = null;
 
+      // 1) zona roja
       if (this.zone && this.outsideZone(s.x, s.y, 1.2)) {
         s.mode = 'zone';
         path = this.bfs(tx, ty, (i) => !this.outsideZone((i % W) + 0.5, ((i / W) | 0) + 0.5, 1.6));
       }
-      const near = s.target && Math.hypot(s.target.x - s.x, s.target.y - s.y) < 4.5;
-      if (!path && this.pus.length && !near) {
+      // 2) enemigo a la vista
+      if (!path && s.target) {
+        const lowHp = s.maxHp > 1 && s.hp <= 1;
+        const closeThreat = s.td < 2.8;
+        if ((s.pers === 'cauteloso' && lowHp && now < 90) || (s.pers === 'francotirador' && closeThreat)) {
+          const n = this.bfs(tx, ty, null, 11, true);
+          let bestI = -1, bs = -1;
+          for (let k = 0; k < n; k++) {
+            const i = this.queue[k], x = (i % W) + 0.5, y = ((i / W) | 0) + 0.5;
+            let md = 1e9; enemies.forEach((e) => { md = Math.min(md, Math.hypot(e.x - x, e.y - y)); });
+            const sc = md - this.dist[i] * 0.15;
+            if (sc > bs) { bs = sc; bestI = i; }
+          }
+          if (bestI >= 0) { path = this.pathTo(bestI); s.mode = 'flee'; }
+        }
+        if (!path) {
+          const goal = Math.floor(s.target.y) * W + Math.floor(s.target.x);
+          path = this.bfs(tx, ty, (i) => i === goal); s.mode = 'attack';
+        }
+      }
+      // 3) lo que sabe por oído / memoria
+      let k = null;
+      if (!path && !s.target) k = this.bestKnowledge(s);
+      // power-ups cercanos (solo si no persigue algo fresco)
+      if (!path && !s.target && this.pus.length && (!k || now - k.t > 4)) {
         const marks = new Set(this.pus.map((p) => p.ty * W + p.tx));
-        const p2 = this.bfs(tx, ty, (i) => marks.has(i), s.pers === 'cauteloso' ? 12 : 8);
+        const p2 = this.bfs(tx, ty, (i) => marks.has(i), s.sneak ? 10 : 8);
         if (p2) { path = p2; s.mode = 'powerup'; }
       }
-      const lowHp = s.maxHp > 1 && s.hp <= 1;
-      const closeThreat = s.target && Math.hypot(s.target.x - s.x, s.target.y - s.y) < 2.8;
-      if (!path && ((s.pers === 'cauteloso' && lowHp && this.time < 60) || (s.pers === 'francotirador' && closeThreat))) {
-        // huir: ir al punto alcanzable más lejos de los enemigos
-        const n = this.bfs(tx, ty, null, 11, true);
-        let bestI = -1, bs = -1;
-        for (let k = 0; k < n; k++) {
-          const i = this.queue[k], x = (i % W) + 0.5, y = ((i / W) | 0) + 0.5;
-          let md = 1e9; enemies.forEach((e) => { md = Math.min(md, Math.hypot(e.x - x, e.y - y)); });
-          const sc = md - this.dist[i] * 0.15;
+      if (!path && k) {
+        const age = now - k.t, dist = Math.hypot(k.x - s.x, k.y - s.y);
+        if (dist < 1.4 && !s.target) {                       // llegó y no hay nadie: se olvida
+          delete s.know[k.id]; s.headScan = 1.2; s.thinkT = 0.15; return;
+        }
+        if (s.huntStamp !== k.t) {
+          s.huntStamp = k.t;
+          // emboscada: se queda quieto, callado, escuchando
+          if ((!k.exact || age > 2) && dist > 3 && dist < 13 && rnd() < s.sk.ambush * 0.9) {
+            s.act = { type: 'hold', t: 0, dur: 2.5 + rnd() * 5, face: Math.atan2(k.y - s.y, k.x - s.x) };
+            s.mode = 'hold'; return;
+          }
+          // disparar a ciegas a través de una puerta cerrada
+          if (age < 7 && dist < 9 && s.burstCd <= 0 && rnd() < s.sk.blind * 0.7) {
+            const di = this.doorOnLine(s.x, s.y, k.x, k.y, 9);
+            if (di >= 0) {
+              s.burstCd = 7 + rnd() * 6;
+              s.act = { type: 'burst', t: 0, shots: 2 + rint(3), next: 0.1, face: Math.atan2(k.y - s.y, k.x - s.x) };
+              s.mode = 'burst'; return;
+            }
+          }
+        }
+        const dest = this.floorIdxNear(k.x, k.y);
+        path = this.bfs(tx, ty, (i) => i === dest); s.mode = 'hunt';
+      }
+      // 4) explorar: ir a donde hace más que no mira
+      if (!path) {
+        s.mode = 'search';
+        if (prevMode === 'search' && s.path.length > 2) return;      // sigue con su ruta
+        let bestI = -1, bs = -1e9;
+        for (let n = 0; n < 16; n++) {
+          const i = this.floor[rint(this.floor.length)], x = (i % W) + 0.5, y = ((i / W) | 0) + 0.5, d = Math.hypot(x - s.x, y - s.y);
+          if (d < 4) continue;
+          const sc = (now - s.explored[i]) - d * 0.25 + rnd() * 5;
           if (sc > bs) { bs = sc; bestI = i; }
         }
-        if (bestI >= 0) { path = this.pathTo(bestI); s.mode = 'flee'; }
-      }
-      if (!path) {
-        const marks = new Set(enemies.map((e) => Math.floor(e.y) * W + Math.floor(e.x)));
-        path = this.bfs(tx, ty, (i) => marks.has(i));
-        s.mode = 'attack';
+        if (bestI >= 0) path = this.bfs(tx, ty, (i) => i === bestI);
       }
       s.path = path || [];
     }
@@ -298,20 +492,48 @@
       return moved;
     }
 
+    /** Sigue la ruta; abre puertas con la mano y se asoma a las esquinas. Devuelve [vx, vy] o null. */
+    followPath(s, allowPeek) {
+      const W = this.W, p = s.path;
+      while (p.length > 1) {
+        const cx = (p[1] % W) + 0.5, cy = ((p[1] / W) | 0) + 0.5;
+        if (Math.hypot(cx - s.x, cy - s.y) < 0.18) p.shift(); else break;
+      }
+      const wi = p.length > 1 ? p[1] : p[0];
+      if (wi === undefined) return null;
+      const wx = (wi % W) + 0.5, wy = ((wi / W) | 0) + 0.5, d = Math.hypot(wx - s.x, wy - s.y);
+
+      if (this.doorGrid[wi]) {                                   // puerta cerrada adelante: la abre con la mano
+        const dr = this.doors.get(wi);
+        if (doorClosed(dr) && d < 1.1) { s.act = { type: 'open', t: 0, dur: 0.6, idx: wi, ang: Math.atan2(wy - s.y, wx - s.x) }; return null; }
+      }
+      if (allowPeek && p.length >= 3 && s.peekFor !== p[1] && d < 1.5 && d > 0.55) {   // ¿hay una esquina? asomarse
+        const a = p[0], b = p[1], c = p[2];
+        const d1x = Math.sign((b % W) - (a % W)), d1y = Math.sign(((b / W) | 0) - ((a / W) | 0));
+        const d2x = Math.sign((c % W) - (b % W)), d2y = Math.sign(((c / W) | 0) - ((b / W) | 0));
+        if (d1x !== d2x || d1y !== d2y) {
+          s.peekFor = b;
+          if (rnd() < s.sk.peek) {
+            s.act = { type: 'peek', t: 0, dur: 0.75 + rnd() * 0.5, face: Math.atan2(d2y, d2x), px: wx - d1x * 0.42, py: wy - d1y * 0.42 };
+            return null;
+          }
+        }
+      }
+      return d > 0.05 ? [(wx - s.x) / d, (wy - s.y) / d] : null;
+    }
+
     updateSoldier(s, dt) {
+      s.recoil = Math.max(0, s.recoil - dt * 5); s.flash = Math.max(0, s.flash - dt);
+      if (s.bubble) { s.bubble.t -= dt; if (s.bubble.t <= 0) s.bubble = null; }
+      if (s.icon) { s.icon.t -= dt; if (s.icon.t <= 0) s.icon = null; }
       if (!s.alive) return;
-      if (this.phase !== 'run') { s.flash = Math.max(0, s.flash - dt); return; }
-      s.cd -= dt; s.flash = Math.max(0, s.flash - dt);
+      if (this.phase !== 'run') { s.gait *= 0.85; return; }
+      s.cd -= dt; s.burstCd -= dt; s.talkCd -= dt; s.radioCd -= dt;
       s.shield = Math.max(0, s.shield - dt); s.triple = Math.max(0, s.triple - dt); s.speedT = Math.max(0, s.speedT - dt);
       const P = s.P;
 
-      // objetivo visible más cercano
-      let tgt = null, td = 1e9;
-      for (const e of this.enemiesOf(s)) {
-        const d = Math.hypot(e.x - s.x, e.y - s.y);
-        if (d < td && d <= P.range && this.los(s.x, s.y, e.x, e.y)) { td = d; tgt = e; }
-      }
-      s.target = tgt;
+      this.sense(s);
+      for (const id in s.know) if (this.time - s.know[id].t > 30) delete s.know[id];
 
       s.thinkT -= dt;
       if (s.thinkT <= 0) { s.thinkT = 0.3 + rnd() * 0.2; this.think(s); }
@@ -322,62 +544,122 @@
         if (s.zoneT >= 1) { s.zoneT = 0; this.damage(s, null, true); if (!s.alive) return; }
       } else s.zoneT = 0;
 
-      // agresividad creciente con el tiempo (evita que se queden esperando)
-      const k = this.time > 40 ? 0.55 : 1;
-      const pmin = P.pmin * k, pmax = P.pmax * k;
-      const speed = P.speed * (s.speedT > 0 ? 1.6 : 1);
-      let vx = 0, vy = 0, desired = s.angle;
-
-      if (tgt && s.mode !== 'zone' && s.mode !== 'flee') {
-        const dx = tgt.x - s.x, dy = tgt.y - s.y;
-        desired = Math.atan2(dy, dx);
-        if (td < pmin) { vx = -dx / td; vy = -dy / td; }                    // retroceder
-        else if (td <= pmax) {                                               // mantener y moverse de costado
-          s.strafeT -= dt;
-          if (s.strafeT <= 0) { s.strafeT = 0.6 + rnd() * 0.9; s.strafeDir = rnd() < 0.5 ? 1 : -1; s.doStrafe = rnd() < P.strafe; }
-          if (s.doStrafe) { vx = (-dy / td) * s.strafeDir * 0.7; vy = (dx / td) * s.strafeDir * 0.7; }
-        } else this.followPath(s, (v) => { vx = v[0]; vy = v[1]; });
-      } else {
-        this.followPath(s, (v) => { vx = v[0]; vy = v[1]; });
-        if (vx || vy) desired = Math.atan2(vy, vx);
-        else if (tgt) desired = Math.atan2(tgt.y - s.y, tgt.x - s.x);
+      // insultos de los agresivos (y delatan dónde están)
+      if (P.loud && s.talkCd <= 0) {
+        if (s.target) { this.say(s, pickLine('seen', s.target.name)); s.talkCd = 4 + rnd() * 5; }
+        else if (s.mode === 'hunt' && rnd() < 0.5) {
+          const k = this.bestKnowledge(s), who = k ? this.soldiers[k.id] : null;
+          this.say(s, pickLine('hunt', who ? who.name : 'cobarde')); s.talkCd = 6 + rnd() * 6;
+        } else s.talkCd = 2;
       }
-      if (s.mode === 'flee' && tgt) desired = Math.atan2(tgt.y - s.y, tgt.x - s.x);
 
+      // ----- acciones en curso -----
+      let act = s.act;
+      if (act && s.target && (act.type === 'peek' || act.type === 'hold')) { s.act = act = null; }
+      if (act && (act.type === 'open' || act.type === 'close') && s.target && s.td < 3) { s.act = act = null; }
+      let vx = 0, vy = 0, desired = s.angle, speedMul = 1, sneak = P.sneak, scanning = false;
+      if (act) {
+        act.t += dt;
+        if (act.type === 'open' || act.type === 'close') {
+          desired = act.ang;
+          if (!act.done && act.t >= act.dur * 0.5) {
+            act.done = true;
+            if (act.type === 'open') { this.toggleDoor(act.idx, true, s); s.closeIdx = rnd() < s.sk.door * 0.7 ? act.idx : null; }
+            else this.toggleDoor(act.idx, false, s);
+          }
+          if (act.t >= act.dur) s.act = null;
+        } else if (act.type === 'hold') {
+          desired = act.face; sneak = true; scanning = true;
+          if (act.t >= act.dur) s.act = null;
+        } else if (act.type === 'burst') {
+          desired = act.face;
+          if (Math.abs(angDiff(s.angle, desired)) < 0.12) {
+            act.next -= dt;
+            if (act.next <= 0 && act.shots > 0) { this.fire(s, 0.14); act.shots--; act.next = 0.22; }
+          }
+          if (act.shots <= 0 || act.t > 3) s.act = null;
+        } else if (act.type === 'peek') {
+          desired = act.face; sneak = true; scanning = true;
+          const dx = act.px - s.x, dy = act.py - s.y, d = Math.hypot(dx, dy);
+          if (d > 0.07) { vx = dx / d; vy = dy / d; speedMul = 0.55; }
+          if (act.t >= act.dur) s.act = null;
+        }
+      } else {
+        // ----- comportamiento normal -----
+        const k = this.time > 110 ? 0.55 : 1;
+        const pmin = P.pmin * k, pmax = P.pmax * k, tgt = s.target, td = s.td;
+        // cerrar la puerta que abrió, para tapar la vista
+        if (s.closeIdx != null && !tgt) {
+          const dr = this.doors.get(s.closeIdx), dd = dr ? Math.hypot(dr.tx + 0.5 - s.x, dr.ty + 0.5 - s.y) : 0;
+          if (!dr || !dr.open) s.closeIdx = null;
+          else if (dd > 1.0 && dd < 2.3 && !s.path.includes(s.closeIdx)) {
+            s.act = { type: 'close', t: 0, dur: 0.6, idx: s.closeIdx, ang: Math.atan2(dr.ty + 0.5 - s.y, dr.tx + 0.5 - s.x) };
+            s.closeIdx = null; vx = vy = 0; desired = s.act.ang;
+          }
+        }
+        if (!s.act) {
+          if (tgt && s.mode !== 'zone' && s.mode !== 'flee') {
+            const dx = tgt.x - s.x, dy = tgt.y - s.y;
+            desired = Math.atan2(dy, dx); sneak = false;
+            if (td < pmin) { vx = -dx / td; vy = -dy / td; }                  // retroceder
+            else if (td <= pmax) {                                             // mantener y moverse de costado
+              s.strafeT -= dt;
+              if (s.strafeT <= 0) { s.strafeT = 0.6 + rnd() * 0.9; s.strafeDir = rnd() < 0.5 ? 1 : -1; s.doStrafe = rnd() < P.strafe; }
+              if (s.doStrafe) { vx = (-dy / td) * s.strafeDir * 0.7; vy = (dx / td) * s.strafeDir * 0.7; }
+            } else { const v = this.followPath(s, false); if (v) { vx = v[0]; vy = v[1]; } }
+          } else {
+            const v = this.followPath(s, !tgt && s.mode !== 'zone' && s.mode !== 'flee');
+            if (v) { vx = v[0]; vy = v[1]; desired = Math.atan2(vy, vx); }
+            if (s.mode === 'flee' && tgt) desired = Math.atan2(tgt.y - s.y, tgt.x - s.x);
+            if (!tgt) scanning = true;
+            if (!P.sneak || s.mode === 'zone' || s.mode === 'flee') sneak = false;
+            if (s.mode === 'hunt' && !P.sneak) speedMul = P.run;
+          }
+        }
+      }
+      s.sneak = sneak && !s.target;
+      if (s.sneak && !act) speedMul *= 0.62;
+
+      // ----- movimiento -----
+      let dm = 0;
       if (vx || vy) {
-        const moved = this.tryMove(s, vx * speed * dt, vy * speed * dt);
+        const sp = P.speed * (s.speedT > 0 ? 1.6 : 1) * speedMul * dt;
+        const ox = s.x, oy = s.y;
+        const moved = this.tryMove(s, vx * sp, vy * sp);
+        dm = Math.hypot(s.x - ox, s.y - oy);
         if (!moved) { s.strafeDir *= -1; s.strafeT = 0.2; }
+        if (dm > 0) s.moveAng += angDiff(s.moveAng, Math.atan2(vy, vx)) * Math.min(1, dt * 14);
+      }
+      s.gait += ((dm > 0 ? Math.min(1, dm / dt / (P.speed * 0.8)) : 0) - s.gait) * Math.min(1, dt * 10);
+      s.phase += dm * 3.2;
+      const stepN = Math.floor(s.phase / Math.PI);
+      if (stepN !== s.lastStep) {                                // pasos: suenan según cómo camina
+        s.lastStep = stepN;
+        this.emitSound(s.x, s.y, s.sneak ? 1.8 : (s.mode === 'hunt' || s.mode === 'attack') && !P.sneak ? 6.5 : 4.2, 'step', s);
       }
       // si no avanza por un rato, repensar camino
       s.stuckT += dt;
-      if (s.stuckT > 0.6) {
-        if (Math.hypot(s.x - s.lx, s.y - s.ly) < 0.12 && (vx || vy)) s.thinkT = 0;
+      if (s.stuckT > 0.7) {
+        if (Math.hypot(s.x - s.lx, s.y - s.ly) < 0.1 && (vx || vy)) s.thinkT = 0;
         s.lx = s.x; s.ly = s.y; s.stuckT = 0;
       }
 
-      // girar y disparar
-      const diff = angDiff(s.angle, desired);
-      const turn = 9 * dt;
+      // ----- cuerpo y cabeza -----
+      const diff = angDiff(s.angle, desired), turn = 9 * dt;
       s.angle += Math.abs(diff) < turn ? diff : Math.sign(diff) * turn;
-      if (tgt && s.cd <= 0 && Math.abs(angDiff(s.angle, Math.atan2(tgt.y - s.y, tgt.x - s.x))) < 0.14) this.fire(s);
+      const off = scanning || s.headScan > 0 ? Math.sin(this.time * 1.5 + s.id * 1.7) * (0.55 + 0.4 * s.sk.listen) : 0;
+      if (s.headScan > 0) s.headScan -= dt;
+      s.headOff += (off - s.headOff) * Math.min(1, dt * 6);
+      const lookTarget = s.angle + s.headOff;
+      s.look += angDiff(s.look, lookTarget) * Math.min(1, dt * 10);
+
+      if (s.target && !act && s.cd <= 0 && s.td <= P.range && Math.abs(angDiff(s.angle, Math.atan2(s.target.y - s.y, s.target.x - s.x))) < 0.14) this.fire(s, 0);
     }
 
-    followPath(s, out) {
-      const W = this.W, p = s.path;
-      while (p.length > 1) {
-        const cx = (p[1] % W) + 0.5, cy = ((p[1] / W) | 0) + 0.5;
-        if (Math.hypot(cx - s.x, cy - s.y) < 0.18) p.shift(); else break;
-      }
-      const wi = p.length > 1 ? p[1] : p[0];
-      if (wi === undefined) return;
-      const wx = (wi % W) + 0.5, wy = ((wi / W) | 0) + 0.5, d = Math.hypot(wx - s.x, wy - s.y);
-      if (d > 0.05) out([(wx - s.x) / d, (wy - s.y) / d]);
-    }
-
-    fire(s) {
+    fire(s, extraSpread = 0) {
       const P = s.P;
-      s.cd = P.cd * (0.85 + rnd() * 0.3);
-      const base = s.angle + (rnd() - 0.5) * 2 * P.spread;
+      s.cd = P.cd * (0.85 + rnd() * 0.3); s.recoil = 1;
+      const base = s.angle + (rnd() - 0.5) * 2 * (P.spread + extraSpread);
       const angles = s.triple > 0 ? [base - 0.2, base, base + 0.2] : [base];
       for (const a of angles) {
         this.bullets.push({
@@ -386,28 +668,39 @@
           owner: s, color: s.color, life: P.range / P.bspeed + 0.2,
         });
       }
+      this.emitSound(s.x, s.y, P.shotR, 'shot', s);
       if (this.audible()) sfx.shot();
     }
-    audible() { return this.speed <= 2 && (this._lastSfx = (this._lastSfx || 0) + 1) % 2 === 0 || this.speed === 1; }
+    audible() { return this.speed === 1 || (this.speed === 2 && ((this._sfxN = (this._sfxN || 0) + 1) % 2 === 0)); }
 
     damage(s, by, zone) {
-      if (!s.alive || this.phase === 'ending' && !zone) return;
+      if (!s.alive || (this.phase === 'ending' && !zone)) return;
       if (!zone && s.shield > 0) { s.shield = 0; this.spark(s.x, s.y, '#38bdf8', 8); if (this.speed <= 2) sfx.pickup(); return; }
       s.hp -= 1; s.flash = 0.18;
       this.spark(s.x, s.y, s.color, 6);
       if (this.speed <= 2) sfx.hit();
+      if (by && by !== s) {      // sabe de dónde le dispararon (más o menos)
+        const a = rnd() * 6.283, m = rnd() * 1.6;
+        s.know[by.id] = { id: by.id, x: by.x + Math.cos(a) * m, y: by.y + Math.sin(a) * m, t: this.time, exact: false, kind: 'hit' };
+        s.thinkT = Math.min(s.thinkT, 0.1);
+        if (s.P.loud && s.hp > 0 && s.talkCd < 2.5 && rnd() < 0.5) { this.say(s, pickLine('hurt')); s.talkCd = 5; }
+      }
       if (s.hp <= 0) this.kill(s, by, zone);
     }
     kill(s, by, zone) {
-      s.alive = false; s.hp = 0; s.deathT = this.time; s.deathOrder = this.deaths++;
-      this.corpses.push({ x: s.x, y: s.y, color: s.color });
-      for (let i = 0; i < 34; i++) {
+      s.alive = false; s.hp = 0; s.deathT = this.time; s.deathOrder = this.deaths++; s.bubble = null; s.act = null;
+      this.corpses.push({ x: s.x, y: s.y, color: s.color, ap: s.ap, ang: s.angle + (rnd() - 0.5) });
+      for (let i = 0; i < 30; i++) {
         const a = rnd() * 6.283, v = 1.5 + rnd() * 5;
         this.parts.push({ x: s.x, y: s.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.5 + rnd() * 0.7, max: 1.2, color: i % 3 === 0 ? '#ffb347' : s.color, size: 0.08 + rnd() * 0.12 });
       }
       this.parts.push({ x: s.x, y: s.y, vx: 0, vy: 0, life: 0.45, max: 0.45, color: '#fff', size: 0.9, ring: true });
       sfx.boom(); vibrate(40);
-      if (by && by !== s) by.kills++;
+      this.emitSound(s.x, s.y, 12, 'boom', null);
+      if (by && by !== s) {
+        by.kills++;
+        if (by.alive && by.P.loud) this.say(by, pickLine('kill', s.name));
+      }
       this.hooks.onKill(s, by, zone);
     }
     spark(x, y, color, n) {
@@ -449,28 +742,29 @@
     /* ---------- simulación ---------- */
     step(dt) {
       this.time += dt;
-      // zona
       if (this.cfg.zone) {
         const t = Math.min(1, Math.max(0, (this.time - ZONE_DELAY) / ZONE_TIME));
         const [cx, cy] = this.center, W = this.W, H = this.H;
         const e = t * t * (3 - 2 * t);
         this.zone = t > 0 ? { x0: e * (cx - 1.5), y0: e * (cy - 1.5), x1: W - e * (W - cx - 2.5), y1: H - e * (H - cy - 2.5) } : null;
       }
-      // power-ups
       if (this.cfg.powerups) {
         this.puTimer -= dt;
-        if (this.puTimer <= 0) { this.puTimer = 6 + rnd() * 5; this.spawnPowerup(); }
+        if (this.puTimer <= 0) { this.puTimer = 8 + rnd() * 7; this.spawnPowerup(); }
         this.pus.forEach((p) => { p.t += dt; });
         if (this.phase === 'run') this.collectPowerups();
       }
+      for (const d of this.doors.values()) d.anim = Math.max(0, Math.min(1, d.anim + (d.open ? 1 : -1) * dt * 3.2));
       for (const s of this.soldiers) this.updateSoldier(s, dt);
 
-      // balas
+      // balas (atraviesan las puertas de madera, no las paredes)
       for (let i = this.bullets.length - 1; i >= 0; i--) {
         const b = this.bullets[i];
         b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
         let gone = b.life <= 0;
-        if (!gone && this.isWall(Math.floor(b.x), Math.floor(b.y))) { gone = true; this.spark(b.x - b.vx * dt, b.y - b.vy * dt, '#ffe08a', 3); }
+        const bx = Math.floor(b.x), by = Math.floor(b.y);
+        if (!gone && this.isWall(bx, by)) { gone = true; this.spark(b.x - b.vx * dt, b.y - b.vy * dt, '#ffe08a', 3); }
+        if (!gone && !b.door && this.doorGrid[by * this.W + bx]) { b.door = true; this.spark(b.x, b.y, '#c9955a', 5); }
         if (!gone) {
           for (const s of this.soldiers) {
             if (!s.alive || s === b.owner || (b.owner.team >= 0 && s.team === b.owner.team)) continue;
@@ -479,21 +773,18 @@
         }
         if (gone) this.bullets.splice(i, 1);
       }
-      // partículas
       for (let i = this.parts.length - 1; i >= 0; i--) {
         const p = this.parts[i];
         p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.94; p.vy *= 0.94; p.life -= dt;
         if (p.life <= 0) this.parts.splice(i, 1);
       }
+      for (let i = this.rings.length - 1; i >= 0; i--) { this.rings[i].t += dt; if (this.rings[i].t > 0.7) this.rings.splice(i, 1); }
 
       // ¿terminó?
       if (this.phase === 'run') {
         const alive = this.soldiers.filter((s) => s.alive);
         const groups = new Set(alive.map((s) => (s.team < 0 ? 'p' + s.id : 't' + s.team)));
-        if (groups.size <= 1) {
-          this.phase = 'ending'; this.endT = 0; this.bullets.length = 0;
-          this.winners = alive;
-        }
+        if (groups.size <= 1) { this.phase = 'ending'; this.endT = 0; this.bullets.length = 0; this.winners = alive; }
       } else if (this.phase === 'ending') {
         this.endT += dt;
         if (this.endT > 1.7) { this.phase = 'done'; this.hooks.onEnd(this.result()); }
@@ -552,16 +843,14 @@
       c.width = Math.ceil(W * ts * dpr); c.height = Math.ceil(H * ts * dpr);
       const x = c.getContext('2d'); x.scale(dpr, dpr);
       for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
-        const wall = g[y * W + xx];
+        if (g[y * W + xx]) continue;
         const px = xx * ts, py = y * ts;
-        if (!wall) {
-          x.fillStyle = (xx + y) % 2 ? '#1b2339' : '#1f2840';
-          x.fillRect(px, py, ts + 0.5, ts + 0.5);
-          if (y > 0 && g[(y - 1) * W + xx]) { // sombra bajo la pared
-            const gr = x.createLinearGradient(0, py, 0, py + ts * 0.45);
-            gr.addColorStop(0, 'rgba(0,0,0,.45)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-            x.fillStyle = gr; x.fillRect(px, py, ts + 0.5, ts * 0.45);
-          }
+        x.fillStyle = (xx + y) % 2 ? '#1b2339' : '#1f2840';
+        x.fillRect(px, py, ts + 0.5, ts + 0.5);
+        if (y > 0 && g[(y - 1) * W + xx]) { // sombra bajo la pared
+          const gr = x.createLinearGradient(0, py, 0, py + ts * 0.45);
+          gr.addColorStop(0, 'rgba(0,0,0,.45)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+          x.fillStyle = gr; x.fillRect(px, py, ts + 0.5, ts * 0.45);
         }
       }
       for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
@@ -589,35 +878,32 @@
       x.save(); x.translate(this.ox, this.oy);
       x.drawImage(this.static, 0, 0, this.W * ts, this.H * ts);
 
-      // restos de los caídos
-      for (const c of this.corpses) {
-        x.strokeStyle = c.color; x.globalAlpha = 0.35; x.lineWidth = Math.max(2, ts * 0.12);
-        const r = ts * 0.2; x.beginPath(); x.moveTo(c.x * ts - r, c.y * ts - r); x.lineTo(c.x * ts + r, c.y * ts + r);
-        x.moveTo(c.x * ts + r, c.y * ts - r); x.lineTo(c.x * ts - r, c.y * ts + r); x.stroke(); x.globalAlpha = 1;
-      }
-      // power-ups
+      for (const d of this.doors.values()) Art.drawDoor(x, d, ts);
+      for (const c of this.corpses) Art.drawCorpse(x, c, ts);
       for (const p of this.pus) this.drawPowerup(x, p);
-      // zona
       if (this.zone) this.drawZone(x);
-      // soldados vivos (los más abajo se dibujan después)
+      // ondas de sonido (disparos, gritos, puertas)
+      for (const r of this.rings) {
+        const k = r.t / 0.7;
+        x.strokeStyle = RING_COLOR[r.kind]; x.globalAlpha = (1 - k) * 0.4; x.lineWidth = 2;
+        x.beginPath(); x.arc(r.x * ts, r.y * ts, ts * r.r * (0.2 + 0.8 * k), 0, 6.2832); x.stroke();
+      }
+      x.globalAlpha = 1;
       const alive = this.soldiers.filter((s) => s.alive).sort((a, b) => a.y - b.y);
-      for (const s of alive) this.drawSoldier(x, s);
-      // balas
+      for (const s of alive) Art.drawSoldier(x, s, ts, this.time);
       for (const b of this.bullets) {
         const sp = Math.hypot(b.vx, b.vy), tx = b.vx / sp, ty = b.vy / sp, len = 0.55;
         x.strokeStyle = lighten(b.color, 0.5); x.globalAlpha = 0.5; x.lineWidth = Math.max(2, ts * 0.12); x.lineCap = 'round';
         x.beginPath(); x.moveTo((b.x - tx * len) * ts, (b.y - ty * len) * ts); x.lineTo(b.x * ts, b.y * ts); x.stroke();
         x.globalAlpha = 1; x.fillStyle = '#fff'; x.beginPath(); x.arc(b.x * ts, b.y * ts, Math.max(1.8, ts * 0.09), 0, 6.283); x.fill();
       }
-      // partículas
       for (const p of this.parts) {
         const a = Math.max(0, p.life / p.max);
         x.globalAlpha = a;
-        if (p.ring) { x.strokeStyle = p.color; x.lineWidth = 3; x.beginPath(); x.arc(p.x * ts, p.y * ts, ts * (1.4 - a * 1.2) , 0, 6.283); x.stroke(); }
+        if (p.ring) { x.strokeStyle = p.color; x.lineWidth = 3; x.beginPath(); x.arc(p.x * ts, p.y * ts, ts * (1.4 - a * 1.2), 0, 6.283); x.stroke(); }
         else { x.fillStyle = p.color; x.beginPath(); x.arc(p.x * ts, p.y * ts, Math.max(1, p.size * ts), 0, 6.283); x.fill(); }
       }
       x.globalAlpha = 1;
-      // nombres encima de todo
       for (const s of alive) this.drawLabel(x, s);
       x.restore();
 
@@ -670,39 +956,8 @@
       x.restore();
     }
 
-    drawSoldier(x, s) {
-      const ts = this.ts, r = s.r * ts * 1.15, cx = s.x * ts, cy = s.y * ts;
-      x.save(); x.translate(cx, cy);
-      // sombra
-      x.fillStyle = 'rgba(0,0,0,.35)'; x.beginPath(); x.ellipse(r * 0.15, r * 0.35, r * 1.05, r * 0.85, 0, 0, 6.283); x.fill();
-      // aura de velocidad / triple
-      if (s.speedT > 0) { x.strokeStyle = 'rgba(250,204,21,.7)'; x.lineWidth = 2; x.beginPath(); x.arc(0, 0, r * 1.35, 0, 6.283); x.setLineDash([4, 5]); x.stroke(); x.setLineDash([]); }
-      x.rotate(s.angle);
-      // arma
-      x.fillStyle = '#1b1f2b'; x.fillRect(r * 0.35, -r * 0.2, r * 1.35, r * 0.4);
-      x.fillStyle = s.triple > 0 ? '#fb923c' : '#6b7280'; x.fillRect(r * 1.35, -r * 0.2, r * 0.35, r * 0.4);
-      if (s.triple > 0) { x.fillRect(r * 1.2, -r * 0.5, r * 0.3, r * 0.22); x.fillRect(r * 1.2, r * 0.28, r * 0.3, r * 0.22); }
-      x.rotate(-s.angle);
-      // cuerpo
-      x.fillStyle = s.color; x.strokeStyle = 'rgba(0,0,0,.65)'; x.lineWidth = Math.max(2, ts * 0.09);
-      x.beginPath(); x.arc(0, 0, r, 0, 6.283); x.fill(); x.stroke();
-      if (s.team >= 0) { x.strokeStyle = TEAMS[s.team].color; x.lineWidth = Math.max(2.5, ts * 0.13); x.beginPath(); x.arc(0, 0, r + 1.5, 0, 6.283); x.stroke(); }
-      // casco
-      x.fillStyle = darken(s.color, 0.28); x.beginPath(); x.arc(0, 0, r * 0.58, 0, 6.283); x.fill();
-      x.fillStyle = lighten(s.color, 0.55); x.beginPath(); x.arc(-r * 0.15, -r * 0.18, r * 0.2, 0, 6.283); x.fill();
-      // escudo
-      if (s.shield > 0) {
-        x.strokeStyle = `rgba(56,189,248,${0.6 + Math.sin(this.time * 8) * 0.3})`; x.lineWidth = Math.max(2, ts * 0.1);
-        x.beginPath(); x.arc(0, 0, r * 1.5, 0, 6.283); x.stroke();
-        x.fillStyle = 'rgba(56,189,248,.12)'; x.fill();
-      }
-      if (s.flash > 0) { x.fillStyle = `rgba(255,255,255,${Math.min(0.9, s.flash * 5)})`; x.beginPath(); x.arc(0, 0, r, 0, 6.283); x.fill(); }
-      x.restore();
-    }
-
     drawLabel(x, s) {
-      const ts = this.ts, cx = s.x * ts, top = s.y * ts - s.r * ts * 1.15 - 4;
-      // vidas
+      const ts = this.ts, cx = s.x * ts, top = s.y * ts - ts * 0.4 * s.ap.build * 1.95 - 3;
       const pw = Math.max(4, ts * 0.2), gap = 1.5, total = s.maxHp + (s.hp > s.maxHp ? 1 : 0);
       const wTot = total * pw + (total - 1) * gap;
       for (let i = 0; i < total; i++) {
@@ -713,9 +968,26 @@
       x.font = `800 ${fs}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'bottom';
       x.lineWidth = 3.2; x.strokeStyle = 'rgba(0,0,0,.85)'; x.lineJoin = 'round';
       x.strokeText(s.name, cx, top - 5); x.fillStyle = '#fff'; x.fillText(s.name, cx, top - 5);
+      let y0 = top - 5 - fs - 2;
+      if (s.icon) {                                            // "?" oyó algo, "!" vio a alguien
+        x.font = `900 ${fs + 3}px system-ui, sans-serif`;
+        x.fillStyle = s.icon.ch === '!' ? '#ff5a5a' : '#ffd24a'; x.strokeText(s.icon.ch, cx, y0); x.fillText(s.icon.ch, cx, y0);
+        y0 -= fs + 2;
+      }
+      if (s.bubble) {                                          // globo de texto (insultos)
+        const bf = Math.max(9, Math.min(12, ts * 0.46));
+        x.font = `700 ${bf}px system-ui, sans-serif`;
+        const tw = x.measureText(s.bubble.text).width, bw = tw + 10, bh = bf + 8;
+        let bx = cx - bw / 2; bx = Math.max(2, Math.min(this.W * ts - bw - 2, bx));
+        const by = Math.max(2, y0 - bh);
+        x.globalAlpha = Math.min(1, s.bubble.t * 3);
+        x.fillStyle = '#fff'; x.beginPath(); x.roundRect(bx, by, bw, bh, 7); x.fill();
+        x.beginPath(); x.moveTo(cx - 4, by + bh); x.lineTo(cx, by + bh + 5); x.lineTo(cx + 4, by + bh); x.fill();
+        x.fillStyle = '#111'; x.textBaseline = 'middle'; x.fillText(s.bubble.text, bx + bw / 2, by + bh / 2 + 0.5);
+        x.globalAlpha = 1;
+      }
     }
   }
-  const DX = [1, -1, 0, 0, 1, 1, -1, -1], DY = [0, 0, 1, -1, 1, -1, 1, -1];
 
   /* ================= interfaz ================= */
   let game = null;
@@ -806,8 +1078,7 @@
 
   function announce(g) {
     if (!g.cfg.varied) return;
-    const txt = g.soldiers.map((s) => `${PERS[s.pers].emoji} ${s.name}`).join('  ·  ');
-    addFeed(txt, 5000);
+    addFeed(g.soldiers.map((s) => `${PERS[s.pers].emoji} ${s.name}`).join('  ·  '), 5000);
   }
 
   function leaveGame(toSetup = true) {
@@ -827,7 +1098,7 @@
         el('span', { class: 'dot', style: `background:${s.color}` }),
         el('span', { class: 'nm' }, (g.cfg.varied ? PERS[s.pers].emoji + ' ' : '') + s.name), hp);
       hud.append(chip);
-      return { chip, hp, last: -1, alive: true };
+      return { chip, hp, last: -1 };
     });
   }
 
@@ -860,8 +1131,7 @@
 
   function onEnd(res) {
     sfx.fanfare(); vibrate([60, 60, 120]);
-    const win = res.winners;
-    const names = win.map((s) => s.name);
+    const names = res.winners.map((s) => s.name);
     if (names.length) { B.wins.push({ t: Date.now(), names }); if (B.wins.length > 1000) B.wins.shift(); save(); }
     showResult(res);
   }
@@ -870,24 +1140,25 @@
     const ov = $('#resultOverlay');
     const win = res.winners, tm = res.teamMode;
     const rk = res.ranking;
+    const mins = Math.floor(res.time / 60), secs = Math.round(res.time % 60);
+    const dur = mins ? `${mins}m ${secs}s` : `${secs}s`;
     let title, sub;
     if (!win.length) { title = '🤝 ¡Empate!'; sub = 'Nadie quedó en pie.'; }
     else if (tm) { title = `🏆 ¡Gana el equipo ${TEAMS[win[0].team].name}!`; sub = win.map((s) => s.name).join(', '); }
-    else { title = `🏆 ¡Gana ${win[0].name}!`; sub = `${win[0].kills} eliminaciones · ${Math.round(res.time)}s de batalla`; }
+    else { title = `🏆 ¡Gana ${win[0].name}!`; sub = `${win[0].kills} eliminaciones · ${dur} de batalla`; }
 
     const podium = el('div', { class: 'podium' });
     [rk[1], rk[0], rk[2]].forEach((s, k) => {
       if (!s) return;
-      const place = [2, 1, 3][k];
       podium.append(el('div', { class: 'slot' },
         el('div', { class: 'sdot', style: `background:${s.color}` }),
         el('div', { class: 'who' }, s.name),
-        el('div', { class: 'block', style: `height:${[70, 100, 52][k]}px;background:${['#c0c7d6', '#f0c04a', '#cd8b4f'][k]}` }, place)));
+        el('div', { class: 'block', style: `height:${[70, 100, 52][k]}px;background:${['#c0c7d6', '#f0c04a', '#cd8b4f'][k]}` }, [2, 1, 3][k])));
     });
 
     const list = el('div', { class: 'rank-list' });
     rk.forEach((s, i) => list.append(el('div', {},
-      el('span', {}, `${i + 1}.`), el('span', { class: 'dot', style: `background:${s.color}` }), el('span', {}, s.name),
+      el('span', {}, `${i + 1}.`), el('span', { class: 'dot', style: `background:${s.color}` }), el('span', {}, `${PERS[s.pers].emoji} ${s.name}`),
       el('span', { class: 'k' }, `${s.kills} 💥${s.alive ? ' · ganó' : ''}`))));
 
     ov.innerHTML = '';
