@@ -55,3 +55,10 @@ python3 tools/make_coins.py
 ```
 
 El recorte de cada foto y el texto del borde se ajustan en la lista `FACES` de ese script.
+
+## Descargar como un solo archivo
+Para tener todo en un archivo `.html` que se abre directo en el celular (sin servidor ni internet):
+
+```sh
+python3 tools/build_single.py        # crea dist/moneda-y-batalla.html y un .zip del proyecto
+```
