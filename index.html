@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="es" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0e1322">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Moneda y Batalla">
+<title>Moneda y Batalla</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header id="topbar">
+  <button class="icon-btn" id="btnBack" aria-label="Volver al menú" hidden>←</button>
+  <h1 id="topTitle">Moneda y Batalla</h1>
+  <span class="spacer"></span>
+  <button class="icon-btn" id="btnSound" aria-label="Sonido">🔊</button>
+  <button class="icon-btn" id="btnTheme" aria-label="Tema claro u oscuro">🌙</button>
+  <button class="icon-btn" id="btnFull" aria-label="Pantalla completa">⛶</button>
+</header>
+
+<main id="app">
+
+  <!-- ============ MENÚ ============ -->
+  <section class="screen active" id="screen-menu">
+    <div class="menu-hero">
+      <img src="assets/coin-milei.png" class="hero-coin" alt="">
+      <img src="assets/coin-cristina.png" class="hero-coin hero-coin-2" alt="">
+    </div>
+    <button class="menu-card" data-go="coin">
+      <span class="menu-ico">🪙</span>
+      <span><b>La Moneda</b><small>Tirá y que decida el destino. Apuestas, series y “¿quién se va temprano?”</small></span>
+    </button>
+    <button class="menu-card" data-go="battle">
+      <span class="menu-ico">🔫</span>
+      <span><b>Batalla en el laberinto</b><small>Hasta 10 soldados peleando solos. El último en pie gana.</small></span>
+    </button>
+    <p class="hint center" id="installHint">Tip: en el menú del navegador elegí “Agregar a pantalla de inicio” y queda como una app.</p>
+  </section>
+
+  <!-- ============ MONEDA ============ -->
+  <section class="screen" id="screen-coin">
+    <div class="stage" id="coinStage" role="button" tabindex="0" aria-label="Tocar para tirar la moneda">
+      <div class="coin-shadow" id="coinShadow"></div>
+      <div class="coin-wrap" id="coinWrap">
+        <div class="coin" id="coin">
+          <div class="face front"></div>
+          <div class="face back"></div>
+          <div class="edge" id="coinEdge"></div>
+        </div>
+      </div>
+      <div class="stage-hint" id="stageHint">Tocá la moneda</div>
+    </div>
+
+    <div class="result" id="coinResult" aria-live="polite"></div>
+
+    <button class="btn primary big" id="btnToss">🪙 TIRAR MONEDA</button>
+
+    <div class="card">
+      <div class="label">Modo</div>
+      <div class="seg" id="segMode">
+        <button data-v="libre">Libre</button>
+        <button data-v="apuesta">Apuestas</button>
+        <button data-v="temprano">Se va temprano</button>
+      </div>
+      <div class="label">Serie</div>
+      <div class="seg" id="segBest">
+        <button data-v="1">1 tirada</button>
+        <button data-v="3">Mejor de 3</button>
+        <button data-v="5">de 5</button>
+        <button data-v="7">de 7</button>
+      </div>
+      <div class="series" id="seriesBox" hidden></div>
+    </div>
+
+    <div class="card" id="coinRosterCard" hidden>
+      <div class="card-head">
+        <b id="rosterTitle">Apuestas</b>
+        <span class="spacer"></span>
+        <button class="btn small" id="btnRandomPick">🎲 Repartir al azar</button>
+      </div>
+      <p class="hint" id="rosterHint"></p>
+      <div id="coinRoster"></div>
+      <div class="row-actions">
+        <button class="btn small" id="btnAddCoinPlayer">+ Agregar</button>
+        <button class="btn small ghost" id="btnClearPick">Limpiar</button>
+      </div>
+      <div class="opt" id="optLeaver" hidden>
+        <span>Se va temprano el que…</span>
+        <div class="seg small" id="segLeaver">
+          <button data-v="winner">gana</button>
+          <button data-v="loser">pierde</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><b>Estadísticas</b><span class="spacer"></span><button class="btn small ghost" id="btnResetStats">Borrar</button></div>
+      <div class="stats" id="coinStats"></div>
+      <div class="history" id="coinHistory"></div>
+    </div>
+  </section>
+
+  <!-- ============ BATALLA ============ -->
+  <section class="screen" id="screen-battle">
+
+    <div id="battleSetup">
+      <div class="card">
+        <div class="label">Tipo de partida</div>
+        <div class="seg" id="segTeamMode">
+          <button data-v="ffa">Todos contra todos</button>
+          <button data-v="teams">Por equipos</button>
+        </div>
+        <div id="teamCountBox" hidden>
+          <div class="label">Cantidad de equipos</div>
+          <div class="seg" id="segTeamCount">
+            <button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <b>Soldados</b><span class="count" id="soldierCount"></span>
+          <span class="spacer"></span>
+          <button class="btn small" id="btnRandomTeams" hidden>🎲 Equipos al azar</button>
+        </div>
+        <div id="battleRoster"></div>
+        <div class="row-actions">
+          <button class="btn small" id="btnAddSoldier">+ Agregar soldado</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="label">Vidas por soldado</div>
+        <div class="seg" id="segLives">
+          <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="5">5</button>
+        </div>
+        <div class="label">Mapa</div>
+        <div class="seg" id="segMap">
+          <button data-v="maze">Laberinto</button>
+          <button data-v="rooms">Habitaciones</button>
+          <button data-v="arena">Arena</button>
+        </div>
+        <div class="label">Tamaño</div>
+        <div class="seg" id="segSize">
+          <button data-v="s">Chico</button><button data-v="m">Medio</button><button data-v="l">Grande</button>
+        </div>
+        <label class="switch"><input type="checkbox" id="optPowerups"><span>Power-ups (escudo, triple disparo, velocidad, vida)</span></label>
+        <label class="switch"><input type="checkbox" id="optZone"><span>Zona que se achica (evita partidas eternas)</span></label>
+        <label class="switch"><input type="checkbox" id="optVaried"><span>Personalidades variadas (agresivo, cauteloso, francotirador)</span></label>
+      </div>
+
+      <button class="btn primary big" id="btnFight">⚔️ ¡A PELEAR!</button>
+
+      <div class="card">
+        <div class="card-head">
+          <b>🏆 Tabla de victorias</b><span class="spacer"></span>
+          <div class="seg small" id="segWinRange">
+            <button data-v="week">Semana</button><button data-v="all">Total</button>
+          </div>
+        </div>
+        <div id="winTable"></div>
+        <div class="row-actions"><button class="btn small ghost" id="btnResetWins">Borrar tabla</button></div>
+      </div>
+    </div>
+
+    <div id="battleGame" hidden>
+      <div class="hud" id="hudPlayers"></div>
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="battleCanvas"></canvas>
+        <div class="feed" id="feed"></div>
+        <div class="zone-info" id="zoneInfo"></div>
+        <div class="overlay" id="pauseOverlay" hidden>
+          <div class="overlay-box"><h2>⏸ Pausa</h2>
+            <button class="btn primary" id="btnResume">Seguir</button>
+            <button class="btn" id="btnQuit">Salir de la partida</button>
+          </div>
+        </div>
+        <div class="overlay" id="resultOverlay" hidden></div>
+      </div>
+      <div class="controls">
+        <button class="btn small" id="btnPause">⏸</button>
+        <div class="seg small" id="segSpeed">
+          <button data-v="1">1×</button><button data-v="2">2×</button><button data-v="4">4×</button>
+        </div>
+        <button class="btn small ghost" id="btnQuit2">✕ Salir</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="js/common.js"></script>
+<script src="js/coin.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
