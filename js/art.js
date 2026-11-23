@@ -411,9 +411,17 @@ const Art = (() => {
   }
 
   /* ---------- caído ---------- */
-  function drawCorpse(x, c, ts) {
+  /** Cuerpo caído. Con `time` se anima la caída (empujado por el tiro) y crece un charco. */
+  function drawCorpse(x, c, ts, time) {
     const u = ts * 0.4 * c.ap.build;
-    x.save(); x.translate(c.x * ts, c.y * ts); x.rotate(c.ang); x.globalAlpha = 0.55;
+    const age = c.t0 != null && time != null ? time - c.t0 : 99, k = Math.min(1, age / 0.45), ease = 1 - (1 - k) * (1 - k);
+    const push = (1 - ease) * 0.55, px = (c.x - (c.kx || 0) * push) * ts, py = (c.y - (c.ky || 0) * push) * ts;
+    if (c.t0 != null) {                                        // charco que se agranda de a poco
+      const r = Math.min(1, age / 3.5) * u * 1.5;
+      if (r > 1) { x.fillStyle = 'rgba(110,10,18,.42)'; ell(x, c.x * ts - Math.cos(c.ang) * u * 0.2, c.y * ts - Math.sin(c.ang) * u * 0.2, r * 1.15, r * 0.85, c.ang); x.fill(); }
+    }
+    x.save(); x.translate(px, py); x.rotate(c.ang - (1 - ease) * 1.1); x.globalAlpha = 0.55 + (1 - ease) * 0.45;
+    if (k < 1) x.scale(1 + (1 - ease) * 0.12, 1 + (1 - ease) * 0.12);
     x.strokeStyle = c.ap.pants; x.lineWidth = 0.62 * u; x.lineCap = 'round';
     x.beginPath(); x.moveTo(-0.3 * u, -0.3 * u); x.lineTo(-1.5 * u, -0.7 * u); x.moveTo(-0.3 * u, 0.3 * u); x.lineTo(-1.45 * u, 0.5 * u); x.stroke();
     x.strokeStyle = shade(c.color, -0.2); x.lineWidth = 0.5 * u;

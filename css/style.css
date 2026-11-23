@@ -296,6 +296,11 @@ body.in-game { overflow: hidden; }
 .tbets { display: grid; gap: 6px; }
 .champ { text-align: center; } .champ .big { font-size: 54px; }
 .confetti { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 70; }
+.narrator { position: absolute; left: 50%; top: 16%; transform: translate(-50%, -10px) scale(.9); width: max-content; max-width: 92%; text-align: center; font-weight: 900; font-size: 17px; color: #fff;
+  background: linear-gradient(90deg, rgba(180,30,40,.0), rgba(180,30,40,.85) 12%, rgba(180,30,40,.85) 88%, rgba(180,30,40,0)); padding: 7px 26px; pointer-events: none;
+  text-shadow: 0 2px 4px rgba(0,0,0,.6); opacity: 0; transition: opacity .25s, transform .25s; z-index: 4; }
+.narrator.big { font-size: 21px; background: linear-gradient(90deg, rgba(202,138,4,0), rgba(202,138,4,.9) 12%, rgba(202,138,4,.9) 88%, rgba(202,138,4,0)); }
+.narrator.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
 .controls { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .overlay { position: absolute; inset: 0; background: rgba(5,8,16,.78); display: flex; align-items: flex-start; justify-content: center; padding: 14px; overflow: auto; }
 .overlay-box { width: 100%; max-width: 420px; text-align: center; display: grid; gap: 10px; margin: auto; }

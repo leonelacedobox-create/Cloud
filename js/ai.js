@@ -933,6 +933,10 @@
     const stepN = Math.floor(s.phase / Math.PI);
     if (stepN !== s.lastStep) {                                              // pasos: suenan según cómo camina
       s.lastStep = stepN;
+      if (s.gait > 0.75 && !s.sneak && this.speed <= 2 && this.quality !== 'ahorro' && !this.cfg.noRec && this.camDist(s) < 14 && (this.floorT ? this.floorT[Math.floor(s.y) * this.W + Math.floor(s.x)] !== 1 : true)) {
+        const ba = s.moveAng + Math.PI;                                       // polvito al correr
+        this.parts.push({ x: s.x + Math.cos(ba) * 0.2, y: s.y + Math.sin(ba) * 0.2, vx: Math.cos(ba) * 0.4 + (rnd() - 0.5) * 0.3, vy: Math.sin(ba) * 0.4 + (rnd() - 0.5) * 0.3, life: 0.45, max: 0.9, color: '#9b9387', size: 0.09 + rnd() * 0.05 });
+      }
       if (this.speed === 1 && !this.dead && this.time - (this._stepT || 0) > 0.09 && this.camDist(s) < 7) {         // se oyen los pasos cerca de la cámara
         this._stepT = this.time;
         sfx.step(this.floorT ? this.floorT[Math.floor(s.y) * this.W + Math.floor(s.x)] || 0 : 0, (s.sneak ? 0.35 : 1) * (1 - this.camDist(s) / 8), this.camPan(s.x));

@@ -178,7 +178,7 @@
       this.phase = 'countdown'; this.cdT = 3.4; this.lastBeep = 4;
       this.paused = false; this.speed = B.speed || 1;
       this.time = 0; this.acc = 0; this.last = 0; this.raf = 0;
-      this.bullets = []; this.parts = []; this.items = []; this.corpses = []; this.rings = [];
+      this.bullets = []; this.parts = []; this.items = []; this.corpses = []; this.rings = []; this.shells = [];
       this.itemId = 1; this.lootTimer = 14;
       this.endT = 0; this.deaths = 0; this.winners = []; this.zone = null;
       this.pov = false; this.stuckEvents = 0; this.ctl = { mx: 0, my: 0, fire: false, sneak: false }; this.padOn = false;
@@ -397,6 +397,7 @@
       const def = WEAPONS[w.type];
       if (w.res <= 0 || w.mag >= magOf(w)) return false;
       s.reloadT = s.reloadTot = def.reload; s.stats.reloads++;
+      if (w.type !== 'shotgun' && w.type !== 'revolver' && w.type !== 'crossbow') this.addShell(s, 'mag');                 // tira el cargador vacío
       this.emitSound(s.x, s.y, 4.5, 'reload', s);
       return true;
     }
@@ -429,6 +430,7 @@
           owner: s, color: s.color, life, dmg: def.dmg * (w.sup ? 0.92 : 1), w: w.type, d: 0,
         });
       }
+      if (w.type !== 'crossbow') this.addShell(s, w.type === 'shotgun' || w.type === 'ashotgun' ? 'shell' : 'brass');
       // humito del caño
       for (let k = 0; k < (w.sup || w.type === 'crossbow' ? 0 : def.pellets > 1 ? 3 : 2); k++) {
         const ca = Math.cos(s.angle), sa = Math.sin(s.angle);
@@ -448,6 +450,33 @@
       this.emitSound(s.x, s.y, KNIFE.noise, 'step', s);
       if (this.audible()) sfx.hit(this.camPan(tgt.x), this.camVol(tgt.x, tgt.y));
       this.damage(tgt, s, KNIFE.dmg * (behind ? 1.8 : 1), false);
+    }
+    /** Casquillos y cargadores que quedan tirados un rato (solo cerca de la cámara y si la calidad lo permite). */
+    addShell(s, kind) {
+      if (this.quality === 'ahorro' || this.speed > 2 || this.cfg.noRec || this.camDist(s) > 16) return;
+      const side = s.angle + Math.PI / 2 + (rnd() - 0.5) * 0.6, v = kind === 'mag' ? 0.6 : 2 + rnd() * 1.5;
+      this.shells.push({ x: s.x + Math.cos(s.angle) * 0.25, y: s.y + Math.sin(s.angle) * 0.25, vx: Math.cos(side) * v, vy: Math.sin(side) * v, rot: rnd() * 6, vr: (rnd() - 0.5) * 30, t: 0, kind });
+      if (this.shells.length > 70) this.shells.shift();
+    }
+    stepShells(dt) {
+      for (let i = this.shells.length - 1; i >= 0; i--) {
+        const c = this.shells[i]; c.t += dt;
+        const f = Math.exp(-dt * 6); c.vx *= f; c.vy *= f; c.vr *= f;
+        const nx = c.x + c.vx * dt, ny = c.y + c.vy * dt;
+        if (!this.isSolid(Math.floor(nx), Math.floor(ny))) { c.x = nx; c.y = ny; } else { c.vx *= -0.4; c.vy *= -0.4; }
+        c.rot += c.vr * dt;
+        if (c.t > (c.kind === 'mag' ? 9 : 5)) this.shells.splice(i, 1);
+      }
+    }
+    drawShells(x, ts) {
+      for (const c of this.shells) {
+        const life = c.kind === 'mag' ? 9 : 5;
+        x.save(); x.translate(c.x * ts, c.y * ts); x.rotate(c.rot); x.globalAlpha = Math.min(1, (life - c.t) * 1.5);
+        if (c.kind === 'mag') { x.fillStyle = '#2b2f37'; x.fillRect(-ts * 0.09, -ts * 0.16, ts * 0.18, ts * 0.32); x.fillStyle = '#545b66'; x.fillRect(-ts * 0.09, -ts * 0.16, ts * 0.18, ts * 0.05); }
+        else { x.fillStyle = c.kind === 'shell' ? '#c0392b' : '#d4a83a'; x.fillRect(-ts * 0.07, -ts * 0.03, ts * 0.14, ts * 0.06); if (c.kind === 'shell') { x.fillStyle = '#d4a83a'; x.fillRect(ts * 0.03, -ts * 0.03, ts * 0.04, ts * 0.06); } }
+        x.restore();
+      }
+      x.globalAlpha = 1;
     }
     /** Distancia (en casilleros) entre un soldado y lo que está mirando la cámara: el sonido baja con la distancia. */
     camDist(s) { return Math.hypot(s.x - this.camX, s.y - this.camY); }
@@ -743,7 +772,9 @@
     }
     kill(s, by, zone) {
       s.alive = false; s.hp = 0; s.deathT = this.time; s.deathOrder = this.deaths++; s.bubble = null; s.act = null;
-      this.corpses.push({ x: s.x, y: s.y, color: s.color, ap: s.ap, ang: s.angle + (rnd() - 0.5) });
+      let kx = Math.cos(s.angle + Math.PI), ky = Math.sin(s.angle + Math.PI);            // cae para atrás, empujado por el último golpe
+      if (by && by !== s) { const d = Math.hypot(s.x - by.x, s.y - by.y) || 1; kx = (s.x - by.x) / d; ky = (s.y - by.y) / d; }
+      this.corpses.push({ x: s.x, y: s.y, color: s.color, ap: s.ap, ang: Math.atan2(ky, kx) + Math.PI + (rnd() - 0.5) * 0.6, t0: this.time, kx: -kx, ky: -ky });
       this.dropWeapons(s);                                   // suelta todo lo que le quedaba
       for (let i = 0; i < 30; i++) {
         const a = rnd() * 6.283, v = 1.5 + rnd() * 5;
@@ -756,6 +787,7 @@
       this.recKill(s, by, zone);
       const foe = by && by !== s && !(by.team >= 0 && by.team === s.team);
       if (foe) by.kills++;
+      this.narrateKill(s, by, zone);
       if (this.M && this.M.respawn && this.phase === 'run') s.respawnAt = this.time + this.M.respawn;
       this.onKilled(s, by, zone);
       if (this.M && this.M.onKill) this.M.onKill(this, s, by, zone);
@@ -810,15 +842,17 @@
         p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.94; p.vy *= 0.94; p.life -= dt;
         if (p.life <= 0) this.parts.splice(i, 1);
       }
+      this.stepShells(dt);
       for (let i = this.rings.length - 1; i >= 0; i--) { this.rings[i].t += dt; if (this.rings[i].t > 0.7) this.rings.splice(i, 1); }
 
       this.recStep(dt);
+      this.narrateTick();
       // modos de juego (reaparición, objetivos) y ¿terminó?
       if (this.phase === 'run') {
         this.modeStep(dt);
         const end = this.M && this.M.check ? this.M.check(this) : this.defaultCheck();
         if (end) {
-          this.phase = 'ending'; this.endT = 0; this.bullets.length = 0; this.winners = end.winners || []; this.endInfo = end; this.recFinish();
+          this.phase = 'ending'; this.endT = 0; this.bullets.length = 0; this.winners = end.winners || []; this.endInfo = end; this.recFinish(); this.narrateEnd();
           const w = this.winners.find((q) => q.alive) || this.winners[0];
           if (w && w.alive) { this.focus = w; this.focusUntil = this.time + 9; this.followId = null; }
         }
@@ -986,7 +1020,8 @@
 
       for (const d of this.doors.values()) Art.drawDoor(x, d, ts);
       this.drawWorld(x, ts, left, top, this.cw / ts, this.ch / ts);
-      for (const c of this.corpses) Art.drawCorpse(x, c, ts);
+      for (const c of this.corpses) Art.drawCorpse(x, c, ts, this.time);
+      this.drawShells(x, ts);
       for (const it of this.items) { if (it.kind === 'power') this.drawPowerup(x, it); else Art.drawItem(x, it, ts, this.time); }
       this.drawModeUnder(x, ts);
       if (this.zone) this.drawZone(x);
@@ -1335,7 +1370,7 @@
       phrases: String(p.phrases || '').split('\n').map((t) => t.trim()).filter(Boolean).slice(0, 8) }));
     const seed = ($('#seedInput').value || '').trim();
     return { mode: M.key, players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
-      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, voice: !!B.voice, seed: seed || null,
+      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, voice: !!B.voice, narrator: B.narrator !== false, seed: seed || null,
       gear: B.gear !== false, props: B.props !== false, events: B.events !== false, customMap: B.customMap || Maps.SAMPLE };
   }
 
@@ -1729,7 +1764,7 @@
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });
 
-  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true], ['optMusic', 'music', true], ['optVoice', 'voice', false]].forEach(([id, key, def]) => {
+  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true], ['optMusic', 'music', true], ['optVoice', 'voice', false], ['optNarrator', 'narrator', true]].forEach(([id, key, def]) => {
     const input = $('#' + id); input.checked = B[key] == null ? def : !!B[key];
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });

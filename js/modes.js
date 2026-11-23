@@ -14,7 +14,7 @@
   const players = (g) => g.soldiers.filter((s) => !s.bot);
   const alivePl = (g) => g.soldiers.filter((s) => s.alive && !s.bot);
   const cellXY = (g, i) => [(i % g.W) + 0.5, ((i / g.W) | 0) + 0.5];
-  const say = (g, t) => { if (g.hooks.onEvent) g.hooks.onEvent(t); };
+  const say = (g, t, nar) => { if (g.hooks.onEvent) g.hooks.onEvent(t); if (nar && g.narrate) g.narrate('say', { text: t.replace(/^\S+\s/, '') }); };
   const fmt = (t) => `${Math.floor(Math.max(0, t) / 60)}:${String(Math.floor(Math.max(0, t) % 60)).padStart(2, '0')}`;
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const pop = (g, x, y, text, color) => g.pops.push({ x, y, text, color: color || '#fff', t: 0 });
@@ -226,7 +226,7 @@
         const own = flag(g, s.team);
         if (own && own.atHome && dist(s, { x: own.home[0], y: own.home[1] }) < 1.4) {
           const f = s.carry; f.carrier = null; f.atHome = true; f.x = f.home[0]; f.y = f.home[1]; s.carry = null;
-          g.mst.caps[s.team]++; s.score++; pop(g, s.x, s.y, '+1 🚩', '#fde047'); say(g, `🏁 ¡${s.name} capturó! ${TEAMS[0].name} ${g.mst.caps[0] || 0} – ${g.mst.caps[1] || 0} ${TEAMS[1].name}`); sfx.fanfare();
+          g.mst.caps[s.team]++; s.score++; pop(g, s.x, s.y, '+1 🚩', '#fde047'); say(g, `🏁 ¡${s.name} capturó! ${TEAMS[0].name} ${g.mst.caps[0] || 0} – ${g.mst.caps[1] || 0} ${TEAMS[1].name}`, true); sfx.fanfare();
         }
       }
     },
@@ -297,7 +297,7 @@
     },
     step(g, dt) {
       const m = g.mst, h = m.hill;
-      if (g.time > m.moveAt) { m.hill = hillPick(g, h); m.moveAt = g.time + 70; say(g, '📍 ¡La colina cambió de lugar!'); }
+      if (g.time > m.moveAt) { m.hill = hillPick(g, h); m.moveAt = g.time + 70; say(g, '📍 ¡La colina cambió de lugar!', true); }
       m.tick += dt;
       if (m.tick < 1) return;
       m.tick -= 1;
@@ -359,7 +359,7 @@
           b.x = b.carrier.x; b.y = b.carrier.y;
           if (Math.hypot(b.carrier.x - site.x, b.carrier.y - site.y) < site.r) {
             b.plantT += dt;
-            if (b.plantT >= 4) { b.planted = true; b.timer = 35; b.x = site.x; b.y = site.y; b.carrier.carry = null; b.carrier.score++; pop(g, site.x, site.y, '💣 ¡PLANTADA!', '#f87171'); say(g, '💣 ¡Bomba plantada! 35 segundos'); sfx.alarm(); b.carrier = null; }
+            if (b.plantT >= 4) { b.planted = true; b.timer = 35; b.x = site.x; b.y = site.y; b.carrier.carry = null; b.carrier.score++; pop(g, site.x, site.y, '💣 ¡PLANTADA!', '#f87171'); say(g, '💣 ¡Bomba plantada! 35 segundos', true); sfx.alarm(); b.carrier = null; }
           } else b.plantT = Math.max(0, b.plantT - dt * 2);
         }
       } else {
@@ -367,9 +367,9 @@
         const sec = Math.ceil(b.timer);
         if (sec !== b.last && sec > 0) { b.last = sec; sfx.beep(sec <= 5); }
         const dfs = alivePl(g).filter((s) => s.team === 1 && Math.hypot(s.x - site.x, s.y - site.y) < site.r);
-        if (dfs.length) { b.defT += dt; if (b.defT >= 6) { b.defused = true; dfs.forEach((s) => { s.score++; }); pop(g, site.x, site.y, '✂️ ¡DESACTIVADA!', '#7dd3fc'); say(g, '✂️ ¡Bomba desactivada!'); sfx.fanfare(); } }
+        if (dfs.length) { b.defT += dt; if (b.defT >= 6) { b.defused = true; dfs.forEach((s) => { s.score++; }); pop(g, site.x, site.y, '✂️ ¡DESACTIVADA!', '#7dd3fc'); say(g, '✂️ ¡Bomba desactivada!', true); sfx.fanfare(); } }
         else b.defT = Math.max(0, b.defT - dt * 0.5);
-        if (b.timer <= 0 && !b.defused) { b.boom = true; g.explode(site.x, site.y, 5.5, 140, null, 'bomb'); say(g, '💥 ¡La bomba explotó!'); }
+        if (b.timer <= 0 && !b.defused) { b.boom = true; g.explode(site.x, site.y, 5.5, 140, null, 'bomb'); say(g, '💥 ¡La bomba explotó!', true); }
       }
     },
     drop(g, s) { const b = g.mst.bomb; if (b.carrier !== s) return; b.carrier = null; b.x = s.x; b.y = s.y; s.carry = null; say(g, `💥 ${s.name} soltó la bomba`); },
@@ -457,7 +457,7 @@
       if (tgt) s.know[tgt.id] = { id: tgt.id, x: tgt.x, y: tgt.y, t: g.time, exact: false, kind: 'hit' };
       g.soldiers.push(s);
     }
-    say(g, boss ? `👹 ¡OLEADA FINAL! ${n} enemigos y un jefe` : `🌊 Oleada ${m.wave}/${m.total}: ${n} enemigos`);
+    say(g, boss ? `👹 ¡OLEADA FINAL! ${n} enemigos y un jefe` : `🌊 Oleada ${m.wave}/${m.total}: ${n} enemigos`, true);
     sfx.alarm();
   };
   add({ key: 'waves', emoji: '🌊', label: 'Oleadas', team: 'coop', respawn: 0, noOvertime: true,
