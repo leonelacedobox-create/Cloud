@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.5 ✅ terminada** (0.2 y 0.5 están hechas). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.7 ✅ terminada** (0.2, 0.5 y 0.7 están hechas). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -68,7 +68,9 @@
 
 ---
 
-## 0.7 — "Modos de juego y diversión con los compañeros"
+## 0.7 — "Modos de juego y diversión con los compañeros" ✅
+
+> **Hecho.** Notas: el torneo es de duelos 1 contra 1 (se miran en vivo o se simulan); los apodos se resuelven con el nombre de cada soldado y las frases propias son por soldado; las repeticiones guardan solo las jugadas importantes (no toda la partida). El balance fino de los modos (bandera y bomba dependen mucho del mapa) y las pruebas en celulares reales quedan para 0.9.1.
 - **Torneo** por rondas con cuadro de eliminatorias, para decidir "quién se va temprano".
 - **Apostar por un soldado** antes de la batalla (conectado con la moneda) y ranking semanal de aciertos.
 - **Modos nuevos:** capturar la bandera, rey de la colina, objetivo/bomba, oleadas contra bots, carrera de botín y "solo cuchillos".

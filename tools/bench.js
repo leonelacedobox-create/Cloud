@@ -18,6 +18,7 @@ const flag = (n, d) => { const i = args.indexOf('--' + n); return i < 0 ? d : (a
 const RUNS = flag('runs', 8);
 const WRITE_JSON = args.includes('--json');
 const ONLY_BALANCE = args.includes('--balance');
+const ONLY_MODES = args.includes('--modes');                 // solo los modos de juego de la 0.7
 const ROOT = path.resolve(__dirname, '..');
 
 const CONFIGS = [
@@ -40,6 +41,18 @@ const CONFIGS = [
   { name: 'Mapa propio (ejemplo), 6', map: 'custom', n: 6 },
   { name: 'Sin equipo extra, 10', map: 'rooms', n: 10, gear: false },
   { name: 'Sin eventos ni props, 10', map: 'rooms', n: 10, props: false, events: false },
+  // modos de juego (0.7)
+  { name: 'Duelo por equipos, 8', mode: 'tdm', map: 'rooms', n: 8, teams: true },
+  { name: 'Duelo todos contra todos, 6', mode: 'tdm', map: 'maze', n: 6 },
+  { name: 'Bandera, 8', mode: 'ctf', map: 'rooms', n: 8 },
+  { name: 'Bandera en el depósito, 6', mode: 'ctf', map: 'deposito', n: 6 },
+  { name: 'Colina, 6', mode: 'koth', map: 'arena', n: 6 },
+  { name: 'Bomba, 8', mode: 'bomb', map: 'oficina', n: 8 },
+  { name: 'Bomba en el laberinto, 6', mode: 'bomb', map: 'maze', n: 6 },
+  { name: 'Oleadas, 4', mode: 'waves', map: 'base', n: 4 },
+  { name: 'Oleadas, 8', mode: 'waves', map: 'maze', n: 8 },
+  { name: 'Botín, 6', mode: 'loot', map: 'deposito', n: 6 },
+  { name: 'Solo cuchillos, 6', mode: 'knives', map: 'arena', n: 6 },
 ];
 
 (async () => {
@@ -63,7 +76,9 @@ const CONFIGS = [
         name: n, color: '#ff0000', team: c.teams ? i % 2 : 0,
         pers: c.pers ? c.pers[i % c.pers.length] : 'auto', iq: c.iq ? c.iq[i % c.iq.length] : 1,
       }));
-      const cfg = { players, teamMode: !!c.teams, lives: c.lives || 3, map: c.map, size: c.size || 'm', powerups: true, zone: c.zone !== false, varied: true, loot: c.loot !== false, gear: c.gear !== false, props: c.props !== false, events: c.events !== false, friendly: !!c.friendly, talk: true, seed: c.seed, customMap: Maps.SAMPLE };
+      const M = App.Modes.defs[c.mode || 'classic'], two = M.team === 'two' || M.team === 'coop';
+      if (two && !c.teams) players.forEach((p, i) => { p.team = i % 2; });
+      const cfg = { mode: c.mode || 'classic', noRec: true, players, teamMode: !!c.teams || two, lives: c.lives || 3, map: c.map, size: c.size || 'm', powerups: true, zone: c.zone !== false, varied: true, loot: c.loot !== false, gear: c.gear !== false, props: c.props !== false, events: c.events !== false, friendly: !!c.friendly, talk: true, seed: c.seed, customMap: Maps.SAMPLE };
       const g = new App.battle.Game(cv, cfg, noop);
       g.phase = 'run'; g.paused = false;
       const modeEntries = {}, actEntries = {}, lastMode = g.soldiers.map(() => ''), seenActs = new WeakSet();
@@ -79,6 +94,7 @@ const CONFIGS = [
       const winners = g.winners || [];
       const sum = (f) => g.soldiers.reduce((a, s) => a + f(s), 0);
       const out = {
+        title: g.endInfo && g.endInfo.title ? g.endInfo.title.replace(/[^A-Za-zÁ-úñ0-9 ]/g, '').trim() : (winners.length ? 'ganó ' + (winners[0].team >= 0 ? 'equipo ' + winners[0].team : 'uno') : 'sin ganador'),
         t: g.time, timeout: g.phase === 'run', draw: g.phase !== 'run' && winners.length === 0,
         winners: winners.map((s) => ({ pers: s.pers, iq: s.iq })),
         soldiers: g.soldiers.map((s) => ({ pers: s.pers, iq: s.iq, deathT: s.alive ? g.time : s.deathT, kills: s.kills, dmg: s.stats.dmgDealt, shots: s.stats.shots, hits: s.stats.hits, rounds: s.stats.rounds, hidden: s.stats.hidden, fled: s.stats.fled, talk: s.stats.talk, killsBy: s.stats.killsBy })),
@@ -103,7 +119,7 @@ const CONFIGS = [
 
   /* ---- 1) configuraciones típicas ---- */
   const rows = [];
-  for (const c of ONLY_BALANCE ? [] : CONFIGS) {
+  for (const c of ONLY_BALANCE ? [] : CONFIGS.filter((q) => !ONLY_MODES || q.mode)) {
     process.stderr.write(`· ${c.name}\r`);
     const res = []; for (let r = 0; r < RUNS; r++) res.push(await run(c));
     const sum = (f) => res.reduce((a, x) => a + f(x), 0) / res.length;
@@ -115,14 +131,15 @@ const CONFIGS = [
       x.soldiers.forEach((s) => { for (const w in s.killsBy) kb[w] = (kb[w] || 0) + s.killsBy[w] / res.length; });
     });
     const ts = res.map((x) => x.t);
-    rows.push({ name: c.name, med: med(ts), min: Math.min(...ts), max: Math.max(...ts), timeouts: res.filter((x) => x.timeout).length, draws: res.filter((x) => x.draw).length, overtime: res.filter((x) => x.overtime).length,
+    const tc = {}; res.forEach((x) => { tc[x.title] = (tc[x.title] || 0) + 1; });
+    rows.push({ name: c.name, titles: tc, med: med(ts), min: Math.min(...ts), max: Math.max(...ts), timeouts: res.filter((x) => x.timeout).length, draws: res.filter((x) => x.draw).length, overtime: res.filter((x) => x.overtime).length,
       stuck: sum((x) => x.stuck), cpu: sum((x) => x.ms), modes, acts, kb, world,
       acc: res.reduce((a, x) => a + x.soldiers.reduce((b, s) => b + s.hits, 0), 0) / Math.max(1, res.reduce((a, x) => a + x.soldiers.reduce((b, s) => b + s.rounds, 0), 0)) });
   }
 
   /* ---- 2) balance por personalidad ---- */
   const PERS = await page.evaluate(() => window.__perm());
-  const balRuns = Math.max(RUNS * 4, 24);
+  const balRuns = ONLY_MODES ? 0 : Math.max(RUNS * 4, 24);
   const bal = {}; PERS.forEach((p) => { bal[p] = { n: 0, wins: 0, life: 0, kills: 0, hidden: 0, fled: 0, talk: 0, dmg: 0 }; });
   for (let r = 0; r < balRuns; r++) {
     process.stderr.write(`· balance personalidades ${r + 1}/${balRuns}\r`);
@@ -148,6 +165,8 @@ const CONFIGS = [
   L.push('# Reporte del banco de pruebas', '', `Partidas por configuración: ${RUNS} · semilla repetible: ${sameMap ? '✅ sí' : '❌ NO'}`, '');
   L.push('## Duración y salud de las partidas', '', '| Configuración | mediana | mín–máx | tiempo agotado | muerte súbita | trabas | CPU/partida | puntería |', '|---|---|---|---|---|---|---|---|');
   rows.forEach((r) => L.push(`| ${r.name} | ${Math.round(r.med)}s | ${Math.round(r.min)}–${Math.round(r.max)}s | ${r.timeouts} | ${r.overtime} | ${f1(r.stuck)} | ${Math.round(r.cpu)}ms | ${Math.round(r.acc * 100)}% |`));
+  L.push('', '## Cómo terminan los modos de juego', '', '| Configuración | finales |', '|---|---|');
+  rows.filter((r) => r.titles && CONFIGS.find((q) => q.name === r.name && q.mode)).forEach((r) => L.push(`| ${r.name} | ${Object.entries(r.titles).map(([k, v]) => `${k} ×${v}`).join(' · ')} |`));
   L.push('', '## Mundo y equipo (por partida)', '', '| Configuración | granadas | barriles | cajones rotos | vidrios | eventos | cargamentos | vida curada | daño frenado |', '|---|---|---|---|---|---|---|---|---|');
   rows.forEach((r) => L.push(`| ${r.name} | ${f1(r.world.thrown || 0)} | ${f1(r.world.exploded || 0)} | ${f1(r.world.crates || 0)} | ${f1(r.world.glass || 0)} | ${f1(r.world.events || 0)} | ${f1(r.world.drops || 0)} | ${Math.round(r.world.healed || 0)} | ${Math.round(r.world.absorbed || 0)} |`));
   L.push('', '## Tácticas usadas (veces por partida, promedio de todas las configuraciones)', '');

@@ -48,9 +48,29 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **Punto láser y abanico de dispersión** (opcional), **sonido que baja y se apaga con la distancia** y volúmenes separados para todo y para los disparos.
 - **Al final:** estadísticas por soldado (bajas, daño, puntería) y premios graciosos (el más cobarde, el más bocón…).
 
+### Novedades de la 0.7 — modos de juego y diversión con los compañeros
+- **7 modos de juego** (`js/modes.js`), con su propio marcador en pantalla:
+  - ⚔️ **Duelo:** cada baja suma un punto, los caídos reaparecen en su base (con 3 s de protección). Gana el primero en llegar a la meta o quien va arriba a los 4 minutos.
+  - 🚩 **Bandera:** dos equipos, cada uno con su bandera y su base. Hay que robar la ajena y llevarla a la propia (con la propia en su lugar). El que la lleva corre y dispara hacia atrás; si lo eliminan, la suelta.
+  - 👑 **Colina:** una zona marcada que cambia de lugar. Suma el que la tiene solo (o su equipo); si hay enemigos adentro, nadie suma.
+  - 💣 **Bomba:** atacantes (Rojo) contra defensores (Azul): hay que plantar (4 s) en el sitio A, y desactivarla (6 s) antes de que explote (35 s). Sin reapariciones.
+  - 🌊 **Oleadas:** todos juntos contra bots, 5 oleadas (la última con un jefe). Entre oleadas se curan, recargan y reviven los caídos.
+  - 🪙 **Botín:** lingotes de oro por el mapa; quien muere suelta la mitad de lo que llevaba.
+  - 🔪 **Solo cuchillos:** sin armas ni botín.
+  - Si un modo con tiempo empata, hay 90 s de **prórroga**, y si sigue el empate se puede **desempatar con la moneda** (Milei contra Cristina, con animación 3D) desde la pantalla del resultado.
+- **Roles** (⚙️ de cada soldado): 💣 Asalto, 🩹 Médico, 🎯 Tirador y 🛡️ Tanque arrancan con equipo extra. En los modos con reaparición cada equipo tiene su **base** marcada en el mapa.
+- **🎮 Modo manual:** en el ⚙️ de un soldado (o con el botón 🎮 durante la partida) lo manejás vos con un **joystick en pantalla** y botones (disparar, recargar, cambiar de arma, granada, botiquín); también con teclado (WASD, espacio, R, Q, G, H). Apunta solo al enemigo que ve; el resto son bots.
+- **🎬 Repeticiones** (`js/replay.js`): al final, *Último tiro* y *Mejores momentos* (las jugadas más lindas: tiros lejanos, puñaladas, bajas seguidas, la baja final). Durante la partida, tocá la ficha de un caído para ver cómo murió. El final de la partida va en **cámara lenta** (se puede apagar en Ajustes).
+- **Personalización:** gorro (🤠 vaquero, 👑 corona, 🎉 fiesta, 🎩 galera, 🎨 boina, 🎅 Papá Noel), **frases propias por soldado** y **foto opcional** del compañero (se recorta a un círculo de 96 px, queda solo en el celular y la app pide confirmar que esa persona está de acuerdo). La foto aparece en la ficha, sobre el soldado y en el podio.
+- **🏟️ Torneo** (`js/tourney.js`): cuadro de eliminación directa con los soldados cargados, con "pasa" cuando sobra un lugar. Cada cruce es un duelo 1 contra 1 que se mira en vivo o se **simula** al instante. Termina con "🚪 *X* se va temprano". Los empates se resuelven con la moneda.
+- **🎯 Apuestas:** cada compañero puede apostar a quién gana (⚙️ del soldado) o al campeón del torneo. Los aciertos suman a su marcador y hay un ranking semanal de **mejores apostadores**.
+- **🏅 Logros e historial** (`js/hist.js`): 21 medallas (Ojo de lince, Carnicero, Intocable, Gallina, Ladrón de banderas…) y estadísticas por jugador (partidas, victorias, bajas, puntería, racha, torneos).
+- **🪙 Moneda mejorada:** confeti, sonido de "tic" en cada giro, y 4 estilos de tirada (Clásica, Alta, Trompo y Loca).
+
 ### Banco de pruebas
 ```sh
 node tools/bench.js --runs 12    # simula cientos de partidas sin dibujar y genera un reporte
+node tools/bench.js --modes --runs 6   # solo los modos de juego de la 0.7
 ```
 Mide la duración, trabas, tácticas usadas, bajas por arma y el balance entre personalidades y niveles de inteligencia.
 

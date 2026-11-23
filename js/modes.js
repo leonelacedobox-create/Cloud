@@ -38,10 +38,12 @@
     const o = groupOf(g, key);
     return { winners: o ? o.members : [], title: title || `🏆 ¡Gana ${o ? (o.team >= 0 ? 'el equipo ' : '') + o.name : '?'}!`, sub };
   }
-  /** Gana quien más puntos tenga; si empatan, nadie. */
+  const clock = (g) => (g.time >= g.mst.limit ? '⏱ ¡PRÓRROGA!' : '⏱ ' + fmt(g.mst.limit - g.time));
+  /** Gana quien más puntos tenga; si empatan hay 90 s de prórroga (el que desempate gana) y después, empate (se puede tirar la moneda). */
   function leaderEnd(g, score, unit) {
     const gs = groupsOf(g).map((o) => [o, score(o)]).sort((a, b) => b[1] - a[1]);
     if (!gs.length) return { winners: [], title: '🤝 ¡Empate!' };
+    if (gs.length > 1 && gs[0][1] === gs[1][1] && g.time < g.mst.limit + 90) return null;
     if (gs.length > 1 && gs[0][1] === gs[1][1]) return { winners: [], title: '🤝 ¡Empate!', sub: `${gs[0][1]} ${unit} cada uno · se acabó el tiempo`, tied: gs.filter((q) => q[1] === gs[0][1]).map((q) => q[0].members) };
     return endWith(g, gs[0][0].key, null, `${gs[0][1]} ${unit} · se acabó el tiempo`);
   }
@@ -193,7 +195,7 @@
       for (const o of groupsOf(g)) if (sc(o) >= g.mst.target) return endWith(g, o.key, null, `Llegó a ${sc(o)} bajas`);
       return g.time >= g.mst.limit ? leaderEnd(g, sc, 'bajas') : null;
     },
-    text(g) { const sc = (o) => o.members.reduce((a, s) => a + s.score, 0); return `⚔️ Meta ${g.mst.target} bajas · ⏱ ${fmt(g.mst.limit - g.time)}\n${scoreLine(g, sc)}`; },
+    text(g) { const sc = (o) => o.members.reduce((a, s) => a + s.score, 0); return `⚔️ Meta ${g.mst.target} bajas · ${clock(g)}\n${scoreLine(g, sc)}`; },
     scores(g) { return scoreRows(g, (o) => o.members.reduce((a, s) => a + s.score, 0), 'bajas'); },
     rank: (s) => s.score * 10 - s.deaths,
   });
@@ -239,6 +241,7 @@
       for (const f of g.mst.flags) if ((c[f.team] || 0) >= g.mst.target) return endWith(g, 't' + f.team, null, `${c[f.team]} capturas`);
       if (g.time < g.mst.limit) return null;
       const [a, b] = g.mst.flags;
+      if ((c[a.team] || 0) === (c[b.team] || 0) && g.time < g.mst.limit + 90) return null;      // prórroga: gana la próxima captura
       if ((c[a.team] || 0) === (c[b.team] || 0)) return { winners: [], title: '🤝 ¡Empate!', sub: `${c[a.team] || 0} capturas cada uno`, tied: [groupOf(g, 't' + a.team).members, groupOf(g, 't' + b.team).members] };
       return endWith(g, 't' + ((c[a.team] || 0) > (c[b.team] || 0) ? a.team : b.team), null, `${Math.max(c[a.team] || 0, c[b.team] || 0)} capturas · se acabó el tiempo`);
     },
@@ -257,7 +260,7 @@
       if (enemy.carrier && enemy.carrier.team === s.team) return { x: enemy.carrier.x, y: enemy.carrier.y, r: 3, hold: true };      // escoltar al compañero
       return { x: enemy.x, y: enemy.y, r: 0.8, hold: false };
     },
-    text(g) { const c = g.mst.caps; return `🚩 ${TEAMS[0].name} ${c[0] || 0} – ${c[1] || 0} ${TEAMS[1].name} · a ${g.mst.target} · ⏱ ${fmt(g.mst.limit - g.time)}`; },
+    text(g) { const c = g.mst.caps; return `🚩 ${TEAMS[0].name} ${c[0] || 0} – ${c[1] || 0} ${TEAMS[1].name} · a ${g.mst.target} · ${clock(g)}`; },
     scores(g) { return g.mst.flags.map((f) => ({ name: `Equipo ${TEAMS[f.team].name}`, color: TEAMS[f.team].color, value: `${g.mst.caps[f.team] || 0} capturas` })); },
     rank: (s) => s.score * 100 + s.kills * 10 - s.deaths,
     drawUnder(g, x, ts) {
@@ -309,7 +312,7 @@
       return g.time >= g.mst.limit ? leaderEnd(g, sc, 'puntos') : null;
     },
     goal(g, s) { const h = g.mst.hill; return { x: h.x, y: h.y, r: h.r * 0.75, hold: true }; },
-    text(g) { const m = g.mst; return `👑 Meta ${m.target} · ${m.contested ? '⚔️ en disputa' : m.holder ? '🔒 la tiene ' + tag(groupOf(g, m.holder) || {}) : 'libre'} · ⏱ ${fmt(m.limit - g.time)}\n${scoreLine(g, hillScore(g))}`; },
+    text(g) { const m = g.mst; return `👑 Meta ${m.target} · ${m.contested ? '⚔️ en disputa' : m.holder ? '🔒 la tiene ' + tag(groupOf(g, m.holder) || {}) : 'libre'} · ${clock(g)}\n${scoreLine(g, hillScore(g))}`; },
     scores(g) { return scoreRows(g, hillScore(g), 'pts'); },
     rank: (s) => s.score + s.kills * 3,
     drawUnder(g, x, ts) {
@@ -400,7 +403,7 @@
     text(g) {
       const b = g.mst.bomb;
       if (b.planted && !b.defused && !b.boom) return `💣 EXPLOTA EN ${Math.max(0, Math.ceil(b.timer))}s${b.defT > 0 ? ' · ✂️ desactivando ' + Math.round(b.defT / 6 * 100) + '%' : ''}`;
-      return `💣 ${b.carrier ? 'La lleva ' + b.carrier.name : 'bomba en el piso'}${b.plantT > 0 ? ' · plantando ' + Math.round(b.plantT / 4 * 100) + '%' : ''} · ⏱ ${fmt(g.mst.limit - g.time)}`;
+      return `💣 ${b.carrier ? 'La lleva ' + b.carrier.name : 'bomba en el piso'}${b.plantT > 0 ? ' · plantando ' + Math.round(b.plantT / 4 * 100) + '%' : ''} · ${clock(g)}`;
     },
     scores() { return null; },
     drawUnder(g, x, ts) {
@@ -532,7 +535,7 @@
       for (const b of gl) { const d = Math.hypot(b.x - s.x, b.y - s.y) + ((b.id * 5 + s.id * 11) % 7) * 0.7; if (d < bd) { bd = d; best = b; } }
       return best ? { x: best.x, y: best.y, r: 0.6, hold: false } : null;
     },
-    text(g) { return `🪙 Meta ${g.mst.target} · ⏱ ${fmt(g.mst.limit - g.time)}\n${scoreLine(g, goldOf)}`; },
+    text(g) { return `🪙 Meta ${g.mst.target} · ${clock(g)}\n${scoreLine(g, goldOf)}`; },
     scores(g) { return scoreRows(g, goldOf, 'lingotes'); },
     rank: (s) => (s.gold || 0) * 10 + s.kills,
     drawUnder(g, x, ts) {

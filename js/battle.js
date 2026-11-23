@@ -331,6 +331,7 @@
         const teams = [...new Set(players.map((p) => p.team))];
         const anchors = [];
         teams.forEach((t) => anchors.push([t, pickFar(anchors.map((a) => a[1]), flo.length ? flo : [[1.5, 1.5]]) || flo[0]]));
+        if (anchors.length >= 2) { const first = pickFar(anchors.slice(1).map((q) => q[1]), flo); if (first) anchors[0][1] = first; }   // los dos primeros equipos quedan en puntas opuestas (así ninguno tiene ventaja de lugar)
         players.forEach((p) => {
           const a = anchors.find((x) => x[0] === p.team)[1];
           const free = flo.filter((f) => !places.some((q) => Math.hypot(q[0] - f[0], q[1] - f[1]) < 1.6));
@@ -1520,6 +1521,7 @@
     else if (tm) { title = `🏆 ¡Gana el equipo ${TEAMS[win[0].team].name}!`; sub = win.map((s) => s.name).join(', '); }
     else { title = `🏆 ¡Gana ${win[0].name}!`; sub = `${win[0].kills} eliminaciones · ${dur} de batalla`; }
 
+    if (res.coinTie) sub = '🪙 Lo definió la moneda';
     const podium = el('div', { class: 'podium' });
     [rk[1], rk[0], rk[2]].forEach((s, k) => {
       if (!s) return;
@@ -1535,7 +1537,7 @@
       list.append(el('div', {},
         el('span', {}, `${i + 1}.`), s.photo ? el('img', { class: 'ava', src: s.photo, alt: '', style: `border-color:${s.color}` }) : el('span', { class: 'dot', style: `background:${s.color}` }),
         el('span', {}, `${PERS[s.pers].emoji}${IQ[s.iq].emoji} ${s.name}`),
-        el('span', { class: 'k' }, `${s.kills}💥 · ${Math.round(s.stats.dmgDealt)}❤ · ${acc}%${s.alive ? ' · ganó' : ''}`)));
+        el('span', { class: 'k' }, `${s.kills}💥 · ${Math.round(s.stats.dmgDealt)}❤ · ${acc}%${win.includes(s) ? ' · ganó' : ''}`)));
     });
 
     const scoreBox = res.scores && res.scores.length ? el('div', { class: 'awards' }, res.scores.map((r) => el('div', {}, el('span', { class: 'dot', style: `background:${r.color}` }), ` ${r.name}: `, el('b', {}, r.value)))) : null;
