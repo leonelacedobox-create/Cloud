@@ -40,7 +40,7 @@ const App = (() => {
   const STR = (v, max, d = '') => (typeof v === 'string' ? v.slice(0, max) : d);
   const COLOR = (v, d) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : d);
   const PERS_K = ['auto', 'agresivo', 'cauteloso', 'francotirador', 'asesino', 'tactico', 'oportunista', 'berserker', 'cobarde'];
-  const MAPS_K = ['maze', 'rooms', 'arena', 'base', 'oficina', 'carcel', 'deposito', 'custom'];
+  const MAPS_K = ['maze', 'rooms', 'arena', 'base', 'oficina', 'carcel', 'deposito', 'complejo', 'custom'];
   const MODES_K = ['classic', 'tdm', 'ctf', 'koth', 'bomb', 'waves', 'loot', 'knives'];
   /** Revisa todo lo guardado (de cualquier versión vieja) y arregla lo que esté roto o falte. */
   function migrate(s, d) {
@@ -75,7 +75,7 @@ const App = (() => {
         return Object.assign(q, {
           id, name: STR(p.name, 14), color: COLOR(p.color, q.color), team: NUM(+p.team, 0, 3, i % 2) | 0, pick: ONE(p.pick, ['milei', 'cristina'], null),
           hits: NUM(+p.hits, 0, 1e6, 0) | 0, pers: ONE(p.pers, PERS_K, 'auto'), iq: NUM(+p.iq, 0, 4, 1) | 0,
-          role: ONE(p.role, ['none', 'asalto', 'medico', 'tirador', 'tanque'], 'none'), hat: typeof p.hat === 'string' ? p.hat : 'none',
+          role: ONE(p.role, ['none', 'asalto', 'medico', 'tirador', 'tanque', 'explorador', 'ingeniero'], 'none'), hat: typeof p.hat === 'string' ? p.hat : 'none',
           photo: typeof p.photo === 'string' && p.photo.startsWith('data:image/') && p.photo.length < 80000 ? p.photo : null,
           phrases: STR(p.phrases, 300), manual: !!p.manual, bet: typeof p.bet === 'number' ? p.bet : null,
         });

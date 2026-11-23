@@ -64,6 +64,7 @@
     const wd = WEAPONS[e.wtype]; sc += (wd ? wd.tier : 1) * 0.5;             // el arma más peligrosa
     sc += (1 - e.hp / e.maxHp) * 2.5 * s.P.finisher;                         // el herido: se lo puede terminar
     if (s.target === e) sc += 1.8;                                           // no cambiar de blanco a cada rato
+    if (e.downed) sc -= 9 * (1.2 - s.P.finisher);                           // a uno derribado casi no le tiran (salvo los rematadores)
     return sc;
   };
 
@@ -85,11 +86,16 @@
         vx = ((e.x - old.x) / dt) * 0.5 + (old.vx || 0) * 0.5; vy = ((e.y - old.y) / dt) * 0.5 + (old.vy || 0) * 0.5;
       }
       s.know[e.id] = { id: e.id, x: e.x, y: e.y, t: this.time, exact: true, kind: 'seen', vx, vy };
+      if (e.downed) {                                                       // a un derribado solo lo rematan algunos de los que buscan terminar (y de cerca)
+        const fin = s.finish || (s.finish = {});
+        if (fin[e.id] === undefined) fin[e.id] = s.P.finisher >= 0.8 && rnd() < 0.35;
+        if (!(fin[e.id] && d < 6)) continue;
+      }
       nVis++;
       const sc = this.threat(s, e, d);
       if (sc > best) { best = sc; tgt = e; td = d; }
     }
-    if (tgt && !s.target) { s.seenT = this.time;   // lo acaba de ver: tarda un poco en reaccionar (según la inteligencia)
+    if (tgt && !s.target) { s.seenT = this.time; if (s.team >= 0) this.callout(s, 'contact');   // lo acaba de ver: tarda un poco en reaccionar (según la inteligencia)
       s.icon = { ch: '!', t: 1.0 };
       s.reactT = IQ[s.iq].react * (0.7 + rnd() * 0.6) * (1 - 0.4 * s.mood.fury);
     }
@@ -108,7 +114,11 @@
 
   G.bestKnowledge = function (s) {
     let best = null;
-    for (const id in s.know) { const k = s.know[id]; if (!best || k.t > best.t) best = k; }
+    for (const id in s.know) {
+      const k = s.know[id], o = this.soldiers[id];
+      if (o && o.downed && s.P.finisher < 0.8) continue;                    // al derribado no lo van a buscar (salvo los rematadores)
+      if (!best || k.t > best.t) best = k;
+    }
     return best;
   };
 
@@ -546,6 +556,11 @@
         if (it === 'flee') { path = this.fleePath(s, e); if (path) { s.mode = 'flee'; s.fleeT = now; s.hideTried = false; } }
         else if (it === 'cover') { if (this.beginCover(s, e)) { this.setIntent(s, 'cover'); return; } }
         else if (it === 'stalk') { path = this.stalkPath(s, e); if (path) s.mode = 'stalk'; }
+        else if (it === 'revive') {
+          const d = this.soldiers[s.reviveId]; if (!d || !d.downed) continue;
+          if (Math.hypot(d.x - s.x, d.y - s.y) < 0.9) { s.act = { type: 'hold', t: 0, dur: s.role === 'medico' ? 1.6 : 3, face: Math.atan2(d.y - s.y, d.x - s.x), revive: d.id }; s.mode = 'revive'; this.setIntent(s, 'revive'); this.callout(s, 'revive'); return; }
+          const dest = this.floorIdxNear(d.x, d.y); path = this.bfs(tx, ty, (i) => i === dest); if (path) s.mode = 'flee';
+        }
         else if (it === 'flank') {
           if (s.pers === 'tactico' && s.gren && s.gren.smoke > 0 && now > (s.smokeFlankT || 0) && td > 5) {   // táctico: humo para tapar y después flanquea
             s.smokeFlankT = now + 15; const a = Math.atan2(e.y - s.y, e.x - s.x);
@@ -581,6 +596,24 @@
           path = this.bfs(tx, ty, (i) => i === dest);
           if (path) s.mode = 'obj';
         }
+      }
+    }
+    // 3-s) escuadra: levantar a un compañero, curarlo, órdenes, entrar juntos, cubrir/avanzar, fuego cruzado
+    if (!path && !s.target && s.team >= 0 && this.squads && !s.manual) {
+      const sg = this.squadGoal(s);
+      if (sg) {
+        const gd = Math.hypot(sg.x - s.x, sg.y - s.y);
+        if (gd <= sg.r && sg.hold) {
+          const w2 = this.weaponOf(s);
+          if (sg.suppress && w2 && WEAPONS[w2.type].auto && w2.mag > magOf(w2) * 0.35 && s.burstCd <= 0) {
+            s.burstCd = 3 + rnd() * 2; s.act = { type: 'burst', t: 0, shots: 3 + rint(4), next: 0.05, face: sg.face, sup: true }; s.mode = 'suppress'; this.setIntent(s, 'suppress'); return;
+          }
+          s.act = { type: 'hold', t: 0, dur: sg.revive != null ? (s.role === 'medico' ? 1.6 : 3) : sg.healMate != null ? 2 : 1 + rnd() * 1.2, face: sg.face != null ? sg.face : s.angle, revive: sg.revive, healMate: sg.healMate };
+          s.mode = sg.revive != null ? 'revive' : sg.healMate != null ? 'heal' : 'hold'; s.path = [];
+          if (sg.revive != null) this.callout(s, 'revive');
+          return;
+        }
+        if (gd > sg.r) { const dest = this.floorIdxNear(sg.x, sg.y); const p2 = this.bfs(tx, ty, (i) => i === dest); if (p2) { path = p2; s.mode = 'squad'; } }
       }
     }
     // 3a) recuperarse después de huir: se queda escondido (o busca vida)
@@ -805,7 +838,7 @@
       }
       return r;
     }
-    if (act && s.target && (act.type === 'peek' || act.type === 'hold')) { s.act = act = null; }
+    if (act && s.target && (act.type === 'peek' || (act.type === 'hold' && act.revive == null && act.healMate == null))) { s.act = act = null; }
     if (act && (act.type === 'open' || act.type === 'close') && s.target && s.td < 3) { s.act = act = null; }
 
     if (s.cover) { this.steerCover(s, dt, r); if (s.cover) return r; }
@@ -823,8 +856,8 @@
         }
         if (act.t >= act.dur) s.act = null;
       } else if (act.type === 'hold') {
-        r.desired = act.face; r.sneak = true; r.scanning = true;
-        if (act.t >= act.dur) s.act = null;
+        r.desired = act.face; r.sneak = true; r.scanning = !act.revive && act.healMate == null;
+        if (act.t >= act.dur) { s.act = null; if (act.revive != null) this.finishRevive(s, act.revive); if (act.healMate != null) this.finishHealMate(s, act.healMate); }
       } else if (act.type === 'burst') {
         r.desired = act.face;
         if (Math.abs(angDiff(s.angle, r.desired)) < 0.12 && s.cd <= 0) {
@@ -897,11 +930,13 @@
     if (s.icon) { s.icon.t -= dt; if (s.icon.t <= 0) s.icon = null; }
     if (!s.alive) return;
     if (this.phase !== 'run') { s.gait *= 0.85; return; }
+    if (s.downed && this.updateDowned(s, dt)) return;                     // derribado: se arrastra y espera ayuda
     s.cd -= dt; s.burstCd -= dt; s.talkCd -= dt; s.radioCd -= dt; s.hurtT += dt; s.dodgeCd -= dt; s.dodgeT -= dt;
     s.freezeT -= dt; s.reactT -= dt; s.rushT = Math.max(0, s.rushT - dt); s.unstickT = Math.max(0, s.unstickT - dt);
     s.shieldT = Math.max(0, s.shieldT - dt); if (s.shieldT <= 0) s.shieldHp = 0;
     s.speedT = Math.max(0, s.speedT - dt); s.stunT = Math.max(0, s.stunT - dt);
     s.supp = Math.max(0, (s.supp || 0) - dt * 0.45); this.aimSettle(s, dt);
+    if (s.role === 'explorador' || s.role === 'ingeniero') this.roleTick(s, dt);
     if (!s.target) s.aimAng = null;
     const P = s.P, iq = IQ[s.iq], m = s.mood, st = s.stats;
 
@@ -973,7 +1008,7 @@
     // ----- movimiento -----
     let dm = 0;
     if (vx || vy) {
-      const sp = P.speed * this.defOf(s).move * (1 + m.fury * 0.15) * (s.speedT > 0 ? 1.6 : 1) * speedMul * dt;
+      const sp = P.speed * this.defOf(s).move * (s.role === 'explorador' ? 1.12 : s.role === 'tanque' ? 0.93 : 1) * (1 + m.fury * 0.15) * (s.speedT > 0 ? 1.6 : 1) * speedMul * dt;
       const ox = s.x, oy = s.y;
       const moved = this.tryMove(s, vx * sp, vy * sp);
       dm = Math.hypot(s.x - ox, s.y - oy); st.dist += dm;

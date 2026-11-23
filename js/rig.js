@@ -273,6 +273,11 @@
 
   /* ================= el soldado ================= */
   function drawSoldier(x, s, ts, time) {
+    if (s.downed) {                                                              // derribado: tirado en el piso, se arrastra
+      Art._drawCorpseOld(x, { x: s.x, y: s.y, color: s.color, ap: s.ap, ang: s.moveAng + Math.sin(time * 3) * 0.08 }, ts);
+      if (s.team >= 0) { x.strokeStyle = s.teamColor; x.lineWidth = 2; x.beginPath(); x.arc(s.x * ts, s.y * ts, ts * 0.55, 0, TAU); x.stroke(); }
+      return;
+    }
     const A = s.anim || DEF, ap = s.ap, u = ts * 0.4 * ap.build, g = s.gait || 0, wt = s.wtype || 'pistol';
     const cr = A.crouch, vault = A.vault > 0 ? Math.sin(A.vault * PI) : 0;
     x.save(); x.translate(s.x * ts, s.y * ts);

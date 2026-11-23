@@ -90,6 +90,11 @@
     if (s.pushId === e.id && now < s.pushT) att += 0.4;
     if (P.rage > 0.9) att += 0.45;                                           // berserker: siempre al frente
     U.attack = att;
+    // levantar a un compañero derribado cerca, si el rival no está encima
+    if (s.team >= 0 && this.cfg.downed) {
+      const d = this.soldiers.find((m) => m.alive && m.downed && m.team === s.team && Math.hypot(m.x - s.x, m.y - s.y) < 7);
+      if (d && td > 5) { U.revive = 0.75 + (s.role === 'medico' ? 0.35 : 0) - supp * 0.4 + (e.reloadT > 0 ? 0.2 : 0); s.reviveId = d.id; }
+    }
     return U;
   };
   const magOf = (w) => Math.round(WEAPONS[w.type].mag * (w.ext ? 1.5 : 1));

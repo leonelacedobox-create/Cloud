@@ -22,6 +22,7 @@
     this.floorT = m.floorT || new Uint8Array(N);
     this.dark = m.dark || new Uint8Array(N);
     this.labels = m.labels || [];
+    this.mapSites = m.sites || null;
     for (const w of m.windows || []) {                                    // ventana: se ve y se dispara a través, pero no se pasa
       const i = w.y * W + w.x;
       if (this.wl[i]) { this.wl[i] = 0; this.pr[i] = 3; this.glass[i] = 1; }
@@ -177,6 +178,7 @@
     return p;
   };
   G.throwGrenade = function (s, type, ang, speed) {
+    if (type === 'frag' && this.callout) this.callout(s, 'nade');
     if (!s.gren || s.gren[type] <= 0) return false;
     s.gren[type]--;
     const sx = s.x + Math.cos(ang) * 0.5, sy = s.y + Math.sin(ang) * 0.5;

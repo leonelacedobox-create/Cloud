@@ -759,10 +759,11 @@
     }
 
     /* ---------- percepción ---------- */
-    sightOf(s) { const d = this.defOf(s), w = this.weaponOf(s); return (s.P.sight + (d.scope || 0) + (w && w.scope ? 4 : 0)) * (this.fogMul || 1); }
+    sightOf(s) { const d = this.defOf(s), w = this.weaponOf(s); return (s.P.sight + (d.scope || 0) + (w && w.scope ? 4 : 0) + (s.role === 'explorador' ? 2 : 0)) * (this.fogMul || 1); }
     damage(s, by, dmg, zone) {
       if (!s.alive || (this.phase === 'ending' && !zone)) return;
       if (!zone && s.spawnT > 0) return;                       // protección al reaparecer
+      if (!zone && s.downed && this.time < s.downed.imm) return;  // recién caído: las balas que ya venían no lo rematan
       if (!zone && s.shieldHp > 0) {
         const ab = Math.min(s.shieldHp, dmg); s.shieldHp -= ab; dmg -= ab;
         this.spark(s.x, s.y, '#38bdf8', 4);
@@ -774,6 +775,7 @@
         s.armor.vest = Math.max(0, s.armor.vest - ab * vs * 1.2); s.armor.helm = Math.max(0, s.armor.helm - ab * (1 - vs) * 1.2);
         s.stats.absorbed = (s.stats.absorbed || 0) + ab; dmg -= ab;
       }   // la furia y el aguante propio reducen el daño
+      if (!zone && s.role === 'tanque') dmg *= 0.82;                           // el tanque aguanta más
       const dealt = Math.min(dmg, s.hp);
       s.hp -= dmg; s.flash = 0.18;
       this.spark(s.x, s.y, s.color, 5);
@@ -785,9 +787,11 @@
       }
       this.rigHit(s, by, dealt, zone);
       this.onDamaged(s, by, dealt, zone);
+      if (s.hp <= 0 && !s.downed && this.tryDown(s, by, zone)) return;          // queda derribado (en equipos)
       if (s.hp <= 0) this.kill(s, by, zone);
     }
     kill(s, by, zone) {
+      s.downed = null;
       s.alive = false; s.hp = 0; s.deathT = this.time; s.deathOrder = this.deaths++; s.bubble = null; s.act = null;
       let kx = Math.cos(s.angle + Math.PI), ky = Math.sin(s.angle + Math.PI);            // cae para atrás, empujado por el último golpe
       if (by && by !== s) { const d = Math.hypot(s.x - by.x, s.y - by.y) || 1; kx = (s.x - by.x) / d; ky = (s.y - by.y) / d; }
@@ -822,7 +826,7 @@
     step(dt) {
       this.time += dt;
       this.heat = (this.heat || 0) * Math.exp(-dt * 0.45);
-      this.stepTactics(dt);
+      this.stepTactics(dt); this.squadTick(dt); this.stepMines();
       if (this.cfg.zone) {
         const t = Math.min(1, Math.max(0, (this.time - this.zoneDelay) / this.zoneTime));
         const [cx, cy] = this.center, W = this.W, H = this.H;
@@ -858,6 +862,7 @@
           for (const s of this.soldiers) {
             if (!s.alive || s === b.owner || (b.owner.team >= 0 && s.team === b.owner.team && !this.cfg.friendly)) continue;
             const bd = Math.hypot(s.x - b.x, s.y - b.y);
+            if (s.downed && b.owner.target !== s) continue;                    // tirado en el piso: las balas perdidas le pasan por arriba
             if (bd < s.r + 0.1) { gone = true; b.owner.stats.hits++; this.damage(s, b.owner, b.dmg, false); break; }
             if (bd < 1.2 && !(b.ss && b.ss.has(s.id))) { (b.ss || (b.ss = new Set())).add(s.id); this.suppress(s, b); }   // pasó cerca: supresión
           }
@@ -893,6 +898,10 @@
     }
 
     defaultCheck() {
+      for (const t of new Set(this.soldiers.filter((s) => s.alive && s.team >= 0).map((s) => s.team))) {   // equipo con todos derribados: pierde
+        const al = this.soldiers.filter((s) => s.alive && s.team === t);
+        if (al.length && al.every((s) => s.downed)) al.forEach((s) => this.kill(s, s.downed && s.downed.by, false));
+      }
       const alive = this.soldiers.filter((s) => s.alive);
       const groups = new Set(alive.map((s) => (s.team < 0 ? 'p' + s.id : 't' + s.team)));
       return groups.size <= 1 ? { winners: alive } : null;
@@ -1113,6 +1122,7 @@
       x.globalAlpha = 1;
       this.drawSmoke(x, ts);
       for (const s of alive) if (inV(s.x, s.y, 3) && vis(s)) this.drawLabel(x, s);
+      this.drawSquadWorld(x, ts);
       this.drawModeOver(x, ts);
       x.restore();
       if (this.hasDarkness()) this.drawDarkness(x, left, top);
@@ -1202,7 +1212,7 @@
     }
 
     drawMini(x) {
-      const k = this.miniK, mw = this.mini.width, mh = this.mini.height, ox = this.cw - mw - 6, oy = this.padOn ? 70 : this.ch - mh - 6;
+      const k = this.miniK, mw = this.mini.width, mh = this.mini.height, ox = this.cw - mw - 6, oy = this.padOn ? (this.miniTop || 70) : this.ch - mh - 6;
       x.globalAlpha = 0.9; x.drawImage(this.mini, ox, oy); x.globalAlpha = 1;
       for (const s of this.soldiers) {
         if (!s.alive) continue;
@@ -1439,9 +1449,14 @@
     const tc = M.team === 'two' ? 2 : B.teamCount;
     const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: B.teamMode === 'teams' ? Math.min(p.team || 0, tc - 1) : i % tc, pers: p.pers || 'auto', iq: p.iq == null ? 1 : p.iq, id: p.id, role: p.role || 'none', manual: !!p.manual, hat: p.hat || 'none', photo: p.photo || null,
       phrases: String(p.phrases || '').split('\n').map((t) => t.trim()).filter(Boolean).slice(0, 8) }));
+    if (tm && B.autoRoles !== false) {                         // roles automáticos: cada equipo arranca con un poco de todo
+      const ROLE_SET = ['asalto', 'medico', 'tirador', 'tanque', 'explorador', 'ingeniero'];
+      const byTeam = {}; players.forEach((p) => { (byTeam[p.team] = byTeam[p.team] || []).push(p); });
+      Object.values(byTeam).forEach((list) => { const order = shuffle(ROLE_SET.slice()); let k = 0; list.forEach((p) => { if (p.role === 'none') p.role = order[k++ % order.length]; }); });
+    }
     const seed = ($('#seedInput').value || '').trim();
     return { mode: M.key, players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
-      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, debugAI: !!B.debugAI, voice: !!B.voice, narrator: B.narrator !== false, seed: seed || null,
+      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, debugAI: !!B.debugAI, downed: B.downed !== false, autoRoles: B.autoRoles !== false, voice: !!B.voice, narrator: B.narrator !== false, seed: seed || null,
       gear: B.gear !== false, props: B.props !== false, events: B.events !== false, customMap: B.customMap || Maps.SAMPLE };
   }
 
@@ -1506,7 +1521,7 @@
           game.followId = game.followId === s.id ? null : s.id; game.camMode = 'auto'; game.setScale(); paintCam();
         },
       }, s.photo ? el('img', { class: 'ava', src: s.photo, alt: '', style: `border-color:${s.color}` }) : el('span', { class: 'dot' + (s.team >= 0 && TEAMS[s.team].sym ? ' sym' : ''), style: `background:${s.team >= 0 && TEAMS[s.team].sym ? TEAMS[s.team].color : s.color}` }, s.team >= 0 && TEAMS[s.team].sym ? TEAMS[s.team].sym : ''),
-      el('span', { class: 'nm' }, (g.cfg.varied ? PERS[s.pers].emoji + ' ' : '') + s.name), hp, wp);
+      el('span', { class: 'nm' }, (s.role && s.role !== 'none' && App.Modes.ROLES[s.role] ? App.Modes.ROLES[s.role].emoji : '') + (g.cfg.varied ? PERS[s.pers].emoji + ' ' : '') + s.name), hp, wp);
       hud.append(chip);
       return { chip, hp, wp, last: '' };
     });
@@ -1575,8 +1590,10 @@
       const left = Math.ceil(g.zoneDelay - g.time), bits = [];
       if (g.eventText) bits.push(g.eventText);
       const mt = g.modeText(); if (mt) bits.push(mt);
+      const pt = g.planText(); if (pt) bits.push(pt);
       if (g.cfg.zone) bits.push(left > 0 ? `⚠️ Zona en ${left}s` : g.time < g.zoneDelay + g.zoneTime ? '🔴 Zona achicándose' : '🔴 Zona final');
       zoneInfo.textContent = bits.join('\n');
+      g.miniTop = (zoneInfo.offsetHeight || 0) + 14;
     } else zoneInfo.textContent = '';
   }
 
@@ -1741,6 +1758,8 @@
   function paintPad() {
     const mine = game && game.soldiers.some((q) => q.manual && q.alive) && game.phase !== 'done';
     pad.hidden = !mine;
+    const me = game && game.soldiers.find((q) => q.manual && q.alive);
+    $('#padOrders').hidden = !(me && me.team >= 0 && game.soldiers.some((q) => q.alive && q !== me && q.team === me.team));
     $('#btnManual').classList.toggle('primary', !!(game && game.soldiers.some((q) => q.manual)));
     if (!mine && game) { game.ctl.mx = game.ctl.my = 0; game.ctl.fire = false; knob.style.transform = ''; }
   }
@@ -1774,6 +1793,7 @@
   fireBtn.addEventListener('pointerdown', (e) => { capture(fireBtn, e); if (game) game.ctl.fire = true; fireBtn.classList.add('hold'); e.preventDefault(); });
   const fireEnd = () => { if (game) game.ctl.fire = false; fireBtn.classList.remove('hold'); };
   fireBtn.addEventListener('pointerup', fireEnd); fireBtn.addEventListener('pointercancel', fireEnd);
+  [['ordFollow', 'follow'], ['ordHold', 'hold'], ['ordAttack', 'attack'], ['ordRegroup', 'regroup']].forEach(([id, k]) => $('#' + id).addEventListener('click', () => { if (game) game.squadOrder(k); }));
   [['padReload', 'reload'], ['padSwap', 'swap'], ['padNade', 'nade'], ['padHeal', 'heal']].forEach(([id, k]) => $('#' + id).addEventListener('click', () => { if (game) game.manualAction(k); }));
   const keys = new Set();
   const MOVEK = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
@@ -1838,7 +1858,7 @@
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });
 
-  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true], ['optMusic', 'music', true], ['optVoice', 'voice', false], ['optNarrator', 'narrator', true], ['optDebugAI', 'debugAI', false]].forEach(([id, key, def]) => {
+  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true], ['optMusic', 'music', true], ['optVoice', 'voice', false], ['optNarrator', 'narrator', true], ['optDebugAI', 'debugAI', false], ['optAutoRoles', 'autoRoles', true], ['optDowned', 'downed', true]].forEach(([id, key, def]) => {
     const input = $('#' + id); input.checked = B[key] == null ? def : !!B[key];
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });

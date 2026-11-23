@@ -14,6 +14,7 @@ const Maps = (() => {
     { key: 'oficina', label: 'Oficina', desc: 'Escritorios, vidrios entre oficinas, alfombra (silenciosa), cocina y sala de reuniones.' },
     { key: 'carcel', label: 'Cárcel', desc: 'Celdas con barrotes, patio, torre de vigilancia y celdas de castigo oscuras.' },
     { key: 'deposito', label: 'Depósito', desc: 'Estantes largos formando pasillos, muelle de metal ruidoso, barriles y una oficina.' },
+    { key: 'complejo', label: 'Complejo', desc: 'Para equipos: edificios con varias entradas, calles con cobertura y dos sitios (A y B) para la bomba.' },
     { key: 'custom', label: '✏️ Propio', desc: 'Un mapa dibujado por vos con texto.' },
   ];
   const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -174,6 +175,34 @@ const Maps = (() => {
     return m;
   }
 
+  /* ================= COMPLEJO (0.9.4): pensado para equipos, con sitios A y B ================= */
+  function complex(W0, H0, T) {
+    const land = W0 > H0, W = land ? H0 : W0, H = land ? W0 : H0;
+    const m = blank(W, H);
+    carve(m, 1, 1, W - 2, H - 2, 3);                                          // calles de grava
+    const cols = 2, rows = 3, gx = 3, gy = 3;
+    const bw = Math.max(5, Math.floor((W - 2 - gx * (cols + 1)) / cols)), bh = Math.max(4, Math.floor((H - 2 - gy * (rows + 1)) / rows));
+    const sites = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const x0 = 1 + gx + c * (bw + gx), y0 = 1 + gy + r * (bh + gy), x1 = Math.min(W - 3, x0 + bw - 1), y1 = Math.min(H - 3, y0 + bh - 1);
+      if (x1 - x0 < 4 || y1 - y0 < 3) continue;
+      wall(m, x0, y0, x1, y0); wall(m, x0, y1, x1, y1); wall(m, x0, y0, x0, y1); wall(m, x1, y0, x1, y1);
+      carve(m, x0 + 1, y0 + 1, x1 - 1, y1 - 1, r === 1 ? 2 : 0);               // los del medio con piso de metal
+      const mx = (x0 + x1) >> 1, my = (y0 + y1) >> 1;
+      const sides = T.shuffle([[mx, y0, 'v'], [mx, y1, 'v'], [x0, my, 'h'], [x1, my, 'h']]).slice(0, r === 1 ? 3 : 2 + T.rint(2));   // 2 a 4 entradas
+      sides.forEach(([x, y, a]) => addDoor(m, x, y, a));
+      for (let x = x0 + 2; x < x1 - 1; x += 3) if (x !== mx && T.rnd() < 0.5) addWindow(m, x, T.rnd() < 0.5 ? y0 : y1);
+      crate(m, x0 + 1, y0 + 1); crate(m, x1 - 1, y1 - 1);
+      if (r === 1) { sites.push([mx + 0.5, my + 0.5]); m.labels.push({ x: mx + 0.5, y: y0 + 1.2, text: c === 0 ? 'Sitio A' : 'Sitio B' }); crate(m, mx - 1, my); crate(m, mx + 1, my); }
+      else m.labels.push({ x: mx + 0.5, y: my + 0.5, text: ['Taller', 'Garaje', 'Almacén', 'Oficinas'][(r * 2 + c) % 4] });
+    }
+    scatter(m, T, Math.round(W * H / 90), Math.round(W * H / 400), 6);         // cobertura en las calles
+    m.center = [W >> 1, H >> 1];
+    m.sites = sites;
+    if (!land) return m;
+    const o = transpose(m); o.sites = sites.map(([x, y]) => [y, x]); return o;
+  }
+
   /* ================= OFICINA (se genera en vertical y se gira si hace falta) ================= */
   function office(W0, H0, T) {
     const land = W0 > H0, W = land ? H0 : W0, H = land ? W0 : H0;
@@ -279,6 +308,7 @@ const Maps = (() => {
     if (type === 'base') m = base(W, H, T);
     else if (type === 'oficina') m = office(W, H, T);
     else if (type === 'carcel') m = prison(W, H, T);
+    else if (type === 'complejo') m = complex(W, H, T);
     else m = warehouse(W, H, T);
     // Contorno exterior siempre pared
     for (let x = 0; x < m.W; x++) { m.g[at(m, x, 0)] = 1; m.g[at(m, x, m.H - 1)] = 1; }

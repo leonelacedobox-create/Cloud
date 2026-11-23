@@ -94,9 +94,11 @@
   const ROLES = {
     none: { label: 'Sin rol', emoji: '⚪', desc: 'Empieza solo con pistola y cuchillo.' },
     asalto: { label: 'Asalto', emoji: '💣', desc: 'Arranca con una granada y una aturdidora.' },
-    medico: { label: 'Médico', emoji: '🩹', desc: 'Arranca con 3 botiquines.' },
+    medico: { label: 'Médico', emoji: '🩹', desc: 'Arranca con 3 botiquines, cura a sus compañeros y los levanta más rápido.' },
     tirador: { label: 'Tirador', emoji: '🎯', desc: 'Arranca con un rifle con mira.' },
-    tanque: { label: 'Tanque', emoji: '🛡️', desc: 'Arranca con chaleco y casco completos.' },
+    tanque: { label: 'Tanque', emoji: '🛡️', desc: 'Chaleco y casco completos; aguanta más daño pero es un poco más lento.' },
+    explorador: { label: 'Explorador', emoji: '🔭', desc: 'Más rápido y ve más lejos; marca a los enemigos para todo su equipo.' },
+    ingeniero: { label: 'Ingeniero', emoji: '🔧', desc: 'Lleva 2 minas y las pone en pasillos y puertas.' },
   };
   G.applyRole = function (s) {
     const r = s.role;
@@ -104,6 +106,7 @@
     else if (r === 'medico') { s.meds = ['med', 'med', 'small']; }
     else if (r === 'tirador') { s.inv.primary = { type: 'rifle', mag: WEAPONS.rifle.mag, res: 30, scope: true }; s.cur = 'primary'; s.wtype = 'rifle'; }
     else if (r === 'tanque') { s.armor = { vest: 100, helm: 60 }; }
+    else if (r === 'ingeniero') { s.mines = 2; }
     if (this.M && this.M.loadout) this.M.loadout(this, s);
   };
 
@@ -316,7 +319,13 @@
       for (const o of groupsOf(g)) if (sc(o) >= g.mst.target) return endWith(g, o.key, null, `${sc(o)} segundos en la colina`);
       return g.time >= g.mst.limit ? leaderEnd(g, sc, 'puntos') : null;
     },
-    goal(g, s) { const h = g.mst.hill; return { x: h.x, y: h.y, r: h.r * 0.75, hold: true }; },
+    goal(g, s) {
+      const h = g.mst.hill;
+      if (s.team < 0) return { x: h.x, y: h.y, r: h.r * 0.75, hold: true };
+      const mates = players(g).filter((q) => q.alive && q.team === s.team), i = mates.indexOf(s), n = Math.max(1, mates.length);   // en equipo se reparten: cada uno mira hacia afuera por un lado distinto
+      const a = (i / n) * Math.PI * 2 + s.team, px = h.x + Math.cos(a) * h.r * 0.55, py = h.y + Math.sin(a) * h.r * 0.55;
+      return { x: px, y: py, r: 0.9, hold: true, face: a };
+    },
     text(g) { const m = g.mst; return `👑 Meta ${m.target} · ${m.contested ? '⚔️ en disputa' : m.holder ? '🔒 la tiene ' + tag(groupOf(g, m.holder) || {}) : 'libre'} · ${clock(g)}\n${scoreLine(g, hillScore(g))}`; },
     scores(g) { return scoreRows(g, hillScore(g), 'pts'); },
     rank: (s) => s.score + s.kills * 3,
@@ -333,22 +342,30 @@
 
   /* ----- bomba ----- */
   add({ key: 'bomb', emoji: '💣', label: 'Bomba', team: 'two', respawn: 0, noOvertime: true,
-    desc: 'El equipo Rojo ataca: lleva la bomba al sitio marcado y la planta (4 s). El Azul defiende: si la bomba está plantada hay que desactivarla (6 s) antes de que explote (35 s). Sin reapariciones.',
+    desc: 'El equipo Rojo ataca: lleva la bomba a uno de los dos sitios (A o B) y la planta (4 s); los defensores se reparten y rotan cuando ven venir al de la bomba. El Azul defiende: si la bomba está plantada hay que desactivarla (6 s) antes de que explote (35 s). Sin reapariciones.',
     pre(cfg) { cfg.zone = false; },
     init(g) {
       const gs = groupsOf(g), att = gs.find((o) => o.team === 0), def = gs.find((o) => o.team === 1);
       g.mst.att = att; g.mst.def = def; g.mst.limit = 210;
       const ab = att ? att.members[0].base : g.center, db = def ? def.members[0].base : g.center;
-      let best = null, bs = 1e9;
-      for (let n = 0; n < 70; n++) {
-        const [x, y] = cellXY(g, g.floor[rint(g.floor.length)]);
-        const da = Math.hypot(x - ab[0], y - ab[1]), dd = Math.hypot(x - db[0], y - db[1]);
-        if (da < 9 || dd < 4) continue;
-        const sc = Math.abs(da / (da + dd) - 0.66) * 20 + rnd() * 2;      // más cerca de los defensores, pero a una caminata de los atacantes
-        if (sc < bs) { bs = sc; best = [x, y]; }
-      }
-      best = best || cellXY(g, g.floorIdxNear(g.center[0], g.center[1]));
-      g.mst.site = { x: best[0], y: best[1], r: 1.6 };
+      const pickSite = (avoid) => {
+        let best = null, bs = 1e9;
+        for (let n = 0; n < 90; n++) {
+          const [x, y] = cellXY(g, g.floor[rint(g.floor.length)]);
+          const da = Math.hypot(x - ab[0], y - ab[1]), dd = Math.hypot(x - db[0], y - db[1]);
+          if (da < 9 || dd < 4) continue;
+          if (avoid && Math.hypot(x - avoid[0], y - avoid[1]) < Math.hypot(g.W, g.H) * 0.33) continue;
+          const sc = Math.abs(da / (da + dd) - 0.66) * 20 + rnd() * 2;      // más cerca de los defensores, pero a una caminata de los atacantes
+          if (sc < bs) { bs = sc; best = [x, y]; }
+        }
+        return best;
+      };
+      let A, Bp;
+      if (g.mapSites && g.mapSites.length >= 2) { A = cellXY(g, g.floorIdxNear(g.mapSites[0][0], g.mapSites[0][1])); Bp = cellXY(g, g.floorIdxNear(g.mapSites[1][0], g.mapSites[1][1])); }
+      else { A = pickSite(null) || cellXY(g, g.floorIdxNear(g.center[0], g.center[1])); Bp = pickSite(A) || null; }
+      g.mst.sites = [{ x: A[0], y: A[1], r: 1.6, name: 'A' }].concat(Bp ? [{ x: Bp[0], y: Bp[1], r: 1.6, name: 'B' }] : []);
+      g.mst.site = g.mst.sites[Math.floor(rnd() * g.mst.sites.length)];            // el sitio al que van los atacantes (se sortea)
+      g.mst.alert = null; g.mst.alertT = 0;
       g.mst.bomb = { carrier: att ? att.members[Math.floor(rnd() * att.members.length)] : null, x: 0, y: 0, planted: false, plantT: 0, timer: 0, defT: 0, boom: false, defused: false, last: 0 };
       if (g.mst.bomb.carrier) g.mst.bomb.carrier.carry = g.mst.bomb;
     },
@@ -361,9 +378,18 @@
           for (const s of alivePl(g)) if (s.team === 0 && dist(s, b) < 0.9) { b.carrier = s; s.carry = b; pop(g, s.x, s.y, '💣', '#fff'); say(g, `💣 ${s.name} recogió la bomba`); sfx.pickup(); break; }
         } else {
           b.x = b.carrier.x; b.y = b.carrier.y;
-          if (Math.hypot(b.carrier.x - site.x, b.carrier.y - site.y) < site.r) {
+          const at = m.sites.find((q) => Math.hypot(b.carrier.x - q.x, b.carrier.y - q.y) < q.r);   // planta en el sitio donde esté
+          if (at && at !== m.site) m.site = at;
+          // ¿algún defensor sabe dónde anda el de la bomba? entonces rotan hacia ese sitio
+          m.alertT -= dt;
+          if (m.alertT <= 0) {
+            m.alertT = 1;
+            const c = b.carrier, seen = alivePl(g).some((q) => q.team === 1 && q.know[c.id] && g.time - q.know[c.id].t < 3);
+            if (seen) { const near = m.sites.slice().sort((p, q) => Math.hypot(p.x - c.x, p.y - c.y) - Math.hypot(q.x - c.x, q.y - c.y))[0]; if (Math.hypot(near.x - c.x, near.y - c.y) < 12 && m.alert !== near) { m.alert = near; say(g, `📢 ¡Van al sitio ${near.name}! Los defensores rotan`); } }
+          }
+          if (at) {
             b.plantT += dt;
-            if (b.plantT >= 4) { b.planted = true; b.timer = 35; b.x = site.x; b.y = site.y; b.carrier.carry = null; b.carrier.score++; pop(g, site.x, site.y, '💣 ¡PLANTADA!', '#f87171'); say(g, '💣 ¡Bomba plantada! 35 segundos', true); sfx.alarm(); b.carrier = null; }
+            if (b.plantT >= 4) { b.planted = true; b.timer = 35; b.x = m.site.x; b.y = m.site.y; b.carrier.carry = null; b.carrier.score++; pop(g, m.site.x, m.site.y, '💣 ¡PLANTADA!', '#f87171'); say(g, `💣 ¡Bomba plantada en el sitio ${m.site.name}! 35 segundos`, true); sfx.alarm(); b.carrier = null; }
           } else b.plantT = Math.max(0, b.plantT - dt * 2);
         }
       } else {
@@ -400,26 +426,38 @@
           const dfs = alivePl(g).filter((q) => q.team === 1).sort((p, q) => Math.hypot(p.x - site.x, p.y - site.y) - Math.hypot(q.x - site.x, q.y - site.y));
           return dfs.indexOf(s) < 2 ? { x: site.x, y: site.y, r: 0.9, hold: true } : { x: site.x, y: site.y, r: 4, hold: true };
         }
-        const mates = players(g).filter((q) => q.team === 1), i = mates.indexOf(s);
-        if (i % 3 === 2) return null;                                                      // uno de cada tres patrulla
-        return { x: site.x, y: site.y, r: 5 + (i % 2) * 2, hold: true };
+        const mates = players(g).filter((q) => q.team === 1 && q.alive), i = mates.indexOf(s);
+        if (m.alert && i !== mates.length - 1) return { x: m.alert.x, y: m.alert.y, r: 4.5, hold: true };   // rotación: todos menos uno van al sitio amenazado
+        const mySite = m.sites[i % m.sites.length];                                       // se reparten entre los sitios
+        if (i >= m.sites.length * 2 && i % 3 === 2) return null;                           // alguno patrulla
+        return { x: mySite.x, y: mySite.y, r: 4.5 + (i % 2) * 1.5, hold: true };
       }
       return null;
     },
     text(g) {
       const b = g.mst.bomb;
       if (b.planted && !b.defused && !b.boom) return `💣 EXPLOTA EN ${Math.max(0, Math.ceil(b.timer))}s${b.defT > 0 ? ' · ✂️ desactivando ' + Math.round(b.defT / 6 * 100) + '%' : ''}`;
-      return `💣 ${b.carrier ? 'La lleva ' + b.carrier.name : 'bomba en el piso'}${b.plantT > 0 ? ' · plantando ' + Math.round(b.plantT / 4 * 100) + '%' : ''} · ${clock(g)}`;
+      return `💣 ${b.carrier ? 'La lleva ' + b.carrier.name + ' → ' + g.mst.site.name : 'bomba en el piso'}${b.plantT > 0 ? ' · plantando ' + Math.round(b.plantT / 4 * 100) + '%' : ''} · ${clock(g)}`;
     },
     scores() { return null; },
     tension: (g) => (g.mst.bomb.planted && !g.mst.bomb.defused ? 0.35 + (g.mst.bomb.timer < 10 ? 0.3 : 0) : g.mst.bomb.plantT > 0 ? 0.2 : 0),
     drawUnder(g, x, ts) {
-      const m = g.mst, s = m.site, b = m.bomb, pulse = 1 + Math.sin(g.time * 5) * 0.05;
-      const col = b.planted ? '#ef4444' : '#fbbf24';
+      const m = g.mst, b = m.bomb, pulse = 1 + Math.sin(g.time * 5) * 0.05;
+      for (const o of m.sites) if (o !== m.site || !b.planted) {                       // los otros sitios, más tenues
+        if (b.planted) continue;
+        x.strokeStyle = '#fbbf24'; x.globalAlpha = 0.55; x.lineWidth = Math.max(2, ts * 0.07); x.setLineDash([ts * 0.3, ts * 0.2]);
+        x.beginPath(); x.arc(o.x * ts, o.y * ts, o.r * ts, 0, 6.283); x.stroke(); x.setLineDash([]); x.globalAlpha = 1;
+        x.font = `900 ${ts * 0.8}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#fbbf24'; x.fillText(o.name, o.x * ts, o.y * ts);
+      }
+      const s = m.site;
+      if (!b.planted) { if (b.plantT > 0) { x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(s.x * ts - ts, s.y * ts + ts * 0.5, ts * 2, 5); x.fillStyle = '#fbbf24'; x.fillRect(s.x * ts - ts, s.y * ts + ts * 0.5, ts * 2 * (b.plantT / 4), 5); }
+        if (!b.carrier) { x.fillStyle = '#111'; x.fillRect(b.x * ts - ts * 0.25, b.y * ts - ts * 0.16, ts * 0.5, ts * 0.32); x.strokeStyle = '#fbbf24'; x.lineWidth = 2; x.strokeRect(b.x * ts - ts * 0.25, b.y * ts - ts * 0.16, ts * 0.5, ts * 0.32); }
+        return; }
+      const col = '#ef4444';
       x.fillStyle = col; x.globalAlpha = 0.14 + (b.planted ? 0.1 * Math.abs(Math.sin(g.time * 6)) : 0); x.beginPath(); x.arc(s.x * ts, s.y * ts, s.r * ts * pulse, 0, 6.283); x.fill();
       x.globalAlpha = 0.9; x.strokeStyle = col; x.lineWidth = Math.max(2, ts * 0.09); x.setLineDash([ts * 0.3, ts * 0.2]); x.lineDashOffset = g.time * ts * 0.4;
       x.beginPath(); x.arc(s.x * ts, s.y * ts, s.r * ts * pulse, 0, 6.283); x.stroke(); x.setLineDash([]); x.globalAlpha = 1;
-      x.font = `900 ${ts * 0.8}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = col; x.fillText('A', s.x * ts, s.y * ts + (b.planted ? ts * 0.9 : 0));
+      x.font = `900 ${ts * 0.8}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = col; x.fillText(s.name, s.x * ts, s.y * ts + ts * 0.9);
       if (b.planted && !b.defused && !b.boom) {
         x.fillStyle = '#111'; x.fillRect(s.x * ts - ts * 0.35, s.y * ts - ts * 0.22, ts * 0.7, ts * 0.44); x.strokeStyle = '#ef4444'; x.lineWidth = 2; x.strokeRect(s.x * ts - ts * 0.35, s.y * ts - ts * 0.22, ts * 0.7, ts * 0.44);
         x.fillStyle = Math.floor(g.time * 4) % 2 ? '#ef4444' : '#7f1d1d'; x.beginPath(); x.arc(s.x * ts, s.y * ts, ts * 0.09, 0, 6.283); x.fill();
