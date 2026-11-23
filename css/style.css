@@ -262,6 +262,11 @@ body.in-game { overflow: hidden; }
 .replay-cap { background: rgba(0,0,0,.72); color: #fff; font-weight: 700; font-size: 13px; padding: 6px 10px; border-radius: 10px; text-align: center; }
 .replay-btns { display: flex; gap: 6px; justify-content: center; }
 .replay-bar[hidden] { display: none; }
+.ava { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; border: 2px solid #888; flex: none; }
+.ava.big { width: 44px; height: 44px; }
+.ava.empty { display: inline-flex; align-items: center; justify-content: center; background: var(--card2, rgba(255,255,255,.08)); border: 2px dashed var(--line); font-size: 20px; }
+.photo-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.podium .ava.big { width: 40px; height: 40px; }
 .controls { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .overlay { position: absolute; inset: 0; background: rgba(5,8,16,.78); display: flex; align-items: flex-start; justify-content: center; padding: 14px; overflow: auto; }
 .overlay-box { width: 100%; max-width: 420px; text-align: center; display: grid; gap: 10px; margin: auto; }

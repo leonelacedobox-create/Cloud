@@ -75,6 +75,39 @@ const Art = (() => {
       x.fillStyle = '#0b0d12'; x.fillRect(R * 0.55, -R * 0.5, R * 0.22, R); // lentes oscuros
     }
     if (ap.beard) { x.fillStyle = ap.hair; ell(x, R * 0.7, 0, R * 0.3, R * 0.5); x.fill(); }
+    if (ap.hat && ap.hat !== 'none') hat(x, ap.hat, R);
+  }
+
+  /** Gorros divertidos (0.7), vistos desde arriba. */
+  function hat(x, kind, R) {
+    x.save(); x.lineJoin = 'round';
+    if (kind === 'cowboy') {
+      x.fillStyle = '#8a5a2b'; ell(x, 0, 0, R * 1.55, R * 1.35); x.fill(); x.strokeStyle = '#4a2f12'; x.lineWidth = R * 0.1; x.stroke();
+      x.fillStyle = '#a8703c'; x.beginPath(); x.arc(0, 0, R * 0.72, 0, 6.2832); x.fill(); x.strokeStyle = '#3a2410'; x.lineWidth = R * 0.18; x.beginPath(); x.arc(0, 0, R * 0.72, 0, 6.2832); x.stroke();
+      x.fillStyle = 'rgba(255,255,255,.18)'; ell(x, -R * 0.2, -R * 0.2, R * 0.3, R * 0.18, -0.6); x.fill();
+    } else if (kind === 'crown') {
+      x.fillStyle = '#f5c518'; x.strokeStyle = '#8a6a05'; x.lineWidth = R * 0.1;
+      x.beginPath(); for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5, r = i % 2 ? R * 0.78 : R * 1.12; x.lineTo(Math.cos(a) * r, Math.sin(a) * r); } x.closePath(); x.fill(); x.stroke();
+      x.fillStyle = '#e11d48'; for (let i = 0; i < 5; i++) { const a = i * Math.PI * 0.4; x.beginPath(); x.arc(Math.cos(a) * R * 0.95, Math.sin(a) * R * 0.95, R * 0.1, 0, 6.2832); x.fill(); }
+      x.fillStyle = '#fde68a'; x.beginPath(); x.arc(0, 0, R * 0.42, 0, 6.2832); x.fill();
+    } else if (kind === 'party') {
+      x.fillStyle = '#ec4899'; x.beginPath(); x.arc(0, 0, R * 0.9, 0, 6.2832); x.fill();
+      x.strokeStyle = '#facc15'; x.lineWidth = R * 0.16; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; x.beginPath(); x.moveTo(Math.cos(a) * R * 0.2, Math.sin(a) * R * 0.2); x.lineTo(Math.cos(a) * R * 0.85, Math.sin(a) * R * 0.85); x.stroke(); }
+      x.fillStyle = '#fff'; x.beginPath(); x.arc(0, 0, R * 0.22, 0, 6.2832); x.fill();
+    } else if (kind === 'tophat') {
+      x.fillStyle = '#111827'; x.beginPath(); x.arc(0, 0, R * 1.2, 0, 6.2832); x.fill();
+      x.fillStyle = '#1f2937'; x.beginPath(); x.arc(0, 0, R * 0.78, 0, 6.2832); x.fill();
+      x.strokeStyle = '#dc2626'; x.lineWidth = R * 0.14; x.beginPath(); x.arc(0, 0, R * 0.78, 0, 6.2832); x.stroke();
+      x.fillStyle = 'rgba(255,255,255,.18)'; x.beginPath(); x.arc(-R * 0.2, -R * 0.2, R * 0.25, 0, 6.2832); x.fill();
+    } else if (kind === 'beret') {
+      x.fillStyle = '#b91c1c'; ell(x, -R * 0.08, R * 0.1, R * 1.15, R * 1.0, 0.25); x.fill(); x.strokeStyle = '#7f1d1d'; x.lineWidth = R * 0.08; x.stroke();
+      x.fillStyle = '#7f1d1d'; x.beginPath(); x.arc(0, 0, R * 0.12, 0, 6.2832); x.fill();
+    } else if (kind === 'santa') {
+      x.fillStyle = '#dc2626'; x.beginPath(); x.arc(-R * 0.05, 0, R * 1.05, 0, 6.2832); x.fill();
+      x.strokeStyle = '#fff'; x.lineWidth = R * 0.3; x.beginPath(); x.arc(-R * 0.05, 0, R * 0.92, 0.9, 5.4); x.stroke();
+      x.fillStyle = '#fff'; x.beginPath(); x.arc(-R * 0.85, 0, R * 0.26, 0, 6.2832); x.fill();
+    }
+    x.restore();
   }
 
   /* ---------- armas (dibujadas apuntando a +x, el origen es la empuñadura) ---------- */

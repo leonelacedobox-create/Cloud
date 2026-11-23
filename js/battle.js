@@ -355,7 +355,7 @@
       const P = PERS[pers], pd = WEAPONS.pistol;
       const o = {
         id: i, name: p.name, color: p.color, iq: clamp(p.iq == null ? 1 : p.iq, 0, 3), team: p.team == null || p.team < 0 || !cfg.teamMode ? -1 : p.team, teamColor: cfg.teamMode && p.team >= 0 ? TEAMS[p.team].color : null,
-        ap: Object.assign({}, look), x: place[0], y: place[1], r: 0.3, angle: rnd() * 6.283, look: 0, moveAng: 0, headOff: 0, phase: rnd() * 6, gait: 0, recoil: 0, lastStep: 0,
+        ap: Object.assign({}, look, { hat: p.hat && p.hat !== 'none' ? p.hat : null }), x: place[0], y: place[1], r: 0.3, angle: rnd() * 6.283, look: 0, moveAng: 0, headOff: 0, phase: rnd() * 6, gait: 0, recoil: 0, lastStep: 0,
         hp: (p.lives || cfg.lives) * HPL, maxHp: (p.lives || cfg.lives) * HPL, alive: true, deathT: 0, kills: 0,
         pers, P, sk: { peek: jitter(P.base.peek), door: jitter(P.base.door), blind: jitter(P.base.blind), listen: 0.75 + jitter(P.base.listen) * 0.5, ambush: jitter(P.base.ambush) },
         // inventario: pistola y cuchillo de fábrica + un espacio para una tercera arma
@@ -366,9 +366,10 @@
         zoneT: 0, stuckT: 0, lx: 0, ly: 0, target: null, td: 0, lastShot: -99, lastNoise: -99,
         know: {}, explored: new Float32Array(N).fill(-60), act: null, closeIdx: null, peekFor: -1, huntStamp: -1,
         talkCd: 2 + rnd() * 4, burstCd: 3 + rnd() * 4, radioCd: 0, alertT: -99, bubble: null, icon: null, sneak: false,
-        role: p.role || 'none', manual: !!p.manual, bot: !!p.bot, hat: p.hat || 'none', photo: p.photo || null, phrases: p.phrases || null, pid: p.id, base: place.slice(), spawnT: 0, respawnAt: 0, deaths: 0, score: 0,
+        role: p.role || 'none', manual: !!p.manual, bot: !!p.bot, hat: p.hat || 'none', photo: p.photo || null, phrases: p.phrases && p.phrases.length ? p.phrases : null, pid: p.id, base: place.slice(), spawnT: 0, respawnAt: 0, deaths: 0, score: 0,
       };
       this.initBrain(o);
+      if (o.photo) { const im = new Image(); im.src = o.photo; o.photoImg = im; }
       o.lx = o.x; o.ly = o.y; o.look = o.angle; o.moveAng = o.angle;
       return o;
     }
@@ -659,6 +660,7 @@
 
     say(s, text, dur = 2.3) {
       if (this.cfg.talk === false || !text) return;
+      if (s.phrases && rnd() < 0.55) text = s.phrases[rint(s.phrases.length)].replace(/\{n\}/g, s.target ? s.target.name : 'cobarde');   // frases propias
       s.stats.talk++;
       s.bubble = { text, t: dur };
       this.emitSound(s.x, s.y, 11, 'shout', s);
@@ -1159,6 +1161,11 @@
       x.lineWidth = 3.2; x.strokeStyle = 'rgba(0,0,0,.85)'; x.lineJoin = 'round';
       const ny = top - (s.reloadT > 0 ? 10 : 5);
       x.strokeText(s.name, cx, ny); x.fillStyle = '#fff'; x.fillText(s.name, cx, ny);
+      if (s.photoImg && s.photoImg.complete && s.photoImg.naturalWidth) {                 // foto del compañero, redonda, al lado del nombre
+        const tw = x.measureText(s.name).width, r = fs * 0.75, ax = cx - tw / 2 - r - 3, ay = ny - fs * 0.5;
+        x.save(); x.beginPath(); x.arc(ax, ay, r, 0, 6.283); x.clip(); x.drawImage(s.photoImg, ax - r, ay - r, r * 2, r * 2); x.restore();
+        x.strokeStyle = s.color; x.lineWidth = 2; x.beginPath(); x.arc(ax, ay, r, 0, 6.283); x.stroke();
+      }
       let y0 = ny - fs - 2;
       if (s.icon) {                                            // "?" oyó algo, "!" vio a alguien
         x.font = `900 ${fs + 3}px system-ui, sans-serif`;
@@ -1189,6 +1196,21 @@
   const zoneInfo = $('#zoneInfo');
   let chips = [];
   B.lives = Math.min(3, +B.lives || 3);                       // máximo 3 vidas
+
+  /** Recorta la foto al centro, la achica a 96×96 y la guarda como texto (queda en este celular). */
+  function readPhoto(file, cb) {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const im = new Image();
+      im.onload = () => {
+        const S = Math.min(im.width, im.height), c = document.createElement('canvas'); c.width = c.height = 96;
+        c.getContext('2d').drawImage(im, (im.width - S) / 2, (im.height - S) / 2, S, S, 0, 0, 96, 96);
+        cb(c.toDataURL('image/jpeg', 0.82));
+      };
+      im.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  }
 
   function renderRoster() {
     const box = $('#battleRoster');
@@ -1228,10 +1250,26 @@
           onclick: () => { p.iq = qi; save(); renderRoster(); },
         }, `${q.emoji} ${q.label}`)));
         paintDesc();
+        const hatSel = el('select', { 'aria-label': 'Gorro', onchange: (e) => { p.hat = e.target.value; save(); } },
+          Object.entries(App.HATS).map(([k, v]) => el('option', Object.assign({ value: k }, (p.hat || 'none') === k ? { selected: true } : {}), v)));
+        const file = el('input', { type: 'file', accept: 'image/*', hidden: true, onchange: (e) => {
+          const f = e.target.files && e.target.files[0]; if (!f) return;
+          if (!confirm('¿Esta persona está de acuerdo con que uses su foto? Se guarda solo en este celular y no se sube a ningún lado.')) { e.target.value = ''; return; }
+          readPhoto(f, (url) => { p.photo = url; save(); renderRoster(); });
+        } });
+        const photoRow = el('div', {}, el('div', { class: 'sel' }, 'Foto (opcional)'),
+          el('div', { class: 'photo-row' },
+            p.photo ? el('img', { class: 'ava big', src: p.photo, alt: '' }) : el('span', { class: 'ava big empty' }, '👤'),
+            el('button', { class: 'btn small', onclick: () => file.click() }, p.photo ? '📷 Cambiar' : '📷 Poner foto'),
+            p.photo ? el('button', { class: 'btn small ghost', onclick: () => { p.photo = null; save(); renderRoster(); } }, 'Quitar') : '', file),
+          el('p', { class: 'hint' }, 'Usá la foto solo si esa persona está de acuerdo. Queda guardada en este celular y se ve en las fichas, el podio y sobre el soldado.'));
+        const phrasesBox = el('label', { class: 'sel' }, 'Frases propias (una por línea; {n} = nombre del enemigo)',
+          el('textarea', { class: 'mono', rows: 3, maxlength: 300, placeholder: 'Ej: ¡Te voy a dejar sin café, {n}!', oninput: (e) => { p.phrases = e.target.value; save(); } }, p.phrases || ''));
         const roleSel = el('select', { 'aria-label': 'Rol', onchange: (e) => { p.role = e.target.value; save(); renderRoster(); } },
           Object.entries(App.Modes.ROLES).map(([k, v]) => el('option', Object.assign({ value: k }, (p.role || 'none') === k ? { selected: true } : {}), `${v.emoji} ${v.label}`)));
         wrapRow.append(el('div', { class: 'sdet' }, el('label', { class: 'sel' }, 'Personalidad', select), el('div', {}, el('div', { class: 'sel' }, 'Inteligencia'), seg),
           el('label', { class: 'sel' }, 'Rol', roleSel), el('p', { class: 'hint' }, App.Modes.ROLES[p.role || 'none'].desc),
+          el('label', { class: 'sel' }, 'Gorro', hatSel), photoRow, phrasesBox,
           el('label', { class: 'switch' }, el('input', Object.assign({ type: 'checkbox', onchange: (e) => { state.players.forEach((q) => { q.manual = false; }); p.manual = e.target.checked; save(); renderRoster(); } }, p.manual ? { checked: true } : {})), el('span', {}, '🎮 Lo manejo yo con el joystick (los demás siguen solos)')), desc));
       }
       box.append(wrapRow);
@@ -1270,7 +1308,8 @@
     const M = App.Modes.defs[B.mode] || App.Modes.defs.classic;
     const tm = B.teamMode === 'teams' || M.team === 'two' || M.team === 'coop';
     const tc = M.team === 'two' ? 2 : B.teamCount;
-    const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: B.teamMode === 'teams' ? Math.min(p.team || 0, tc - 1) : i % tc, pers: p.pers || 'auto', iq: p.iq == null ? 1 : p.iq, role: p.role || 'none', manual: !!p.manual }));
+    const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: B.teamMode === 'teams' ? Math.min(p.team || 0, tc - 1) : i % tc, pers: p.pers || 'auto', iq: p.iq == null ? 1 : p.iq, role: p.role || 'none', manual: !!p.manual, hat: p.hat || 'none', photo: p.photo || null,
+      phrases: String(p.phrases || '').split('\n').map((t) => t.trim()).filter(Boolean).slice(0, 8) }));
     const seed = ($('#seedInput').value || '').trim();
     return { mode: M.key, players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
       talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, seed: seed || null,
@@ -1333,7 +1372,7 @@
           }
           game.followId = game.followId === s.id ? null : s.id; game.camMode = 'auto'; game.setScale(); paintCam();
         },
-      }, el('span', { class: 'dot', style: `background:${s.color}` }),
+      }, s.photo ? el('img', { class: 'ava', src: s.photo, alt: '', style: `border-color:${s.color}` }) : el('span', { class: 'dot', style: `background:${s.color}` }),
       el('span', { class: 'nm' }, (g.cfg.varied ? PERS[s.pers].emoji + ' ' : '') + s.name), hp, wp);
       hud.append(chip);
       return { chip, hp, wp, last: '' };
@@ -1444,7 +1483,7 @@
     [rk[1], rk[0], rk[2]].forEach((s, k) => {
       if (!s) return;
       podium.append(el('div', { class: 'slot' },
-        el('div', { class: 'sdot', style: `background:${s.color}` }),
+        s.photo ? el('img', { class: 'ava big', src: s.photo, alt: '', style: `border-color:${s.color}` }) : el('div', { class: 'sdot', style: `background:${s.color}` }),
         el('div', { class: 'who' }, s.name),
         el('div', { class: 'block', style: `height:${[70, 100, 52][k]}px;background:${['#c0c7d6', '#f0c04a', '#cd8b4f'][k]}` }, [2, 1, 3][k])));
     });
@@ -1453,7 +1492,7 @@
     rk.forEach((s, i) => {
       const acc = s.stats.rounds ? Math.round((s.stats.hits / s.stats.rounds) * 100) : 0;
       list.append(el('div', {},
-        el('span', {}, `${i + 1}.`), el('span', { class: 'dot', style: `background:${s.color}` }),
+        el('span', {}, `${i + 1}.`), s.photo ? el('img', { class: 'ava', src: s.photo, alt: '', style: `border-color:${s.color}` }) : el('span', { class: 'dot', style: `background:${s.color}` }),
         el('span', {}, `${PERS[s.pers].emoji}${IQ[s.iq].emoji} ${s.name}`),
         el('span', { class: 'k' }, `${s.kills}💥 · ${Math.round(s.stats.dmgDealt)}❤ · ${acc}%${s.alive ? ' · ganó' : ''}`)));
     });

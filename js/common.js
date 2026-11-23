@@ -188,6 +188,7 @@ const App = (() => {
     if (screens[name] && screens[name].enter) screens[name].enter();
   }
 
-  return { state, save, $, $$, el, rnd, rint, shuffle, pname, esc, bindSeg, sfx, vibrate, go, register, newPlayer, ctx, setVol,
+  const HATS = { none: 'Sin gorro', cowboy: '🤠 Sombrero vaquero', crown: '👑 Corona', party: '🎉 Gorro de fiesta', tophat: '🎩 Galera', beret: '🎨 Boina', santa: '🎅 Gorro de Papá Noel' };
+  return { HATS, state, save, $, $$, el, rnd, rint, shuffle, pname, esc, bindSeg, sfx, vibrate, go, register, newPlayer, ctx, setVol,
     PALETTE, TEAMS, MAX_PLAYERS, get current() { return current; } };
 })();
