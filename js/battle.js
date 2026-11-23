@@ -334,7 +334,11 @@
         const teams = [...new Set(players.map((p) => p.team))];
         const anchors = [];
         teams.forEach((t) => anchors.push([t, pickFar(anchors.map((a) => a[1]), flo.length ? flo : [[1.5, 1.5]]) || flo[0]]));
-        if (anchors.length >= 2) { const first = pickFar(anchors.slice(1).map((q) => q[1]), flo); if (first) anchors[0][1] = first; }   // los dos primeros equipos quedan en puntas opuestas (así ninguno tiene ventaja de lugar)
+        if (anchors.length >= 2) {
+          const first = pickFar(anchors.slice(1).map((q) => q[1]), flo); if (first) anchors[0][1] = first;
+          if (anchors.length === 2) { const sec = pickFar([anchors[0][1]], flo); if (sec) anchors[1][1] = sec; }
+          const spots = seededShuffle(anchors.map((q) => q[1]), this.srnd); anchors.forEach((q, i) => { q[1] = spots[i]; });   // qué equipo arranca en cada punta se sortea
+        }   // los dos primeros equipos quedan en puntas opuestas (así ninguno tiene ventaja de lugar)
         players.forEach((p) => {
           const a = anchors.find((x) => x[0] === p.team)[1];
           const free = flo.filter((f) => !places.some((q) => Math.hypot(q[0] - f[0], q[1] - f[1]) < 1.6));
@@ -824,7 +828,9 @@
       for (const d of this.doors.values()) d.anim = Math.max(0, Math.min(1, d.anim + (d.open ? 1 : -1) * dt * 3.2));
       this.stepWorld(dt);
       this.teamTick(dt);
-      for (const s of this.soldiers) this.updateSoldier(s, dt);
+      const sl = this.soldiers;                                // el orden se alterna en cada paso: nadie reacciona siempre "después" que su rival
+      if ((this._ord = !this._ord)) for (let i = 0; i < sl.length; i++) this.updateSoldier(sl[i], dt);
+      else for (let i = sl.length - 1; i >= 0; i--) this.updateSoldier(sl[i], dt);
 
       // balas (atraviesan las puertas de madera, no las paredes). Las rápidas se avanzan en tramos cortos.
       for (let i = this.bullets.length - 1; i >= 0; i--) {

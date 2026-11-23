@@ -15,13 +15,13 @@ const Personas = (() => {
     },
     cauteloso: {
       emoji: '🛡️', label: 'Cauteloso', desc: 'Silencioso, se asoma y embosca.', speed: 2.8, sight: 12, loud: false, sneak: true, run: 1,
-      tough: 1.12, distMul: 1.3, accMul: 1.0, burst: [3, 3], bravery: 0.35, rage: 0.1, finisher: 0.4,
+      tough: 1.06, distMul: 1.3, accMul: 1.0, burst: [3, 3], bravery: 0.35, rage: 0.1, finisher: 0.4,
       wpref: { lmg: 0.8, sniper: 0.8 },
       base: { peek: 0.9, door: 0.75, blind: 0.35, listen: 1.05, ambush: 0.55, cover: 0.8, flee: 0.7, flank: 0.3, stalk: 0.25, scav: 0.3, coord: 0.6, nade: 0.4 },
     },
     francotirador: {
       emoji: '🎯', label: 'Francotirador', desc: 'Se instala en pasillos largos y dispara de lejos.', speed: 2.5, sight: 15, loud: false, sneak: true, run: 1,
-      distMul: 1.5, accMul: 0.7, burst: [3, 3], bravery: 0.5, rage: 0.1, finisher: 0.3,
+      distMul: 1.5, accMul: 0.76, burst: [3, 3], bravery: 0.5, rage: 0.1, finisher: 0.3,
       wpref: { sniper: 2.5, lmg: 0.4 },
       base: { peek: 0.75, door: 0.5, blind: 0.2, listen: 1.05, ambush: 0.9, cover: 0.6, flee: 0.55, flank: 0.1, stalk: 0, scav: 0.35, coord: 0.4, nade: 0.2 },
     },
@@ -44,7 +44,7 @@ const Personas = (() => {
       base: { peek: 0.6, door: 0.5, blind: 0.3, listen: 1.3, ambush: 0.8, cover: 0.6, flee: 0.6, flank: 0.4, stalk: 0.3, scav: 1, coord: 0.3, nade: 0.5 },
     },
     berserker: {
-      emoji: '😡', label: 'Berserker', desc: 'Cuanto menos vida, más furia. Nunca huye.', speed: 3.3, sight: 11, loud: true, sneak: false, run: 1.18, tough: 0.9,
+      emoji: '😡', label: 'Berserker', desc: 'Cuanto menos vida, más furia. Nunca huye.', speed: 3.3, sight: 11, loud: true, sneak: false, run: 1.18, tough: 0.85,
       distMul: 0.55, accMul: 1.3, burst: [12, 8], bravery: 1, rage: 1, finisher: 0.6,
       wpref: { shotgun: 1.5, ashotgun: 1.8, hmg: 1.2 },
       base: { peek: 0, door: 0.05, blind: 0.7, listen: 0.8, ambush: 0, cover: 0, flee: 0, flank: 0.1, stalk: 0, scav: 0, coord: 0.1, nade: 0.7 },
