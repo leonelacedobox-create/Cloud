@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.9.1 ✅ terminada.** Próximas: 0.9.2 → 0.9.3 → 0.9.4 → 0.9.5 → 0.9.6 → 0.9.7 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.9.2 ✅ terminada.** Próximas: 0.9.3 → 0.9.4 → 0.9.5 → 0.9.6 → 0.9.7 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -113,7 +113,9 @@ Antes de publicar, seis versiones grandes de mejoras: cuerpos y animaciones, int
 
 ---
 
-## 0.9.2 — "Cuerpos de verdad" (animaciones y física de los cuerpos)
+## 0.9.2 — "Cuerpos de verdad" (animaciones y física de los cuerpos) ✅
+
+> **Hecho.** Notas: el salto de cajones es solo para el soldado que manejás (la IA sigue rodeándolos; se suma en 0.9.3 con el mapa táctico). El "esquive" con cuchillo se ve como un tambaleo rápido. Para el dibujo no hizo falta descargar nada: los sonidos reales van en 0.9.6.
 1. **Esqueleto 2D por soldado:** cadera, torso que gira por separado de las piernas, hombros, codos y manos que se calculan solas (cinemática inversa) para agarrar cada arma con una o dos manos, cabeza que mira hacia donde escucha.
 2. **Caminar, correr, agacharse y caminar en sigilo** con ciclos distintos (pasos más largos al correr, cuerpo bajo y lento en sigilo), y frenadas y arranques con inercia.
 3. **Asomarse de verdad:** inclinación del cuerpo al asomarse por una esquina y al volver a cubrirse.

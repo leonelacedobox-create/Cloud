@@ -1,6 +1,6 @@
 /* Service worker: deja la app disponible sin conexión.
    Subí el número de versión cuando cambies archivos para que los celulares actualicen. */
-const VERSION = 'v7';
+const VERSION = 'v8';
 const CACHE = 'moneda-batalla-' + VERSION;
 const FILES = [
   './', 'index.html', 'css/style.css',

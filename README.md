@@ -88,6 +88,19 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **Límites:** 10 soldados en todos los modos y en mapas grandes; en partidas largas con reaparición los objetos viejos del piso desaparecen.
 - **Errores:** si algo falla aparece un aviso; tocándolo (o desde ❓ Ayuda → 🐞) se copia la información del celular para mandármela.
 
+### Novedades de la 0.9.2 — cuerpos de verdad
+- **Esqueleto animado** (`js/rig.js`): piernas con muslo, rodilla y bota que siguen hacia dónde camina, cadera, torso que gira aparte, hombros y **brazos que se acomodan solos** (cinemática inversa) para agarrar cada arma; cabeza que mira hacia donde escucha; pelo largo y mochila que se balancean al girar.
+- **Moverse:** caminar, correr (el arma baja y se cruza) y **sigilo agachado**; se agachan detrás de la cobertura y **se inclinan para asomarse** por la esquina.
+- **Recargas por arma:** cargador (sacar, buscar en el cinturón, meter y tirar de la corredera), escopeta **cartucho por cartucho**, **cerrojo** del sniper, revólver con **cargador rápido** y ballesta que se **tensa**. Al cambiar de arma la nueva sube desde la funda.
+- **Cuchillo:** estocada, corte en arco y **puñalada por la espalda**, con estela.
+- **Granadas** por arriba (lejos) o **rodando** (cerca), abrir puertas con la mano, **agacharse a juntar** cosas, **botiquín** con las dos manos.
+- **Reacciones:** sacudón según de dónde viene el tiro (más fuerte con escopeta o explosión), y **aturdido con estrellitas** tapándose la cara.
+- **Muertes con física (muñeco de trapo):** el cuerpo sale despedido según el arma y la dirección del último golpe, choca con paredes, brazos y piernas quedan sueltos, y las explosiones lo hacen volar.
+- **Detalles:** fogonazo distinto por arma (estrella en pistolas, tres puntas en automáticas, cono en escopetas, llamarada larga en el sniper, humito si tiene silenciador), **agujeros de bala** en paredes, puertas y cajones, polvo de pared y astillas, **manchas** donde pega el tiro y **pisadas rojas** si alguien pisa un charco.
+- **Saltar cajones** en modo manual: empujá el joystick contra un cajón con lugar libre del otro lado.
+- **Más liviano:** las armas y las cabezas se dibujan una vez y se copian.
+- **🎬 Pasarela de animaciones:** tocá 5 veces el número de versión en el menú (o entrá con `#pasarela`) para ver las 40 animaciones por separado y en cámara lenta.
+
 ### Banco de pruebas
 ```sh
 node tools/bench.js --runs 12    # simula cientos de partidas sin dibujar y genera un reporte
