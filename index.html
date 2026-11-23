@@ -56,7 +56,7 @@
       <p class="hint">Automática baja la calidad sola si el celular se pone lento. Ahorro: 30 cuadros por segundo, menos efectos y menos resolución.</p>
       <label class="switch"><input type="checkbox" id="uiFps"><span>Mostrar cuadros por segundo</span></label>
     </div>
-    <p class="hint center">Versión 0.9.4 · “Escuadras”</p>
+    <p class="hint center">Versión 0.9.5 · “Mundo vivo”</p>
     <p class="hint center" id="installHint">Tip: en el menú del navegador elegí “Agregar a pantalla de inicio” y queda como una app.</p>
   </section>
 
@@ -185,14 +185,20 @@
           <button data-v="carcel">Cárcel</button>
           <button data-v="deposito">Depósito</button>
           <button data-v="complejo">Complejo</button>
+          <button data-v="estacion">Estación</button>
+          <button data-v="super">Súper</button>
+          <button data-v="estacionamiento">Estaciona&shy;miento</button>
+          <button data-v="fabrica">Fábrica</button>
+          <button data-v="oficina_noche">Oficina de noche</button>
           <button data-v="custom">✏️ Propio</button>
         </div>
         <p class="hint" id="mapDesc"></p>
         <div id="customMapBox" hidden>
           <div class="label">Tu mapa (texto)</div>
           <textarea id="customMap" class="mono" rows="9" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"></textarea>
-          <p class="hint"><b>#</b> pared · <b>.</b> piso · <b>D</b> puerta · <b>C</b> cajón · <b>B</b> barril · <b>W</b> ventana · <b>c</b> alfombra · <b>m</b> metal · <b>g</b> grava · <b>o</b> oscuro</p>
+          <p class="hint"><b>#</b> pared · <b>.</b> piso · <b>D</b> puerta · <b>C</b> cajón · <b>B</b> barril · <b>W</b> ventana · <b>c</b> alfombra · <b>m</b> metal · <b>g</b> grava · <b>o</b> oscuro · <b>T</b> mesa · <b>L</b> lámpara · <b>&gt; &lt; v ^</b> cintas · <b>N</b> de noche</p>
           <div class="row-actions">
+            <button class="btn small primary" id="btnMapEditor">🖌️ Editor visual</button>
             <button class="btn small" id="btnMapSample">Cargar el ejemplo</button>
             <button class="btn small ghost" id="btnMapCheck">Revisar</button>
           </div>
@@ -202,6 +208,11 @@
         <div class="seg" id="segSize">
           <button data-v="s">Chico</button><button data-v="m">Medio</button><button data-v="l">Grande</button>
         </div>
+        <div class="label">Clima</div>
+        <div class="seg" id="segWeather">
+          <button data-v="none">☀️ Despejado</button><button data-v="rain">🌧️ Lluvia</button><button data-v="storm">⛈️ Tormenta</button><button data-v="fog">🌫️ Niebla</button><button data-v="auto">🎲 Al azar</button>
+        </div>
+        <label class="switch"><input type="checkbox" id="optNight"><span>🌙 De noche (solo se ve donde hay lámparas, linternas y fogonazos; las lámparas se rompen a los tiros)</span></label>
         <div class="label">Semilla del mapa (vacío = al azar)</div>
         <div class="seedrow">
           <input id="seedInput" type="text" inputmode="numeric" maxlength="8" placeholder="al azar" autocomplete="off" aria-label="Semilla del mapa">
@@ -273,7 +284,7 @@
           </div>
           <div class="pad-btns">
             <button id="padHeal" aria-label="Curarse">🩹</button><button id="padNade" aria-label="Granada">💣</button>
-            <button id="padSwap" aria-label="Cambiar de arma">🔁</button><button id="padReload" aria-label="Recargar">🔄</button>
+            <button id="padTool" aria-label="Usar herramienta">🧰</button><button id="padSwap" aria-label="Cambiar de arma">🔁</button><button id="padReload" aria-label="Recargar">🔄</button>
             <button id="padFire" class="fire" aria-label="Disparar">🔫</button>
           </div>
         </div>
@@ -318,6 +329,8 @@
 <script src="js/ai.js"></script>
 <script src="js/brain2.js"></script>
 <script src="js/squad.js"></script>
+<script src="js/world2.js"></script>
+<script src="js/editor.js"></script>
 <script src="js/help.js"></script>
 <script src="js/runway.js"></script>
 <script src="js/main.js"></script>

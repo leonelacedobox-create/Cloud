@@ -85,6 +85,9 @@
       } else if (d.kind === 'foot') {
         const a = Math.max(0, 0.55 * d.k * (1 - age / 40)); if (a <= 0) continue;
         x.save(); x.translate(px, py); x.rotate(d.ang); x.fillStyle = `rgba(120,12,20,${a})`; ell(x, 0, 0, ts * 0.11, ts * 0.06); x.fill(); x.restore();
+      } else if (d.kind === 'mud') {
+        const a = Math.max(0, 0.4 * (1 - age / 30)); if (a <= 0) continue;
+        x.save(); x.translate(px, py); x.rotate(d.ang); x.fillStyle = `rgba(92,64,38,${a})`; ell(x, 0, 0, ts * 0.1, ts * 0.055); x.fill(); x.restore();
       } else if (d.kind === 'splat') {
         const a = Math.max(0, 0.5 * (1 - age / 60)); if (a <= 0) continue;
         x.save(); x.translate(px, py); x.rotate(d.ang); x.fillStyle = `rgba(130,10,20,${a})`;

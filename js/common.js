@@ -40,7 +40,7 @@ const App = (() => {
   const STR = (v, max, d = '') => (typeof v === 'string' ? v.slice(0, max) : d);
   const COLOR = (v, d) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : d);
   const PERS_K = ['auto', 'agresivo', 'cauteloso', 'francotirador', 'asesino', 'tactico', 'oportunista', 'berserker', 'cobarde'];
-  const MAPS_K = ['maze', 'rooms', 'arena', 'base', 'oficina', 'carcel', 'deposito', 'complejo', 'custom'];
+  const MAPS_K = ['maze', 'rooms', 'arena', 'base', 'oficina', 'carcel', 'deposito', 'complejo', 'estacion', 'super', 'estacionamiento', 'fabrica', 'oficina_noche', 'custom'];
   const MODES_K = ['classic', 'tdm', 'ctf', 'koth', 'bomb', 'waves', 'loot', 'knives'];
   /** Revisa todo lo guardado (de cualquier versión vieja) y arregla lo que esté roto o falte. */
   function migrate(s, d) {
@@ -60,6 +60,7 @@ const App = (() => {
     b.winRange = ONE(b.winRange, ['week', 'all'], 'week');
     ['volMaster', 'volShots', 'volMusic'].forEach((k) => { if (b[k] != null) b[k] = NUM(+b[k], 0, 100, 100); });
     b.customLines = STR(b.customLines, 400); b.customMap = STR(b.customMap, 6000);
+    b.myMaps = Array.isArray(b.myMaps) ? b.myMaps.filter((q) => q && typeof q.text === 'string').slice(-6).map((q) => ({ name: STR(q.name, 30) || 'Mapa', text: STR(q.text, 6000) })) : [];
     b.wins = Array.isArray(b.wins) ? b.wins.filter((w) => w && typeof w.t === 'number' && Array.isArray(w.names)).map((w) => ({ t: w.t, names: w.names.filter((n) => typeof n === 'string').slice(0, 10) })).slice(-1000) : [];
     b.betLog = Array.isArray(b.betLog) ? b.betLog.filter((x) => x && typeof x.t === 'number' && typeof x.name === 'string').slice(-500) : [];
     out.battle = b;

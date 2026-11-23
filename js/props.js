@@ -9,7 +9,7 @@
   const { Game, WEAPONS, FOV, angDiff, clamp, doorClosed } = E;
   const G = Game.prototype;
 
-  const FLOOR_STEP = [1, 0.45, 1.7, 1.35];            // multiplicador del ruido de pasos: normal, alfombra, metal, grava
+  const FLOOR_STEP = [1, 0.45, 1.7, 1.35, 1.6, 2.1];   // + cinta transportadora y agua (0.9.5)            // multiplicador del ruido de pasos: normal, alfombra, metal, grava
   const FUSE = { frag: 2.4, smoke: 1.1, flash: 1.7 };
 
   /* ================= armado del mundo ================= */
@@ -361,6 +361,7 @@
       f.closePath(); f.fill();
       f.fillStyle = 'rgba(0,0,0,0.9)'; f.beginPath(); f.arc(cx, cy, 1.5 * ts, 0, 6.283); f.fill();      // halo alrededor de quien la lleva
     }
+    if (this.lightHoles) this.lightHoles(f, left, top);
     for (const sm of this.smokes) if (sm.type === 'flare') { const cx = (sm.x - left) * ts, cy = (sm.y - top) * ts; f.fillStyle = 'rgba(0,0,0,0.6)'; f.beginPath(); f.arc(cx, cy, 3 * ts, 0, 6.283); f.fill(); }
     f.globalCompositeOperation = 'source-over';
     x.drawImage(this.dk, 0, 0, cw, ch);

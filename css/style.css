@@ -406,3 +406,14 @@ textarea.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace
 .pad-orders button { width: 40px; height: 40px; border-radius: 12px; border: 2px solid rgba(255,255,255,.4); background: rgba(20,28,48,.75); color: #fff; font-size: 18px; padding: 0; }
 body.lefty .pad-orders { left: auto; right: 12px; }
 @media (orientation: landscape) and (max-height: 520px) { .pad-orders { bottom: 112px; } }
+
+/* ===== 0.9.5: editor visual de mapas ===== */
+.ed-box { max-width: 560px; background: var(--panel); color: var(--text); }
+.ed-modes, .ed-pal { display: flex; flex-wrap: wrap; gap: 4px; }
+.ed-modes button, .ed-pal button { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; color: var(--text); font: inherit; font-size: 13px; padding: 6px 8px; min-height: 36px; }
+.ed-pal button { font-size: 18px; min-width: 40px; padding: 4px; }
+.ed-modes button.on, .ed-pal button.on { border-color: var(--accent, #facc15); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #facc15) 45%, transparent); }
+.ed-wrap { overflow: auto; max-height: 58vh; border-radius: 10px; border: 1px solid var(--line); background: #0b0f1c; -webkit-overflow-scrolling: touch; }
+.ed-wrap canvas { display: block; touch-action: none; }
+#edName { margin: 0; min-height: 1.2em; }
+.ed-box .sel { flex: 1; min-width: 0; background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 8px; font: inherit; font-size: 14px; color: var(--text); }

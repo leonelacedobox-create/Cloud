@@ -36,6 +36,13 @@
       'Todos arrancan con pistola y cuchillo y pueden llevar un arma más del piso: sniper, ametralladoras, escopetas, subfusil, rifle, revólver o ballesta. Al morir sueltan todo.',
       'Granadas (fragmentación, humo y aturdidora), chaleco, casco, botiquines, mochila y accesorios (silenciador, mira, cargador extendido). Los barriles rojos explotan.',
     ]],
+    ['🌧️ Mundo vivo: mapas, clima y herramientas', [
+      'Las <b>paredes finas</b> se agujerean a tiros (se ve y se dispara a través) y se derrumban con explosivos; las <b>puertas</b> se rompen. Las <b>mesas</b> se dan vuelta para cubrirse.',
+      '<b>Herramientas</b> del botín: 🧨 carga explosiva para abrir paredes, 💥 mina, 🪤 trampa con alarma, 📡 sensor de movimiento, 🛡️ escudo portátil y 🔭 binoculares. Manejando un soldado se usan con <b>🧰</b> (la carga, mirando a una pared o puerta).',
+      'En Ajustes: <b>clima</b> (lluvia con barro, tormenta con relámpagos, niebla o al azar) y <b>🌙 de noche</b>: solo se ve donde hay lámparas, linternas y fogonazos. Las lámparas se rompen a los tiros.',
+      'Eventos: en el apagón alguien puede prender el <b>🔌 generador</b>; también hay inundación, helicóptero con reflector y alarma de humo.',
+      'En el mapa <b>✏️ Propio</b>, el <b>🖌️ Editor visual</b> deja dibujar con el dedo (pincel, rectángulo y relleno), partir de un mapa del juego y guardar hasta 6 mapas.',
+    ]],
     ['🏟️ Torneo, apuestas y logros', [
       'El <b>torneo</b> arma un cuadro de duelos 1 contra 1 con los soldados cargados. Cada cruce se mira o se simula. El campeón… se va temprano.',
       'Las <b>apuestas</b> suman aciertos a cada uno y hay ranking semanal. En 🏅 Logros ves las medallas y el historial de cada jugador.',

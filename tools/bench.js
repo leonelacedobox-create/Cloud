@@ -56,6 +56,13 @@ const CONFIGS = [
   // escuadras (0.9.4)
   { name: 'Complejo, equipos 8 con roles y derribados', map: 'complejo', n: 8, teams: true, roles: true, downed: true },
   { name: 'Bomba en el complejo, 8 con roles', mode: 'bomb', map: 'complejo', n: 8, roles: true, downed: true },
+  // mundo vivo (0.9.5)
+  { name: 'Estación de tren, 10', map: 'estacion', n: 10 },
+  { name: 'Supermercado con tormenta, 10', map: 'super', n: 10, weather: 'storm' },
+  { name: 'Estacionamiento con niebla, 8', map: 'estacionamiento', n: 8, weather: 'fog' },
+  { name: 'Fábrica con cintas, 10', map: 'fabrica', n: 10 },
+  { name: 'Oficina de noche con lluvia, 8', map: 'oficina_noche', n: 8, weather: 'rain' },
+  { name: 'Equipos de noche en el súper, 8 con roles', map: 'super', n: 8, teams: true, roles: true, downed: true, night: true },
 ];
 
 (async () => {
@@ -81,7 +88,7 @@ const CONFIGS = [
       }));
       const M = App.Modes.defs[c.mode || 'classic'], two = M.team === 'two' || M.team === 'coop';
       if (two && !c.teams) players.forEach((p, i) => { p.team = i % 2; });
-      const cfg = { mode: c.mode || 'classic', noRec: true, players, teamMode: !!c.teams || two, lives: c.lives || 3, map: c.map, size: c.size || 'm', powerups: true, zone: c.zone !== false, varied: true, loot: c.loot !== false, gear: c.gear !== false, props: c.props !== false, events: c.events !== false, friendly: !!c.friendly, talk: true, seed: c.seed, customMap: Maps.SAMPLE, downed: !!c.downed };
+      const cfg = { mode: c.mode || 'classic', noRec: true, players, teamMode: !!c.teams || two, lives: c.lives || 3, map: c.map, size: c.size || 'm', powerups: true, zone: c.zone !== false, varied: true, loot: c.loot !== false, gear: c.gear !== false, props: c.props !== false, events: c.events !== false, friendly: !!c.friendly, talk: true, seed: c.seed, customMap: Maps.SAMPLE, downed: !!c.downed, weather: c.weather || 'none', night: !!c.night };
       const g = new App.battle.Game(cv, cfg, noop);
       g.phase = 'run'; g.paused = false;
       const modeEntries = {}, actEntries = {}, lastMode = g.soldiers.map(() => ''), seenActs = new WeakSet();

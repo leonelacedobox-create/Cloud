@@ -14,10 +14,11 @@ Mini app para el celular (HTML + JavaScript, sin dependencias) con dos juegos pa
 - Mapas aleatorios grandes: Laberinto, Habitaciones y Arena, en tres tamaños (Chico, Medio, Grande). Una **cámara sigue la acción** (o a un soldado si tocás su nombre arriba), hay **minimapa** y un botón 🎥 para alternar entre *Auto*, *Siguiendo* y *Todo el mapa*.
 - Máximo **3 vidas** por soldado (cada vida son 100 puntos de vida; cada arma hace un daño distinto), power-ups (escudo, velocidad, vida extra) y zona que se achica. Con 10 soldados una partida dura de 1 a 1,5 minutos en Medio y unos 3 en Grande.
 
-### Mapas (8 opciones)
+### Mapas (14 opciones)
 - **Clásicos:** Laberinto, Habitaciones y Arena (ahora con cajones, barriles y ventanas).
 - **Temáticos:** 🪖 **Base militar** (barracas con puertas, patio de grava, sacos de arena y búnkeres oscuros), 🏢 **Oficina** (escritorios, vidrios entre oficinas, alfombra que silencia los pasos, cocina y sala de reuniones con carteles), ⛓️ **Cárcel** (celdas con barrotes, torre de vigilancia, patio y celdas de castigo a oscuras) y 📦 **Depósito** (estantes largos formando pasillos, muelle de metal ruidoso, barriles y una oficina).
-- **✏️ Propio:** dibujá tu mapa con texto (`#` pared, `.` piso, `D` puerta, `C` cajón, `B` barril, `W` ventana, `c` alfombra, `m` metal, `g` grava, `o` oscuro) y el botón *Revisar* lo valida.
+- **Nuevos de la 0.9.5:** Estación de tren, Supermercado, Estacionamiento, Fábrica (con cintas) y Oficina de noche, más el **Complejo** para equipos (0.9.4).
+- **✏️ Propio:** dibujalo con el dedo en el **🖌️ Editor visual** o con texto (`#` pared, `.` piso, `D` puerta, `C` cajón, `B` barril, `W` ventana, `c` alfombra, `m` metal, `g` grava, `o` oscuro, `T` mesa, `L` lámpara, `> < v ^` cintas, `N` de noche) y el botón *Revisar* lo valida.
 - **Cobertura y objetos:** los **cajones** frenan balas pero no la vista (se puede disparar por encima si estás pegado) y se rompen; los **barriles** explotan en cadena; las **ventanas** dejan ver y disparar pero no pasar, y el vidrio roto delata el tiroteo.
 - **Pisos:** alfombra (pasos casi mudos), metal y grava (pasos fuertes). **Zonas oscuras:** a oscuras solo se ve de cerca o con linterna; el que la prende se delata.
 - **Eventos:** ⚡ apagón, 🌫️ niebla, 🚨 alarma (todos saben más o menos dónde están los demás) y 📦 cargamento que cae con paracaídas y se anuncia con sonido. Si una partida se estanca entra la ☠️ muerte súbita.
@@ -126,6 +127,16 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **Órdenes en modo manual:** con 👣 📍 ⚔️ 🫂 les decís a tus bots que te sigan, cubran un lugar, ataquen o se agrupen.
 - **Planes por modo:** en **Colina** se reparten alrededor mirando cada uno hacia afuera; en **Bomba** hay **dos sitios (A y B)**: los atacantes sortean a cuál van, los defensores se reparten y **rotan** cuando ven venir al de la bomba.
 - **Mapa nuevo "Complejo":** seis edificios con varias entradas, calles con cobertura y los dos sitios de bomba en el medio.
+
+### Novedades de la 0.9.5 — Mundo vivo y herramientas
+- **Paredes finas y puertas que se rompen** (`js/world2.js`): a tiros una pared fina se **agujerea** (se ve y se dispara a través, pero no se pasa) y con explosivos se **derrumba** y queda un hueco con escombros. Las puertas se rompen a tiros o con explosiones. El mapa táctico de la IA se recalcula solo.
+- **Herramientas** (salen en el botín con el equipo extra, y el ingeniero arranca con algunas): 🧨 **carga explosiva** (la IA la pone en la pared o puerta que la separa del rival, se aleja y entra por sorpresa), 💥 **mina**, 🪤 **trampa con alarma** (avisa y aturde al que la pisa), 📡 **sensor de movimiento** (marca a los que pasan cerca), 🛡️ **escudo portátil** (una placa que frena balas) y 🔭 **binoculares** (ven mucho más lejos mientras esperan quietos). En modo manual se usan con el botón 🧰.
+- **Mesas que se dan vuelta:** si no hay cobertura cerca, la IA va hasta una mesa, la da vuelta y se tira atrás.
+- **Noche y luz de verdad:** opción **🌙 De noche** (y el mapa *Oficina de noche*): solo se ve donde hay **lámparas** (con sombras que proyectan las paredes), linternas y **fogonazos**, que iluminan y delatan al que dispara. Las lámparas se rompen a los tiros.
+- **Clima:** 🌧️ **lluvia** (tapa los sonidos y deja **barro** con las pisadas, con sonido de lluvia de fondo), ⛈️ **tormenta** (relámpagos que iluminan todo un instante y truenos), 🌫️ **niebla** más densa, o 🎲 al azar.
+- **Mapas nuevos:** 🚉 **Estación de tren** (vagones con puertas y ventanas, andenes y vías de grava), 🛒 **Supermercado** (góndolas, cajas, depósito a oscuras y bar con mesas), 🅿️ **Estacionamiento**, 🏭 **Fábrica** con **cintas transportadoras** que te llevan y charcos de agua que frenan, y 🌙 **Oficina de noche**.
+- **Eventos nuevos:** en el **apagón** aparece un **generador** que alguien puede prender para volver la luz, **inundación** de un sector (frena a todos), **helicóptero** con reflector que ilumina y delata, y **alarma de humo** que tapa los ruidos.
+- **🖌️ Editor de mapas visual:** pintás con el dedo paredes, pisos, puertas, ventanas, cajones, barriles, mesas, lámparas, cintas (tocando otra vez giran) y zonas oscuras, con **pincel, rectángulo, relleno**, deshacer, zoom, noche, **partir de un mapa del juego**, revisión en vivo y hasta **6 mapas guardados**. Se sigue guardando como texto, así que lo podés copiar y pasarlo por mensaje.
 
 ### Banco de pruebas
 ```sh

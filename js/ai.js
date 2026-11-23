@@ -522,6 +522,7 @@
     const prevMode = s.mode;
     let path = null;
     this.noteHabits(s);
+    if (s.act && s.act.type === 'hold' && (s.act.useTool || s.act.flipTable != null || s.act.revive != null || s.act.healMate != null) && !(this.zone && this.outsideZone(s.x, s.y, 1.2))) return;   // está haciendo algo con las manos: lo termina
     if (s.act && s.act.type === 'hold') {                                   // está esperando (emboscada, escuchando, cuidando un lugar)
       if (!(this.zone && this.outsideZone(s.x, s.y, 1.2)) && !s.target && !s.carry) return;   // sigue esperando sin cambiar de plan
       s.act = null;                                                          // la zona o un enemigo a la vista: deja de esperar
@@ -615,6 +616,12 @@
         }
         if (gd > sg.r) { const dest = this.floorIdxNear(sg.x, sg.y); const p2 = this.bfs(tx, ty, (i) => i === dest); if (p2) { path = p2; s.mode = 'squad'; } }
       }
+    }
+    // 3-g) apagón: los que se animan van a prender el generador
+    if (!path && !s.target && this.generator && (sk.scav > 0.45 || s.pers === 'tactico') && !s.manual) {
+      const gn = this.generator, gd = Math.hypot(gn.x - s.x, gn.y - s.y);
+      if (gd < 0.8) { s.act = { type: 'hold', t: 0, dur: 2.8, face: s.angle }; s.mode = 'hold'; s.path = []; return; }
+      if (gd < 22) { const dest = this.floorIdxNear(gn.x, gn.y); const p2 = this.bfs(tx, ty, (i) => i === dest); if (p2) { path = p2; s.mode = 'obj'; } }
     }
     // 3a) recuperarse después de huir: se queda escondido (o busca vida)
     if (!path && !s.target && now - s.fleeT < 14 && hpF < 0.6 && sk.flee > 0.3 && s.rushT <= 0 && !this.bestHeal(s)) {
@@ -838,7 +845,7 @@
       }
       return r;
     }
-    if (act && s.target && (act.type === 'peek' || (act.type === 'hold' && act.revive == null && act.healMate == null))) { s.act = act = null; }
+    if (act && s.target && (act.type === 'peek' || (act.type === 'hold' && act.revive == null && act.healMate == null && !act.useTool && act.flipTable == null))) { s.act = act = null; }
     if (act && (act.type === 'open' || act.type === 'close') && s.target && s.td < 3) { s.act = act = null; }
 
     if (s.cover) { this.steerCover(s, dt, r); if (s.cover) return r; }
@@ -857,7 +864,7 @@
         if (act.t >= act.dur) s.act = null;
       } else if (act.type === 'hold') {
         r.desired = act.face; r.sneak = true; r.scanning = !act.revive && act.healMate == null;
-        if (act.t >= act.dur) { s.act = null; if (act.revive != null) this.finishRevive(s, act.revive); if (act.healMate != null) this.finishHealMate(s, act.healMate); }
+        if (act.t >= act.dur) { s.act = null; if (act.revive != null) this.finishRevive(s, act.revive); if (act.healMate != null) this.finishHealMate(s, act.healMate); if (act.useTool) this.finishTool(s, act); if (act.flipTable != null) this.finishFlip(s, act.flipTable); }
       } else if (act.type === 'burst') {
         r.desired = act.face;
         if (Math.abs(angDiff(s.angle, r.desired)) < 0.12 && s.cd <= 0) {
@@ -937,6 +944,7 @@
     s.speedT = Math.max(0, s.speedT - dt); s.stunT = Math.max(0, s.stunT - dt);
     s.supp = Math.max(0, (s.supp || 0) - dt * 0.45); this.aimSettle(s, dt);
     if (s.role === 'explorador' || s.role === 'ingeniero') this.roleTick(s, dt);
+    s.toolT = (s.toolT || 0) - dt; if (s.toolT <= 0) { s.toolT = 0.5; if (s.tools) this.toolTick(s); }
     if (!s.target) s.aimAng = null;
     const P = s.P, iq = IQ[s.iq], m = s.mood, st = s.stats;
 
@@ -1008,7 +1016,8 @@
     // ----- movimiento -----
     let dm = 0;
     if (vx || vy) {
-      const sp = P.speed * this.defOf(s).move * (s.role === 'explorador' ? 1.12 : s.role === 'tanque' ? 0.93 : 1) * (1 + m.fury * 0.15) * (s.speedT > 0 ? 1.6 : 1) * speedMul * dt;
+      const fe = this.floorEffects(s, dt);                                      // cintas transportadoras y agua
+      const sp = fe * P.speed * this.defOf(s).move * (s.role === 'explorador' ? 1.12 : s.role === 'tanque' ? 0.93 : 1) * (1 + m.fury * 0.15) * (s.speedT > 0 ? 1.6 : 1) * speedMul * dt;
       const ox = s.x, oy = s.y;
       const moved = this.tryMove(s, vx * sp, vy * sp);
       dm = Math.hypot(s.x - ox, s.y - oy); st.dist += dm;
@@ -1020,6 +1029,7 @@
     const stepN = Math.floor(s.phase / Math.PI);
     if (stepN !== s.lastStep) {                                              // pasos: suenan según cómo camina
       s.lastStep = stepN;
+      if ((this.weather === 'rain' || this.weather === 'storm') && !this.cfg.noRec && this.quality !== 'ahorro' && this.floorT[Math.floor(s.y) * this.W + Math.floor(s.x)] !== 1 && this.camDist(s) < 16) this.addDecal('mud', s.x, s.y, s.moveAng, 1);   // barro bajo la lluvia
       if (s.gait > 0.75 && !s.sneak && this.speed <= 2 && this.quality !== 'ahorro' && !this.cfg.noRec && this.camDist(s) < 14 && (this.floorT ? this.floorT[Math.floor(s.y) * this.W + Math.floor(s.x)] !== 1 : true)) {
         const ba = s.moveAng + Math.PI;                                       // polvito al correr
         this.parts.push({ x: s.x + Math.cos(ba) * 0.2, y: s.y + Math.sin(ba) * 0.2, vx: Math.cos(ba) * 0.4 + (rnd() - 0.5) * 0.3, vy: Math.sin(ba) * 0.4 + (rnd() - 0.5) * 0.3, life: 0.45, max: 0.9, color: '#9b9387', size: 0.09 + rnd() * 0.05 });

@@ -14,6 +14,11 @@ const Maps = (() => {
     { key: 'oficina', label: 'Oficina', desc: 'Escritorios, vidrios entre oficinas, alfombra (silenciosa), cocina y sala de reuniones.' },
     { key: 'carcel', label: 'Cárcel', desc: 'Celdas con barrotes, patio, torre de vigilancia y celdas de castigo oscuras.' },
     { key: 'deposito', label: 'Depósito', desc: 'Estantes largos formando pasillos, muelle de metal ruidoso, barriles y una oficina.' },
+    { key: 'estacion', label: 'Estación', desc: 'Andenes con vagones de tren (se entra por las puertas), vías de grava y el hall con boleterías.' },
+    { key: 'super', label: 'Súper', desc: 'Góndolas largas, cajas, mesas del bar que se pueden dar vuelta y el depósito del fondo.' },
+    { key: 'estacionamiento', label: 'Estacionamiento', desc: 'Columnas y filas de autos para cubrirse, rampas oscuras y una caseta.' },
+    { key: 'fabrica', label: 'Fábrica', desc: 'Máquinas, piso de metal ruidoso y cintas transportadoras que te llevan.' },
+    { key: 'oficina_noche', label: 'Oficina de noche', desc: 'La oficina un sábado a la noche: oscura, con lámparas que se pueden romper.' },
     { key: 'complejo', label: 'Complejo', desc: 'Para equipos: edificios con varias entradas, calles con cobertura y dos sitios (A y B) para la bomba.' },
     { key: 'custom', label: '✏️ Propio', desc: 'Un mapa dibujado por vos con texto.' },
   ];
@@ -175,6 +180,99 @@ const Maps = (() => {
     return m;
   }
 
+  /* ================= 0.9.5: mapas nuevos (se generan en vertical y se giran si hace falta) ================= */
+  const vert = (W0, H0) => (W0 > H0 ? [H0, W0, true] : [W0, H0, false]);
+  function finish(m, land) {
+    if (!land) return m;
+    const o = transpose(m);
+    o.tables = (m.tables || []).map((t) => ({ x: t.y, y: t.x }));
+    o.lamps = (m.lamps || []).map((t) => ({ x: t.y, y: t.x }));
+    const rot = { 1: 3, 2: 4, 3: 1, 4: 2 };
+    o.conv = (m.conv || []).map((c) => ({ x: c.y, y: c.x, d: rot[c.d] }));
+    o.night = m.night;
+    return o;
+  }
+  function addTables(m, T, n) {
+    m.tables = m.tables || [];
+    for (let k = 0; k < n * 6 && m.tables.length < n; k++) {
+      const x = 2 + T.rint(m.W - 4), y = 2 + T.rint(m.H - 4), i = at(m, x, y);
+      if (m.g[i] || m.props.some((p) => p.x === x && p.y === y) || m.tables.some((t) => Math.abs(t.x - x) + Math.abs(t.y - y) < 3)) continue;
+      m.tables.push({ x, y });
+    }
+  }
+  function station(W0, H0, T) {
+    const [W, H, land] = vert(W0, H0), m = blank(W, H);
+    const hallH = Math.max(6, Math.round(H * 0.2));
+    carve(m, 1, 1, W - 2, hallH, 0); m.labels.push({ x: W / 2, y: hallH / 2 + 1, text: 'Hall' });
+    for (let x = 3; x < W - 3; x += 4) crate(m, x, 2);                       // boleterías
+    carve(m, 1, hallH + 2, W - 2, H - 2, 0);
+    for (let x = 2; x < W - 2; x += 5) addDoor(m, x, hallH + 1, 'v');        // salidas a los andenes
+    // dos vías (grava) con un vagón cada una; andenes entre medio
+    const tw = Math.max(3, Math.floor((W - 2) / 5));
+    [[Math.floor(W * 0.27), 'A'], [Math.floor(W * 0.73), 'B']].forEach(([cx, name]) => {
+      const x0 = cx - (tw >> 1), x1 = x0 + tw - 1;
+      paint(m, x0, hallH + 2, x1, H - 2, 3);
+      const y0 = hallH + 4, y1 = H - 4;
+      wall(m, x0, y0, x1, y0); wall(m, x0, y1, x1, y1); wall(m, x0, y0, x0, y1); wall(m, x1, y0, x1, y1);
+      carve(m, x0 + 1, y0 + 1, x1 - 1, y1 - 1, 2);                             // adentro del vagón: piso de metal
+      for (let y = y0 + 3; y < y1 - 1; y += 5) { addDoor(m, x0, y, 'h'); addDoor(m, x1, y + 2 < y1 ? y + 2 : y, 'h'); }
+      for (let y = y0 + 2; y < y1; y += 3) if (!m.g[at(m, x0 + 1, y)]) addWindow(m, x1, y + 1 < y1 ? y + 1 : y);
+      m.labels.push({ x: cx + 0.5, y: (y0 + y1) / 2, text: 'Vagón ' + name });
+    });
+    for (let y = hallH + 4; y < H - 3; y += 6) { crate(m, 2, y); crate(m, W - 3, y); crate(m, W >> 1, y + 2); }   // bancos y columnas
+    m.center = [W >> 1, (hallH + H) >> 1];
+    return finish(m, land);
+  }
+  function supermarket(W0, H0, T) {
+    const [W, H, land] = vert(W0, H0), m = blank(W, H);
+    carve(m, 1, 1, W - 2, H - 2, 0);
+    const back = Math.max(5, Math.round(H * 0.17));
+    wall(m, 1, back, W - 2, back); addDoor(m, 3, back, 'v'); addDoor(m, W - 4, back, 'v');   // depósito al fondo
+    m.labels.push({ x: W / 2, y: back / 2 + 0.5, text: 'Depósito' }); darken(m, 1, 1, W - 2, back - 1);
+    for (let x = 3; x < W - 3; x += 4) { crate(m, x, 3); crate(m, x + 1, 3); }
+    const cajas = H - 5;
+    for (let x = 3; x < W - 6; x += 3) { wall(m, x, back + 3, x, cajas - 3); }            // góndolas
+    for (let x = 3; x < W - 6; x += 3) for (let y = back + 5; y < cajas - 3; y += 6) m.g[at(m, x, y)] = 0;   // cortes en las góndolas
+    m.labels.push({ x: W / 2, y: (back + cajas) / 2, text: 'Góndolas' });
+    for (let x = 2; x < W - 8; x += 3) crate(m, x, cajas);                     // cajas registradoras
+    m.labels.push({ x: W / 2, y: cajas + 2, text: 'Cajas' });
+    m.tables = []; for (let x = W - 5; x < W - 2; x += 2) for (let y = back + 3; y < back + 10; y += 3) m.tables.push({ x, y });   // bar
+    m.labels.push({ x: W - 3.5, y: back + 2, text: 'Bar' });
+    m.center = [W >> 1, (back + cajas) >> 1];
+    return finish(m, land);
+  }
+  function parking(W0, H0, T) {
+    const [W, H, land] = vert(W0, H0), m = blank(W, H);
+    carve(m, 1, 1, W - 2, H - 2, 0);
+    for (let y = 4; y < H - 3; y += 6) for (let x = 4; x < W - 3; x += 6) m.g[at(m, x, y)] = 1;   // columnas
+    for (let y = 2; y < H - 3; y += 6) for (let x = 2; x < W - 4; x += 3) if (T.rnd() < 0.62) { crate(m, x, y + 1); crate(m, x + 1, y + 1); }   // autos estacionados
+    for (let k = 0; k < 4; k++) barrel(m, 2 + T.rint(W - 4), 2 + T.rint(H - 4));
+    darken(m, 1, 1, Math.floor(W / 3), Math.floor(H / 4)); darken(m, W - 1 - Math.floor(W / 3), H - 1 - Math.floor(H / 4), W - 2, H - 2);   // rampas oscuras
+    const cx = W >> 1, cy = H >> 1;
+    wall(m, cx - 2, cy - 2, cx + 2, cy - 2); wall(m, cx - 2, cy + 2, cx + 2, cy + 2); wall(m, cx - 2, cy - 2, cx - 2, cy + 2); wall(m, cx + 2, cy - 2, cx + 2, cy + 2);
+    carve(m, cx - 1, cy - 1, cx + 1, cy + 1, 0); addDoor(m, cx, cy + 2, 'v'); addWindow(m, cx, cy - 2); m.labels.push({ x: cx + 0.5, y: cy + 0.5, text: 'Caseta' });
+    m.center = [cx, cy];
+    m.lamps = [];
+    return finish(m, land);
+  }
+  function factory(W0, H0, T) {
+    const [W, H, land] = vert(W0, H0), m = blank(W, H);
+    carve(m, 1, 1, W - 2, H - 2, 2);
+    m.conv = [];
+    const belts = [Math.round(H * 0.3), Math.round(H * 0.62)];
+    belts.forEach((y, k) => { for (let x = 2; x < W - 2; x++) m.conv.push({ x, y, d: k ? 2 : 1 }); m.labels.push({ x: W / 2, y: y - 1, text: k ? 'Cinta ←' : 'Cinta →' }); });
+    for (let k = 0; k < 7; k++) {                                              // máquinas
+      const mw = 2 + T.rint(2), mh = 2 + T.rint(2), x = 2 + T.rint(W - mw - 4), y = 2 + T.rint(H - mh - 4);
+      if (belts.some((b) => b >= y - 1 && b <= y + mh)) continue;
+      wall(m, x, y, x + mw - 1, y + mh - 1);
+    }
+    for (let k = 0; k < 6; k++) barrel(m, 2 + T.rint(W - 4), 2 + T.rint(H - 4));
+    const oy = H - 6; wall(m, 1, oy, Math.floor(W / 2), oy); addDoor(m, Math.floor(W / 4), oy, 'v'); paint(m, 1, oy + 1, Math.floor(W / 2) - 1, H - 2, 1); m.labels.push({ x: W / 4, y: oy + 2.5, text: 'Oficina' });
+    m.tables = [{ x: 3, y: oy + 2 }, { x: 6, y: oy + 3 }].filter((t) => t.x < W - 2 && t.y < H - 2);
+    m.center = [W >> 1, H >> 1];
+    return finish(m, land);
+  }
+
   /* ================= COMPLEJO (0.9.4): pensado para equipos, con sitios A y B ================= */
   function complex(W0, H0, T) {
     const land = W0 > H0, W = land ? H0 : W0, H = land ? W0 : H0;
@@ -306,9 +404,14 @@ const Maps = (() => {
     const W = cols * 2 + 1, H = rows * 2 + 1, T = tools(rng);
     let m;
     if (type === 'base') m = base(W, H, T);
-    else if (type === 'oficina') m = office(W, H, T);
+    else if (type === 'oficina') { m = office(W, H, T); addTables(m, T, 4); }
     else if (type === 'carcel') m = prison(W, H, T);
-    else if (type === 'complejo') m = complex(W, H, T);
+    else if (type === 'complejo') { m = complex(W, H, T); addTables(m, T, 3); }
+    else if (type === 'estacion') { m = station(W, H, T); addTables(m, T, 4); }
+    else if (type === 'super') m = supermarket(W, H, T);
+    else if (type === 'estacionamiento') m = parking(W, H, T);
+    else if (type === 'fabrica') m = factory(W, H, T);
+    else if (type === 'oficina_noche') { m = office(W, H, T); m.night = true; m.lamps = []; addTables(m, T, 6); }
     else m = warehouse(W, H, T);
     // Contorno exterior siempre pared
     for (let x = 0; x < m.W; x++) { m.g[at(m, x, 0)] = 1; m.g[at(m, x, m.H - 1)] = 1; }
@@ -367,6 +470,10 @@ const Maps = (() => {
         if (ch === 'B') m.props.push({ x, y, k: 'barrel' });
         if (ch === 'W') { m.g[at(m, x, y)] = 1; m.windows.push({ x, y }); }
         if (ch === 'D') m.doors.push({ x, y, along: 'h' });
+        if (ch === 'T') (m.tables = m.tables || []).push({ x, y });
+        if (ch === 'L') (m.lamps = m.lamps || []).push({ x, y });
+        const cv = { '>': 1, '<': 2, v: 3, '^': 4 }[ch]; if (cv) (m.conv = m.conv || []).push({ x, y, d: cv });
+        if (ch === 'N') m.night = true;
       }
     });
     // la orientación de cada puerta: si tiene paredes arriba y abajo, el pasillo va de izquierda a derecha

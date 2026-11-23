@@ -106,7 +106,7 @@
     else if (r === 'medico') { s.meds = ['med', 'med', 'small']; }
     else if (r === 'tirador') { s.inv.primary = { type: 'rifle', mag: WEAPONS.rifle.mag, res: 30, scope: true }; s.cur = 'primary'; s.wtype = 'rifle'; }
     else if (r === 'tanque') { s.armor = { vest: 100, helm: 60 }; }
-    else if (r === 'ingeniero') { s.mines = 2; }
+    else if (r === 'ingeniero') { s.mines = 2; s.tools = { charge: 1, mine: 0, trap: 1, sensor: 1, shield: 0, binoc: 0 }; }   // 0.9.5: carga, trampa y sensor
     if (this.M && this.M.loadout) this.M.loadout(this, s);
   };
 

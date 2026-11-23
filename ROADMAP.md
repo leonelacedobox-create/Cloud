@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.9.4 ✅ terminada.** Próximas: 0.9.5 → 0.9.5 → 0.9.6 → 0.9.7 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.9.5 ✅ terminada.** Próximas: 0.9.6 → 0.9.7 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -155,7 +155,9 @@ Antes de publicar, seis versiones grandes de mejoras: cuerpos y animaciones, int
 9. **Planes por modo:** en Bandera escoltan al que la lleva y van a buscarla; en Bomba los defensores rotan entre sitios; en Colina se reparten las entradas.
 10. **Nuevo mapa por equipos** pensado para esto (dos sitios de bomba, edificios con varias entradas) y **Bomba con 2 sitios**.
 
-## 0.9.5 — "Mundo vivo y herramientas"
+## 0.9.5 — "Mundo vivo y herramientas" ✅
+
+> **Hecho.** Todo en `js/world2.js` (más `js/editor.js` para el editor visual). Notas: los **cajones que se empujan** quedaron afuera (las mesas que se dan vuelta sí están); se evalúan en 0.9.7. Las linternas con cono ya venían de antes y ahora conviven con lámparas con sombras, fogonazos, relámpagos y el reflector del helicóptero. Las herramientas son poco comunes en el botín a propósito (el ingeniero arranca con carga, trampa y sensor). Con todo lo nuevo, el rendimiento en celulares lentos queda igual que en los mapas viejos (la calidad automática baja sola).
 1. **Paredes finas y puertas que se rompen** con explosivos o a tiros; agujeros por los que se puede ver y disparar.
 2. **Herramientas nuevas:** carga explosiva para abrir paredes, minas, trampas de alambre con alarma, sensor de movimiento, escudo portátil y binoculares. La IA las usa con criterio.
 3. **Coberturas que se mueven:** mesas que se dan vuelta para cubrirse, cajones que se empujan.

@@ -419,6 +419,7 @@
       if (!w || w.mag <= 0 || s.reloadT > 0 || s.swapT > 0) return false;
       const def = WEAPONS[w.type], P = s.P;
       w.mag--; s.recoil = 1; s.lastShot = this.time;
+      if (this.darkAll && !w.sup && w.type !== 'crossbow') this.lights.push({ x: s.x, y: s.y, r: 2.4, t: 0.12 });   // de noche el fogonazo ilumina (y delata)
       s.stats.shots++; s.stats.rounds += def.pellets;
       if (s.seenT != null) { s.stats.react = (s.stats.react || 0) + this.time - s.seenT; s.stats.reactN = (s.stats.reactN || 0) + 1; s.seenT = null; }   // tiempo de reacción
       s.cd = def.cd * (0.92 + rnd() * 0.16) * (1 - s.mood.fury * 0.15);
@@ -527,6 +528,7 @@
         if (roll < 0.89) return this.addItem('attach', pick(['sup', 'scope', 'ext']), x, y);
         if (roll < 0.91) return this.addItem('pack', 'pack', x, y);
       }
+      if (gear && roll < 0.965) return this.addItem('tool', pick(['charge', 'mine', 'trap', 'sensor', 'shield', 'binoc', 'charge', 'trap']), x, y);   // herramientas (0.9.5)
       if (this.cfg.powerups) return this.addItem('power', pick(['shield', 'speed']), x, y);
       return this.addItem('ammo', 'ammo', x, y);
     }
@@ -572,6 +574,7 @@
 
     /** Cuánto le conviene a este soldado agarrar esto (0 = nada). */
     evalItem(s, it) {
+      if (it.kind === 'tool') return this.toolValue(s, it.type);
       if (it.kind === 'weapon') {
         const def = WEAPONS[it.type], tot = it.mag + it.res;
         if (it.type === 'pistol') return Math.min(tot, cap(def, s.inv.pistol, s) - ammoOf(s.inv.pistol)) / 24;    // solo sirve por las balas
@@ -614,6 +617,7 @@
     }
     applyPickup(s, it) {
       let label = '';
+      if (it.kind === 'tool') { label = this.takeTool(s, it); this.spark(s.x, s.y, '#fbbf24', 10); if (this.speed <= 2) sfx.pickup(); s.stats.pickups++; if (s.anim) s.anim.pickT = 0.35; this.hooks.onPickup(s, label); return true; }
       if (it.kind === 'weapon') {
         const def = WEAPONS[it.type], tot = it.mag + it.res;
         const own = it.type === 'pistol' ? s.inv.pistol : (s.inv.primary && s.inv.primary.type === it.type ? s.inv.primary : null);
@@ -759,7 +763,7 @@
     }
 
     /* ---------- percepción ---------- */
-    sightOf(s) { const d = this.defOf(s), w = this.weaponOf(s); return (s.P.sight + (d.scope || 0) + (w && w.scope ? 4 : 0) + (s.role === 'explorador' ? 2 : 0)) * (this.fogMul || 1); }
+    sightOf(s) { const d = this.defOf(s), w = this.weaponOf(s); return (s.P.sight + (d.scope || 0) + (w && w.scope ? 4 : 0) + (s.role === 'explorador' ? 2 : 0) + (s.tools && s.tools.binoc && s.act && s.act.type === 'hold' ? 5 : 0)) * (this.fogMul || 1); }
     damage(s, by, dmg, zone) {
       if (!s.alive || (this.phase === 'ending' && !zone)) return;
       if (!zone && s.spawnT > 0) return;                       // protección al reaparecer
@@ -842,7 +846,7 @@
       this.items.forEach((it) => { it.t += dt; });
       if (this.phase === 'run') this.collectItems();
       for (const d of this.doors.values()) d.anim = Math.max(0, Math.min(1, d.anim + (d.open ? 1 : -1) * dt * 3.2));
-      this.stepWorld(dt);
+      this.stepWorld(dt); this.stepWorld2(dt);
       this.teamTick(dt);
       if (!this.cfg.noRec) { for (const s of this.soldiers) if (s.alive) this.rigUpdate(s, dt); this.stepCorpses(dt); }
       const sl = this.soldiers;                                // el orden se alterna en cada paso: nadie reacciona siempre "después" que su rival
@@ -1080,6 +1084,7 @@
       const inV = (px, py, m = 1.5) => px > left - m && px < right + m && py > top - m && py < bottom + m;   // solo se dibuja lo que entra en pantalla
       for (const d of this.doors.values()) if (inV(d.tx, d.ty)) Art.drawDoor(x, d, ts);
       this.drawWorld(x, ts, left, top, this.cw / ts, this.ch / ts);
+      this.drawWorld2(x, ts, left, top, right, bottom);
       this.drawDecals(x, ts, left, top, right, bottom);
       if (this.cfg.debugAI && this.tac) {                         // modo depuración: mapa de peligro
         const dz = this.tac.danger;
@@ -1090,7 +1095,7 @@
       }
       for (const c of this.corpses) if (inV(c.x, c.y)) Art.drawCorpse(x, c, ts, this.time);
       this.drawShells(x, ts);
-      for (const it of this.items) { if (!inV(it.x, it.y)) continue; if (it.kind === 'power') this.drawPowerup(x, it); else Art.drawItem(x, it, ts, this.time); }
+      for (const it of this.items) { if (!inV(it.x, it.y)) continue; if (it.kind === 'tool') { this.drawToolItem(x, it, ts); continue; } if (it.kind === 'power') this.drawPowerup(x, it); else Art.drawItem(x, it, ts, this.time); }
       this.drawModeUnder(x, ts);
       if (this.zone) this.drawZone(x);
       // ondas de sonido (disparos, gritos, puertas)
@@ -1125,7 +1130,8 @@
       this.drawSquadWorld(x, ts);
       this.drawModeOver(x, ts);
       x.restore();
-      if (this.hasDarkness()) this.drawDarkness(x, left, top);
+      if (this.hasDarkness() && this.lightT <= 0) this.drawDarkness(x, left, top);
+      this.drawWeather(x, left, top);
       if (this.fogMul < 1) { x.fillStyle = 'rgba(205,215,230,0.24)'; x.fillRect(0, 0, this.cw, this.ch); }
       if (povS) this.drawFog(x, povS, left, top);
 
@@ -1456,7 +1462,7 @@
     }
     const seed = ($('#seedInput').value || '').trim();
     return { mode: M.key, players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
-      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, debugAI: !!B.debugAI, downed: B.downed !== false, autoRoles: B.autoRoles !== false, voice: !!B.voice, narrator: B.narrator !== false, seed: seed || null,
+      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, debugAI: !!B.debugAI, night: !!B.night, weather: B.weather || 'none', downed: B.downed !== false, autoRoles: B.autoRoles !== false, voice: !!B.voice, narrator: B.narrator !== false, seed: seed || null,
       gear: B.gear !== false, props: B.props !== false, events: B.events !== false, customMap: B.customMap || Maps.SAMPLE };
   }
 
@@ -1484,6 +1490,7 @@
     paintCam(); paintPad();
     game.start();
     if (App.Music) App.Music.start();
+    if (App.Rain && game.speed <= 2 && (game.weather === 'rain' || game.weather === 'storm')) App.Rain.start(game.weather === 'storm');
     try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { wakeLock = null; }
     announce(game);
   }
@@ -1497,7 +1504,7 @@
   function leaveGame(toSetup = true) {
     const fb = document.querySelector('#canvasWrap .fps'); if (fb) fb.remove();
     onMatchEnd = null;
-    if (App.Music) App.Music.stop(); if (App.Voice) App.Voice.stop();
+    if (App.Music) App.Music.stop(); if (App.Voice) App.Voice.stop(); if (App.Rain) App.Rain.stop();
     if (game) { game.destroy(); game = null; App.game = null; }
     try { if (wakeLock) wakeLock.release(); } catch (e) { /* nada */ }
     wakeLock = null;
@@ -1599,7 +1606,7 @@
 
   function onEnd(res) {
     if (game) { game.padOn = false; paintPad(); }
-    if (App.Music) App.Music.stop(1.2);
+    if (App.Music) App.Music.stop(1.2); if (App.Rain) App.Rain.stop();
     sfx.fanfare(); vibrate([60, 60, 120]);
     const tourn = onMatchEnd; onMatchEnd = null;
     if (res.mode === 'tutorial') { App.state.ui.tutorialSeen = true; save(); showResult(res); return; }
@@ -1795,6 +1802,7 @@
   fireBtn.addEventListener('pointerup', fireEnd); fireBtn.addEventListener('pointercancel', fireEnd);
   [['ordFollow', 'follow'], ['ordHold', 'hold'], ['ordAttack', 'attack'], ['ordRegroup', 'regroup']].forEach(([id, k]) => $('#' + id).addEventListener('click', () => { if (game) game.squadOrder(k); }));
   [['padReload', 'reload'], ['padSwap', 'swap'], ['padNade', 'nade'], ['padHeal', 'heal']].forEach(([id, k]) => $('#' + id).addEventListener('click', () => { if (game) game.manualAction(k); }));
+  $('#padTool').addEventListener('click', () => { if (game && !game.manualTool()) App.toast('🧰 No tenés herramientas (o no hay pared/puerta adelante para la carga)'); });
   const keys = new Set();
   const MOVEK = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
   const keyCtl = (k) => {
@@ -1849,8 +1857,11 @@
     box.className = 'hint ' + (m.error ? 'maperr' : 'mapok');
     box.textContent = m.error ? '❌ ' + m.error : `✅ Mapa válido: ${m.W}×${m.H}, ${m.props.length} cajones/barriles, ${m.doors.length} puertas, ${m.windows.length} ventanas.`;
   });
+  $('#btnMapEditor').addEventListener('click', () => App.Editor.open());
+  App.onEditorUse = () => { customMap.value = B.customMap; document.querySelectorAll('#segMap button').forEach((b) => b.classList.toggle('on', b.dataset.v === B.map)); mapDesc(); };
   mapDesc();
   bindSeg('segSize', () => B.size, (v) => { B.size = v; });
+  bindSeg('segWeather', () => B.weather || 'none', (v) => { B.weather = v; });
   bindSeg('segWinRange', () => B.winRange, (v) => { B.winRange = v; renderWins(); });
 
   [['optPowerups', 'powerups'], ['optZone', 'zone'], ['optVaried', 'varied'], ['optLoot', 'loot'], ['optGear', 'gear'], ['optProps', 'props'], ['optEvents', 'events']].forEach(([id, key]) => {
@@ -1858,7 +1869,7 @@
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });
 
-  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true], ['optMusic', 'music', true], ['optVoice', 'voice', false], ['optNarrator', 'narrator', true], ['optDebugAI', 'debugAI', false], ['optAutoRoles', 'autoRoles', true], ['optDowned', 'downed', true]].forEach(([id, key, def]) => {
+  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true], ['optMusic', 'music', true], ['optVoice', 'voice', false], ['optNarrator', 'narrator', true], ['optDebugAI', 'debugAI', false], ['optAutoRoles', 'autoRoles', true], ['optDowned', 'downed', true], ['optNight', 'night', false]].forEach(([id, key, def]) => {
     const input = $('#' + id); input.checked = B[key] == null ? def : !!B[key];
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });

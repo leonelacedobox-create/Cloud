@@ -95,5 +95,24 @@
     stop() { try { if (synth) synth.cancel(); } catch (e) { /* nada */ } },
   };
 
-  App.Music = Music; App.Voice = Voice;
+  /* ================= lluvia de fondo (0.9.5) ================= */
+  let rainSrc = null, rainGain = null;
+  const Rain = {
+    start(heavy) {
+      if (rainSrc) return; const a = App.audio.ctx(); if (!a) return;
+      const len = a.sampleRate * 2, buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+      let last = 0; for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = last * 0.6 + w * 0.4; d[i] = last + (Math.random() < 0.0009 ? (Math.random() - 0.5) * 3 : 0); }   // gotas sueltas
+      rainSrc = a.createBufferSource(); rainSrc.buffer = buf; rainSrc.loop = true;
+      const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = heavy ? 1400 : 2400; f.Q.value = 0.4;
+      rainGain = a.createGain(); rainGain.gain.value = 0.0001;
+      rainSrc.connect(f).connect(rainGain).connect(a.destination); rainSrc.start();
+      rainGain.gain.setTargetAtTime((heavy ? 0.07 : 0.045) * (App.audio.master / 100), a.currentTime, 1.2);
+    },
+    stop() {
+      if (!rainSrc) return; const a = App.audio.ctx(), s = rainSrc, g = rainGain; rainSrc = rainGain = null;
+      if (a && g) g.gain.setTargetAtTime(0.0001, a.currentTime, 0.3);
+      setTimeout(() => { try { s.stop(); s.disconnect(); } catch (e) { /* ya está */ } }, 1200);
+    },
+  };
+  App.Music = Music; App.Voice = Voice; App.Rain = Rain;
 })();
