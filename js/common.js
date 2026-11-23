@@ -74,7 +74,7 @@ const App = (() => {
         used.add(id);
         return Object.assign(q, {
           id, name: STR(p.name, 14), color: COLOR(p.color, q.color), team: NUM(+p.team, 0, 3, i % 2) | 0, pick: ONE(p.pick, ['milei', 'cristina'], null),
-          hits: NUM(+p.hits, 0, 1e6, 0) | 0, pers: ONE(p.pers, PERS_K, 'auto'), iq: NUM(+p.iq, 0, 3, 1) | 0,
+          hits: NUM(+p.hits, 0, 1e6, 0) | 0, pers: ONE(p.pers, PERS_K, 'auto'), iq: NUM(+p.iq, 0, 4, 1) | 0,
           role: ONE(p.role, ['none', 'asalto', 'medico', 'tirador', 'tanque'], 'none'), hat: typeof p.hat === 'string' ? p.hat : 'none',
           photo: typeof p.photo === 'string' && p.photo.startsWith('data:image/') && p.photo.length < 80000 ? p.photo : null,
           phrases: STR(p.phrases, 300), manual: !!p.manual, bet: typeof p.bet === 'number' ? p.bet : null,

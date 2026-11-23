@@ -222,6 +222,7 @@
       this.initLoot();
       this.lootRnd = null;
       this.initMode();
+      this.buildTactics();
       this.resize = this.resize.bind(this);
       this.frame = this.frame.bind(this);
       this.resize();
@@ -362,7 +363,7 @@
       const pers = Personas.choose(p.pers, cfg.varied);
       const P = PERS[pers], pd = WEAPONS.pistol;
       const o = {
-        id: i, name: p.name, color: p.color, iq: clamp(p.iq == null ? 1 : p.iq, 0, 3), team: p.team == null || p.team < 0 || !cfg.teamMode ? -1 : p.team, teamColor: cfg.teamMode && p.team >= 0 ? TEAMS[p.team].color : null,
+        id: i, name: p.name, color: p.color, iq: clamp(p.iq == null ? 1 : p.iq, 0, Personas.IQ.length - 1), team: p.team == null || p.team < 0 || !cfg.teamMode ? -1 : p.team, teamColor: cfg.teamMode && p.team >= 0 ? TEAMS[p.team].color : null,
         ap: Object.assign({}, look, { hat: p.hat && p.hat !== 'none' ? p.hat : null }), x: place[0], y: place[1], r: 0.3, angle: rnd() * 6.283, look: 0, moveAng: 0, headOff: 0, phase: rnd() * 6, gait: 0, recoil: 0, lastStep: 0,
         hp: (p.lives || cfg.lives) * HPL, maxHp: (p.lives || cfg.lives) * HPL, alive: true, deathT: 0, kills: 0,
         pers, P, sk: { peek: jitter(P.base.peek), door: jitter(P.base.door), blind: jitter(P.base.blind), listen: 0.75 + jitter(P.base.listen) * 0.5, ambush: jitter(P.base.ambush) },
@@ -419,11 +420,12 @@
       const def = WEAPONS[w.type], P = s.P;
       w.mag--; s.recoil = 1; s.lastShot = this.time;
       s.stats.shots++; s.stats.rounds += def.pellets;
+      if (s.seenT != null) { s.stats.react = (s.stats.react || 0) + this.time - s.seenT; s.stats.reactN = (s.stats.reactN || 0) + 1; s.seenT = null; }   // tiempo de reacción
       s.cd = def.cd * (0.92 + rnd() * 0.16) * (1 - s.mood.fury * 0.15);
       if (def.auto) {                      // ráfagas: dispara varias veces y hace una pausa
         if (s.burstLeft <= 0) s.burstLeft = P.burst[0] + rint(P.burst[1] + 1);
         if (--s.burstLeft <= 0) s.cd += 0.5 + rnd() * 0.9;
-        s.bloom = Math.min(def.spread * 1.3, s.bloom + def.spread * 0.14);
+        s.bloom = Math.min(def.spread * 1.3, s.bloom + def.spread * 0.14 * (s.recoilCtl || 1));   // los más hábiles controlan mejor el retroceso
       }
       const move = s.gait > 0.5 ? 1.3 : s.sneak ? 0.8 : 1;
       const spread = def.spread * this.aimMul(s) * move * (w.scope ? 0.8 : 1) + s.bloom + extra;
@@ -443,6 +445,7 @@
         const ca = Math.cos(s.angle), sa = Math.sin(s.angle);
         this.parts.push({ x: s.x + ca * 0.95, y: s.y + sa * 0.95, vx: ca * (0.5 + rnd()) + (rnd() - 0.5) * 0.7, vy: sa * (0.5 + rnd()) + (rnd() - 0.5) * 0.7, life: 0.35 + rnd() * 0.3, max: 0.65, color: '#cfd3dc', size: 0.06 + rnd() * 0.06 });
       }
+      this.addDanger(s.x, s.y, 0.25, 1);
       if (!def.auto || this.time - s.lastNoise > 0.3) { s.lastNoise = this.time; this.emitSound(s.x, s.y, def.noise * (w.sup ? 0.25 : 1), 'shot', s); }
       if (this.audible()) sfx.shot(w.type, this.camDist(s) + (w.sup || w.type === 'crossbow' ? 16 : 0), this.camPan(s.x));
       this.heat = Math.min(1.5, (this.heat || 0) + (this.camDist(s) < 12 ? 0.12 : 0.04));
@@ -694,7 +697,8 @@
         const old = s.know[src.id];
         if (old && old.exact && this.time - old.t < 1) continue;
         const err = (kind === 'step' ? 1.3 : 0.6) + eff * 0.12, a = rnd() * 6.283, m = rnd() * err;
-        s.know[src.id] = { id: src.id, x: x + Math.cos(a) * m, y: y + Math.sin(a) * m, t: this.time, exact: false, kind };
+        const kn = { id: src.id, x: x + Math.cos(a) * m, y: y + Math.sin(a) * m, t: this.time, exact: false, kind };
+        this.refineKnow(s, old, kn); s.know[src.id] = kn;
         if (!s.target) { s.alertT = this.time; s.thinkT = Math.min(s.thinkT, 0.05); s.icon = { ch: '?', t: 1.2 }; }
         this.heard(s, src, kind, x, y);
       }
@@ -720,11 +724,15 @@
         if (!all && goal(cur)) return this.pathTo(cur);
         if (dist[cur] >= maxD) continue;
         const cx = cur % W, cy = (cur / W) | 0;
+        const vt = this.tac && this.tac.vault, onCrate = vt && g[cur] && prev[cur] >= 0;        // saltando un cajón: solo se puede seguir derecho
+        const pc = onCrate ? prev[cur] : -1, sdx = onCrate ? cx - (pc % W) : 0, sdy = onCrate ? cy - ((pc / W) | 0) : 0;
         for (let d = 0; d < 8; d++) {
           const dx = DX[d], dy = DY[d], nx = cx + dx, ny = cy + dy;
           if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          if (onCrate && (dx !== sdx || dy !== sdy)) continue;
           const ni = ny * W + nx;
-          if (g[ni] || seen[ni] === stamp) continue;
+          if (seen[ni] === stamp) continue;
+          if (g[ni] && !(vt && !onCrate && vt[ni] && ((dx && !dy && vt[ni] & 1) || (dy && !dx && vt[ni] & 2)))) continue;
           if (dx !== 0 && dy !== 0 && (g[cy * W + nx] || g[ny * W + cx])) continue;
           seen[ni] = stamp; prev[ni] = cur; dist[ni] = dist[cur] + 1; q[qt++] = ni;
         }
@@ -793,6 +801,7 @@
       sfx.boom(this.camPan(s.x), this.camVol(s.x, s.y)); if (this.camDist(s) < 10) vibrate(40);
       this.emitSound(s.x, s.y, 12, 'boom', null);
       s.deaths++;
+      this.addDanger(s.x, s.y, 4, 2);
       this.recKill(s, by, zone);
       const foe = by && by !== s && !(by.team >= 0 && by.team === s.team);
       if (foe) by.kills++;
@@ -813,6 +822,7 @@
     step(dt) {
       this.time += dt;
       this.heat = (this.heat || 0) * Math.exp(-dt * 0.45);
+      this.stepTactics(dt);
       if (this.cfg.zone) {
         const t = Math.min(1, Math.max(0, (this.time - this.zoneDelay) / this.zoneTime));
         const [cx, cy] = this.center, W = this.W, H = this.H;
@@ -847,7 +857,9 @@
           if (!b.door && this.doorGrid[by * this.W + bx]) { b.door = true; this.spark(b.x, b.y, '#c9955a', 5); this.addDecal('hole', b.x, b.y); }
           for (const s of this.soldiers) {
             if (!s.alive || s === b.owner || (b.owner.team >= 0 && s.team === b.owner.team && !this.cfg.friendly)) continue;
-            if (Math.hypot(s.x - b.x, s.y - b.y) < s.r + 0.1) { gone = true; b.owner.stats.hits++; this.damage(s, b.owner, b.dmg, false); break; }
+            const bd = Math.hypot(s.x - b.x, s.y - b.y);
+            if (bd < s.r + 0.1) { gone = true; b.owner.stats.hits++; this.damage(s, b.owner, b.dmg, false); break; }
+            if (bd < 1.2 && !(b.ss && b.ss.has(s.id))) { (b.ss || (b.ss = new Set())).add(s.id); this.suppress(s, b); }   // pasó cerca: supresión
           }
         }
         b.life -= dt;
@@ -1060,6 +1072,13 @@
       for (const d of this.doors.values()) if (inV(d.tx, d.ty)) Art.drawDoor(x, d, ts);
       this.drawWorld(x, ts, left, top, this.cw / ts, this.ch / ts);
       this.drawDecals(x, ts, left, top, right, bottom);
+      if (this.cfg.debugAI && this.tac) {                         // modo depuración: mapa de peligro
+        const dz = this.tac.danger;
+        for (let ty = Math.max(0, Math.floor(top)); ty < Math.min(H, Math.ceil(bottom)); ty++) for (let tx = Math.max(0, Math.floor(left)); tx < Math.min(W, Math.ceil(right)); tx++) {
+          const v = dz[ty * W + tx]; if (v > 0.05) { x.fillStyle = `rgba(239,68,68,${Math.min(0.45, v * 0.08)})`; x.fillRect(tx * ts, ty * ts, ts, ts); }
+          if (this.tac.choke[ty * W + tx]) { x.fillStyle = 'rgba(125,211,252,.12)'; x.fillRect(tx * ts, ty * ts, ts, ts); }
+        }
+      }
       for (const c of this.corpses) if (inV(c.x, c.y)) Art.drawCorpse(x, c, ts, this.time);
       this.drawShells(x, ts);
       for (const it of this.items) { if (!inV(it.x, it.y)) continue; if (it.kind === 'power') this.drawPowerup(x, it); else Art.drawItem(x, it, ts, this.time); }
@@ -1250,6 +1269,17 @@
         x.strokeStyle = s.color; x.lineWidth = 2; x.beginPath(); x.arc(ax, ay, r, 0, 6.283); x.stroke();
       }
       let y0 = ny - fs - 2;
+      if (this.cfg.debugAI && !s.manual) {                       // modo depuración: qué está pensando
+        const U = s.uScores, it = s.intent && s.target ? s.intent : s.mode;
+        x.font = `700 ${Math.max(8, fs * 0.75)}px system-ui, sans-serif`; x.fillStyle = '#7dd3fc'; x.strokeText(`🧠 ${it}${s.supp > 0.2 ? ' · bajo fuego' : ''}`, cx, y0); x.fillText(`🧠 ${it}${s.supp > 0.2 ? ' · bajo fuego' : ''}`, cx, y0);
+        y0 -= fs;
+        if (U && s.target) {
+          const keys = Object.keys(U), bw = 7, bh = fs * 1.6;
+          keys.forEach((k, j) => { const v = Math.max(0, Math.min(1.6, U[k])) / 1.6, bx = cx - keys.length * (bw + 2) / 2 + j * (bw + 2);
+            x.fillStyle = 'rgba(0,0,0,.5)'; x.fillRect(bx, y0 - bh, bw, bh); x.fillStyle = k === s.intent ? '#facc15' : '#94a3b8'; x.fillRect(bx, y0 - bh * v, bw, bh * v); });
+          y0 -= bh + 3;
+        }
+      }
       if (s.icon) {                                            // "?" oyó algo, "!" vio a alguien
         x.font = `900 ${fs + 3}px system-ui, sans-serif`;
         x.fillStyle = s.icon.ch === '!' ? '#ff5a5a' : '#ffd24a'; x.strokeText(s.icon.ch, cx, y0); x.fillText(s.icon.ch, cx, y0);
@@ -1411,7 +1441,7 @@
       phrases: String(p.phrases || '').split('\n').map((t) => t.trim()).filter(Boolean).slice(0, 8) }));
     const seed = ($('#seedInput').value || '').trim();
     return { mode: M.key, players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
-      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, voice: !!B.voice, narrator: B.narrator !== false, seed: seed || null,
+      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, debugAI: !!B.debugAI, voice: !!B.voice, narrator: B.narrator !== false, seed: seed || null,
       gear: B.gear !== false, props: B.props !== false, events: B.events !== false, customMap: B.customMap || Maps.SAMPLE };
   }
 
@@ -1808,7 +1838,7 @@
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });
 
-  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true], ['optMusic', 'music', true], ['optVoice', 'voice', false], ['optNarrator', 'narrator', true]].forEach(([id, key, def]) => {
+  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true], ['optMusic', 'music', true], ['optVoice', 'voice', false], ['optNarrator', 'narrator', true], ['optDebugAI', 'debugAI', false]].forEach(([id, key, def]) => {
     const input = $('#' + id); input.checked = B[key] == null ? def : !!B[key];
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });

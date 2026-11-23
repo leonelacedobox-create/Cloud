@@ -28,6 +28,7 @@
       gren: { frag: 0, smoke: 0, flash: 0 }, armor: { vest: 0, helm: 0 }, meds: [], pack: false,
     });
     s.stuck = { x: s.x, y: s.y, t: 0, n: 0 };
+    s.supp = 0; s.aimErr = 0; s.aimFor = -1; s.recoilCtl = 1.25 - IQ[s.iq].tac * 0.45; s.intent = null; s.pushT = 0;
     s.stats = { shots: 0, rounds: 0, hits: 0, dmgDealt: 0, dmgTaken: 0, killsBy: {}, longKill: 0, hidden: 0, fled: 0, talk: 0, dist: 0, doors: 0, pickups: 0, reloads: 0, stuck: 0, knifeKills: 0, shared: 0, thrown: 0, absorbed: 0, healed: 0 };
   };
 
@@ -37,6 +38,7 @@
     const m = s.mood;
     let a = s.P.accMul * IQ[s.iq].aim * (1 + m.fear * 0.7) * (1 + m.fury * 0.25) * (1 - (m.conf - 0.5) * 0.2);
     if (s.freezeT > 0) a *= 2;
+    if (s.supp) a *= 1 + s.supp * 0.9 * (1 - s.P.bravery * 0.5);           // bajo fuego se apunta peor
     return a;
   };
 
@@ -87,7 +89,7 @@
       const sc = this.threat(s, e, d);
       if (sc > best) { best = sc; tgt = e; td = d; }
     }
-    if (tgt && !s.target) {                       // lo acaba de ver: tarda un poco en reaccionar (según la inteligencia)
+    if (tgt && !s.target) { s.seenT = this.time;   // lo acaba de ver: tarda un poco en reaccionar (según la inteligencia)
       s.icon = { ch: '!', t: 1.0 };
       s.reactT = IQ[s.iq].react * (0.7 + rnd() * 0.6) * (1 - 0.4 * s.mood.fury);
     }
@@ -509,6 +511,7 @@
     }
     const prevMode = s.mode;
     let path = null;
+    this.noteHabits(s);
     if (s.act && s.act.type === 'hold') {                                   // está esperando (emboscada, escuchando, cuidando un lugar)
       if (!(this.zone && this.outsideZone(s.x, s.y, 1.2)) && !s.target && !s.carry) return;   // sigue esperando sin cambiar de plan
       s.act = null;                                                          // la zona o un enemigo a la vista: deja de esperar
@@ -533,21 +536,29 @@
     // 2) enemigo a la vista
     if (!path && s.target) {
       const e = s.target, td = s.td;
-      if (this.wantFlee(s)) {                                              // huir
-        path = this.fleePath(s, e);
-        if (path) { s.mode = 'flee'; s.fleeT = now; s.closeIdx = s.closeIdx; }
-      }
-      if (!path && this.wantCover(s) && this.beginCover(s, e)) return;     // cubrirse
-      if (!path && this.wantStalk(s, e)) {                                 // acercarse por la espalda
-        path = this.stalkPath(s, e);
-        if (path) s.mode = 'stalk';
-      }
-      const [, pmax] = this.prefRange(s);
-      if (!path && td > pmax * 0.9 && td > 5.5 && now > s.flankUntil && rnd() < sk.flank * (0.4 + 0.6 * tac)) {   // flanquear
-        path = this.flankPath(s, e);
-        if (path) { s.mode = 'flank'; s.flankUntil = now + 9; }
+      // decisión por puntajes: cada opción suma según la situación y la personalidad (con "inercia" para no cambiar a cada rato)
+      const U = this.utilities(s, e, td);
+      if (s.intent && U[s.intent] > 0 && now - (s.intentT || 0) < 2.5) U[s.intent] += 0.12;
+      const order = Object.keys(U).sort((a, b) => U[b] - U[a]);
+      s.uScores = U;
+      for (const it of order) {
+        if (U[it] <= 0.3 && it !== 'attack') continue;
+        if (it === 'flee') { path = this.fleePath(s, e); if (path) { s.mode = 'flee'; s.fleeT = now; s.hideTried = false; } }
+        else if (it === 'cover') { if (this.beginCover(s, e)) { this.setIntent(s, 'cover'); return; } }
+        else if (it === 'stalk') { path = this.stalkPath(s, e); if (path) s.mode = 'stalk'; }
+        else if (it === 'flank') {
+          if (s.pers === 'tactico' && s.gren && s.gren.smoke > 0 && now > (s.smokeFlankT || 0) && td > 5) {   // táctico: humo para tapar y después flanquea
+            s.smokeFlankT = now + 15; const a = Math.atan2(e.y - s.y, e.x - s.x);
+            s.act = { type: 'throw', t: 0, dur: 0.5, gtype: 'smoke', ang: a, speed: clamp(td * 0.65, 5, 11), released: false };
+            s.mode = 'throw'; this.setIntent(s, 'flank'); return;
+          }
+          path = this.flankPath(s, e); if (path) { s.mode = 'flank'; s.flankUntil = now + 9; }
+        }
+        else break;                                                        // atacar de frente
+        if (path) { this.setIntent(s, it); break; }
       }
       if (!path) {
+        this.setIntent(s, 'attack');
         const goal = Math.floor(e.y) * W + Math.floor(e.x);
         path = this.bfs(tx, ty, (i) => i === goal); s.mode = 'attack';
       }
@@ -574,6 +585,10 @@
     }
     // 3a) recuperarse después de huir: se queda escondido (o busca vida)
     if (!path && !s.target && now - s.fleeT < 14 && hpF < 0.6 && sk.flee > 0.3 && s.rushT <= 0 && !this.bestHeal(s)) {
+      if (P.base.flee > 1 && !s.hideTried) {                              // cobarde: busca un rincón bien tapado y apunta a la entrada
+        s.hideTried = true; const spot = this.hideSpot(s, k);
+        if (spot >= 0 && spot !== ty * W + tx) { const p2 = this.bfs(tx, ty, (i) => i === spot, 12); if (p2) { s.path = p2; s.mode = 'flee'; return; } }
+      }
       s.act = { type: 'hold', t: 0, dur: 3 + rnd() * 4, face: k ? Math.atan2(k.y - s.y, k.x - s.x) : rnd() * 6.28 };
       s.mode = 'recover'; s.path = []; return;
     }
@@ -638,11 +653,17 @@
         s.huntStamp = k.t;
         // emboscada: se queda quieto, callado, escuchando
         if (s.rushT <= 0 && (!k.exact || age > 2) && dist > 3 && dist < 13 && rnd() < sk.ambush * (0.4 + 0.6 * tac) * 0.9) {
-          s.act = { type: 'hold', t: 0, dur: 2.5 + rnd() * 5, face: Math.atan2(k.y - s.y, k.x - s.x) };
+          s.act = { type: 'hold', t: 0, dur: 2.5 + rnd() * 5, face: this.chokeFacing(s, k) };
           s.mode = 'hold'; return;
         }
         // disparar a ciegas a través de una puerta cerrada
         const w = this.weaponOf(s);
+        // fuego de supresión: con un arma automática "aprieta" donde se escondió el rival para que no asome
+        if (w && WEAPONS[w.type].auto && w.mag > magOf(w) * 0.4 && age < 1.6 && dist > 3 && dist < 13 && s.burstCd <= 0 && (s.pers === 'tactico' || w.type === 'lmg' || w.type === 'hmg') && this.los(s.x, s.y, k.x, k.y) && rnd() < 0.6 * tac) {
+          s.burstCd = 4 + rnd() * 3;
+          s.act = { type: 'burst', t: 0, shots: 4 + rint(4), next: 0.05, face: Math.atan2(k.y - s.y, k.x - s.x), sup: true };
+          s.mode = 'suppress'; this.setIntent(s, 'suppress'); return;
+        }
         if (w && w.mag > 0 && age < 7 && dist < 9 && s.burstCd <= 0 && rnd() < sk.blind * 0.7) {
           const di = this.doorOnLine(s.x, s.y, k.x, k.y, 9);
           if (di >= 0) {
@@ -686,7 +707,8 @@
       for (let n = 0; n < 24; n++) {
         const i = this.floor[rint(this.floor.length)], x = (i % W) + 0.5, y = ((i / W) | 0) + 0.5, d = Math.hypot(x - s.x, y - s.y);
         if (d < 5) continue;
-        let sc = Math.min(120, now - s.explored[i]) - d * 0.15 + rnd() * 4;
+        const dz = this.dangerAt(x, y);
+        let sc = Math.min(120, now - s.explored[i]) - d * 0.15 + rnd() * 4 + this.habitBonus(s, x, y) + (P.loud || P.rage > 0.6 ? dz * 1.5 : -dz * 2.5 * (1 - P.bravery));   // los bravos van al ruido; los demás lo evitan
         const wallsAround = (this.g[i - 1] ? 1 : 0) + (this.g[i + 1] ? 1 : 0) + (this.g[i - W] ? 1 : 0) + (this.g[i + W] ? 1 : 0);
         if (wallsAround >= 3) sc += 2;                                      // callejones sin salida: ahí puede haber alguien
         if (sc > bs) { bs = sc; bestI = i; }
@@ -748,11 +770,15 @@
     return false;
   };
 
+  G.setIntent = function (s, it) { if (s.intent !== it) { s.intent = it; s.intentT = this.time; s.stats.intents = s.stats.intents || {}; s.stats.intents[it] = (s.stats.intents[it] || 0) + 1; } };
+
   /* ================= qué hace cada soldado en cada instante ================= */
   /** Calcula hacia dónde moverse, hacia dónde mirar y cómo (sigilo, velocidad). */
   G.steer = function (s, dt) {
     const P = s.P;
     const r = { vx: 0, vy: 0, desired: s.angle, speedMul: 1, sneak: P.sneak, scanning: false };
+    if (this.stepVault(s, dt)) { r.desired = s.angle; return r; }             // en el aire sobre un cajón
+    if (!s.act && !s.cover && this.tryVaultPath(s)) { s.stats.vaults = (s.stats.vaults || 0) + 1; return r; }
     if (s.stunT > 0) {                                                       // aturdido: tambalea sin ver nada
       r.vx = Math.sin(this.time * 5 + s.id) * 0.8; r.vy = Math.cos(this.time * 4 + s.id) * 0.8; r.speedMul = 0.5;
       r.scanning = true; r.sneak = false; r.desired = s.angle + Math.sin(this.time * 9) * 0.5; s.act = null; return r;
@@ -803,7 +829,7 @@
         r.desired = act.face;
         if (Math.abs(angDiff(s.angle, r.desired)) < 0.12 && s.cd <= 0) {
           act.next -= dt;
-          if (act.next <= 0 && act.shots > 0) { if (this.fire(s, 0.14)) act.shots--; else act.shots = 0; act.next = 0.22; }
+          if (act.next <= 0 && act.shots > 0) { if (this.fire(s, act.sup ? 0.06 : 0.14)) act.shots--; else act.shots = 0; act.next = act.sup ? 0.08 : 0.22; }
         }
         if (act.shots <= 0 || act.t > 3) s.act = null;
       } else if (act.type === 'peek') {
@@ -835,7 +861,8 @@
     const pathMode = s.mode === 'zone' || s.mode === 'flee' || s.mode === 'stalk' || s.mode === 'flank' || s.mode === 'carry';
     if (tgt && !pathMode) {
       const dx = tgt.x - s.x, dy = tgt.y - s.y;
-      r.desired = s.aimPt ? Math.atan2(s.aimPt.y - s.y, s.aimPt.x - s.x) : Math.atan2(dy, dx); r.sneak = false;
+      r.desired = s.aimPt ? Math.atan2(s.aimPt.y - s.y, s.aimPt.x - s.x) : this.aimAt(s, tgt); r.sneak = false;
+      s.aimAng = r.desired;
       if (IQ[s.iq].tac >= 0.6) {                                           // no pararse junto a un barril si hay un enemigo mirando
         const nb = this.barrelsNear(s.x, s.y, 2.0);
         if (nb.length) { const bx = s.x - nb[0].x, by = s.y - nb[0].y, bd = Math.hypot(bx, by) || 1; r.vx += (bx / bd) * 0.9; r.vy += (by / bd) * 0.9; }
@@ -874,6 +901,8 @@
     s.freezeT -= dt; s.reactT -= dt; s.rushT = Math.max(0, s.rushT - dt); s.unstickT = Math.max(0, s.unstickT - dt);
     s.shieldT = Math.max(0, s.shieldT - dt); if (s.shieldT <= 0) s.shieldHp = 0;
     s.speedT = Math.max(0, s.speedT - dt); s.stunT = Math.max(0, s.stunT - dt);
+    s.supp = Math.max(0, (s.supp || 0) - dt * 0.45); this.aimSettle(s, dt);
+    if (!s.target) s.aimAng = null;
     const P = s.P, iq = IQ[s.iq], m = s.mood, st = s.stats;
 
     this.sense(s);
@@ -892,7 +921,7 @@
     if (m.fear > 0.75 && s.freezeT <= 0 && rnd() < dt * 0.25 * (1 - P.bravery)) s.freezeT = 0.4 + rnd() * 0.5;   // se paraliza
 
     s.thinkT -= dt;
-    if (s.thinkT <= 0) { s.thinkT = (0.3 + rnd() * 0.2) * iq.think; if (!s.manual && !s.passive) this.think(s); }
+    if (s.thinkT <= 0) { s.thinkT = (0.3 + rnd() * 0.2) * iq.think; if (!s.manual && !s.passive && !s.vault) this.think(s); }
     if (s.manual) s.reactT = 0;
 
     // zona: daño fuera del área segura
@@ -926,6 +955,9 @@
     if (hidden && s.act && s.act.type === 'hold') st.hidden += dt;
     if (s.cover && s.cover.phase === 'hide') st.hidden += dt;
     if (s.mode === 'flee') st.fled += dt;
+    if (s.reloadT > 0 && s.target && !s.cover) st.exposed = (st.exposed || 0) + dt;      // error: recargar a la vista del rival
+    if (s.target && s.cur === 'knife' && s.td > 3 && ammoOf(s.inv.pistol) + ammoOf(s.inv.primary) === 0) st.dry = (st.dry || 0) + dt;   // error: sin balas en pleno tiroteo
+    st.suppT = (st.suppT || 0) + (s.supp > 0.3 ? dt : 0);
 
     // esquivar balas que vienen (los más inteligentes lo hacen mejor)
     if (!frozen && !s.manual && s.dodgeCd <= 0) {
@@ -977,7 +1009,8 @@
     const ctl = s.manual ? (this.ctl || {}) : null;
     if (s.manual && ctl.fire && !s.target && !s.act && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.cur !== 'knife') this.fire(s, 0);   // dispara hacia adelante
     if (s.target && !s.act && !frozen && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.reactT <= 0 && !s.passive && (!s.manual || ctl.fire)) {
-      const aim = s.aimPt || s.target, b = Math.atan2(aim.y - s.y, aim.x - s.x), ad = Math.hypot(aim.x - s.x, aim.y - s.y);
+      const aim = s.aimPt || s.target, ad = Math.hypot(aim.x - s.x, aim.y - s.y);
+      const b = !s.manual && !s.aimPt && s.aimAng != null && s.cur !== 'knife' ? s.aimAng : Math.atan2(aim.y - s.y, aim.x - s.x);
       if (s.cur === 'knife') { if (s.td <= KNIFE.range + 0.2 && Math.abs(angDiff(s.angle, b)) < 0.6) this.melee(s, s.target); }
       else if (ad <= this.defOf(s).range && Math.abs(angDiff(s.angle, b)) < 0.14) {
         if (this.clearShot(s, aim)) this.fire(s, 0); else s.strafeT = 0;   // con fuego amigo: no dispara si hay un compañero en medio

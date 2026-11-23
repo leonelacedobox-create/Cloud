@@ -132,6 +132,7 @@
 
   /* ================= explosiones ================= */
   G.explode = function (x, y, R, dmg, owner, kind) {
+    this.addDanger(x, y, 5, 3);
     this.scorch.push({ x, y, r: R * 0.55, t: 0 });
     this.flashes.push({ x, y, t: 0, big: true });
     for (let i = 0; i < 26; i++) { const a = rnd() * 6.283, v = 2 + rnd() * 6; this.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.4 + rnd() * 0.6, max: 1, color: i % 3 ? '#ffb347' : '#6b7280', size: 0.1 + rnd() * 0.15 }); }

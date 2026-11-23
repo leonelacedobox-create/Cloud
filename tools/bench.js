@@ -98,6 +98,9 @@ const CONFIGS = [
         t: g.time, timeout: g.phase === 'run', draw: g.phase !== 'run' && winners.length === 0,
         winners: winners.map((s) => ({ pers: s.pers, iq: s.iq })),
         soldiers: g.soldiers.map((s) => ({ pers: s.pers, iq: s.iq, deathT: s.alive ? g.time : s.deathT, kills: s.kills, dmg: s.stats.dmgDealt, shots: s.stats.shots, hits: s.stats.hits, rounds: s.stats.rounds, hidden: s.stats.hidden, fled: s.stats.fled, talk: s.stats.talk, killsBy: s.stats.killsBy })),
+        brain: (() => { const b = { intents: {}, react: 0, reactN: 0, vaults: 0, exposed: 0, dry: 0, suppT: 0, life: 0 };
+          g.soldiers.forEach((s) => { const t = s.stats; for (const k in (t.intents || {})) b.intents[k] = (b.intents[k] || 0) + t.intents[k]; b.react += t.react || 0; b.reactN += t.reactN || 0; b.vaults += t.vaults || 0; b.exposed += t.exposed || 0; b.dry += t.dry || 0; b.suppT += t.suppT || 0; b.life += s.alive ? g.time : s.deathT; });
+          return b; })(),
         stuck: g.stuckEvents, modeEntries, actEntries, ms: performance.now() - t0, overtime: !!g.overtime,
         world: Object.assign({}, g.stats, { thrown: sum((s) => s.stats.thrown), healed: sum((s) => s.stats.healed), absorbed: sum((s) => s.stats.absorbed) }),
       };
@@ -132,7 +135,9 @@ const CONFIGS = [
     });
     const ts = res.map((x) => x.t);
     const tc = {}; res.forEach((x) => { tc[x.title] = (tc[x.title] || 0) + 1; });
-    rows.push({ name: c.name, titles: tc, med: med(ts), min: Math.min(...ts), max: Math.max(...ts), timeouts: res.filter((x) => x.timeout).length, draws: res.filter((x) => x.draw).length, overtime: res.filter((x) => x.overtime).length,
+    const brain = { intents: {}, react: 0, reactN: 0, vaults: 0, exposed: 0, dry: 0, suppT: 0, life: 0 };
+    res.forEach((x) => { const b = x.brain; for (const k in b.intents) brain.intents[k] = (brain.intents[k] || 0) + b.intents[k] / res.length; ['react', 'reactN', 'vaults', 'exposed', 'dry', 'suppT', 'life'].forEach((k) => { brain[k] += b[k] / res.length; }); });
+    rows.push({ name: c.name, brain, titles: tc, med: med(ts), min: Math.min(...ts), max: Math.max(...ts), timeouts: res.filter((x) => x.timeout).length, draws: res.filter((x) => x.draw).length, overtime: res.filter((x) => x.overtime).length,
       stuck: sum((x) => x.stuck), cpu: sum((x) => x.ms), modes, acts, kb, world,
       acc: res.reduce((a, x) => a + x.soldiers.reduce((b, s) => b + s.hits, 0), 0) / Math.max(1, res.reduce((a, x) => a + x.soldiers.reduce((b, s) => b + s.rounds, 0), 0)) });
   }
@@ -150,10 +155,10 @@ const CONFIGS = [
   }
 
   /* ---- 3) balance por inteligencia ---- */
-  const iqb = [0, 1, 2, 3].map(() => ({ n: 0, wins: 0, life: 0, kills: 0 }));
+  const iqb = [0, 1, 2, 3, 4].map(() => ({ n: 0, wins: 0, life: 0, kills: 0 }));
   for (let r = 0; r < balRuns; r++) {
     process.stderr.write(`· balance inteligencia ${r + 1}/${balRuns}\r`);
-    const res = await run({ map: ['maze', 'rooms', 'arena', 'oficina'][r % 4], n: 8, iq: [0, 1, 2, 3], pers: [PERS[r % PERS.length]] });
+    const res = await run({ map: ['maze', 'rooms', 'arena', 'oficina'][r % 4], n: 10, iq: [0, 1, 2, 3, 4], pers: [PERS[r % PERS.length]] });
     res.soldiers.forEach((s) => { const b = iqb[s.iq]; b.n++; b.life += s.deathT; b.kills += s.kills; });
     res.winners.forEach((w) => { iqb[w.iq].wins++; });
   }
@@ -167,6 +172,9 @@ const CONFIGS = [
   rows.forEach((r) => L.push(`| ${r.name} | ${Math.round(r.med)}s | ${Math.round(r.min)}–${Math.round(r.max)}s | ${r.timeouts} | ${r.overtime} | ${f1(r.stuck)} | ${Math.round(r.cpu)}ms | ${Math.round(r.acc * 100)}% |`));
   L.push('', '## Cómo terminan los modos de juego', '', '| Configuración | finales |', '|---|---|');
   rows.filter((r) => r.titles && CONFIGS.find((q) => q.name === r.name && q.mode)).forEach((r) => L.push(`| ${r.name} | ${Object.entries(r.titles).map(([k, v]) => `${k} ×${v}`).join(' · ')} |`));
+  L.push('', '## Cerebro (por partida)', '', '| Configuración | reacción media | supresión | recargas expuestas | sin balas en pelea | saltos de cajón | decisiones en combate |', '|---|---|---|---|---|---|---|');
+  rows.forEach((r) => { const b = r.brain; if (!b) return; const tot = Object.values(b.intents).reduce((a, v) => a + v, 0) || 1;
+    L.push(`| ${r.name} | ${(b.react / Math.max(1, b.reactN)).toFixed(2)}s | ${(b.suppT / Math.max(1, b.life) * 100).toFixed(1)}% del tiempo | ${(b.exposed / Math.max(1, b.life) * 100).toFixed(1)}% | ${b.dry.toFixed(0)}s | ${b.vaults.toFixed(1)} | ${Object.entries(b.intents).sort((p, q) => q[1] - p[1]).map(([k, v]) => `${k} ${Math.round(v / tot * 100)}%`).join(' · ')} |`); });
   L.push('', '## Mundo y equipo (por partida)', '', '| Configuración | granadas | barriles | cajones rotos | vidrios | eventos | cargamentos | vida curada | daño frenado |', '|---|---|---|---|---|---|---|---|---|');
   rows.forEach((r) => L.push(`| ${r.name} | ${f1(r.world.thrown || 0)} | ${f1(r.world.exploded || 0)} | ${f1(r.world.crates || 0)} | ${f1(r.world.glass || 0)} | ${f1(r.world.events || 0)} | ${f1(r.world.drops || 0)} | ${Math.round(r.world.healed || 0)} | ${Math.round(r.world.absorbed || 0)} |`));
   L.push('', '## Tácticas usadas (veces por partida, promedio de todas las configuraciones)', '');
@@ -177,8 +185,8 @@ const CONFIGS = [
   L.push('', 'Bajas por arma: ' + Object.entries(tot.kb).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${f1(v)}`).join(' · '));
   L.push('', `## Balance por personalidad (${balRuns} partidas de 10, todas con el mismo peso)`, '', '| Personalidad | victorias | % | vida media | bajas | escondido | huyendo | frases |', '|---|---|---|---|---|---|---|---|');
   Object.entries(bal).forEach(([k, b]) => L.push(`| ${k} | ${b.wins} | ${Math.round(b.wins / Math.max(1, balRuns) * 100)}% | ${Math.round(b.life / b.n)}s | ${f1(b.kills / b.n)} | ${Math.round(b.hidden / b.n)}s | ${Math.round(b.fled / b.n)}s | ${f1(b.talk / b.n)} |`));
-  L.push('', `## Balance por inteligencia (${balRuns} partidas de 8: 2 de cada nivel)`, '', '| Nivel | victorias | vida media | bajas |', '|---|---|---|---|');
-  ['Novato', 'Normal', 'Veterano', 'Maestro'].forEach((n, i) => { const b = iqb[i]; L.push(`| ${n} | ${b.wins} | ${Math.round(b.life / b.n)}s | ${f1(b.kills / b.n)} |`); });
+  L.push('', `## Balance por inteligencia (${balRuns} partidas de 10: 2 de cada nivel)`, '', '| Nivel | victorias | vida media | bajas |', '|---|---|---|---|');
+  ['Novato', 'Normal', 'Veterano', 'Maestro', 'Leyenda'].forEach((n, i) => { const b = iqb[i]; L.push(`| ${n} | ${b.wins} | ${Math.round(b.life / b.n)}s | ${f1(b.kills / b.n)} |`); });
 
   const alerts = [];
   rows.forEach((r) => { if (r.timeouts) alerts.push(`⚠️ "${r.name}": ${r.timeouts} partidas no terminaron.`); if (r.stuck > 3) alerts.push(`⚠️ "${r.name}": ${f1(r.stuck)} trabas por partida.`); if (r.draws > RUNS * 0.2) alerts.push(`⚠️ "${r.name}": muchos empates (${r.draws}).`); if (r.overtime > RUNS * 0.5) alerts.push(`⚠️ "${r.name}": la muerte súbita se activa seguido (${r.overtime}/${RUNS}).`); });
