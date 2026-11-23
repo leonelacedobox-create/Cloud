@@ -32,16 +32,17 @@
       <img src="assets/coin-milei.png" class="hero-coin" alt="">
       <img src="assets/coin-cristina.png" class="hero-coin hero-coin-2" alt="">
     </div>
+    <h1 class="hero-title">Moneda <span>y</span> Batalla</h1>
     <button class="menu-card" data-go="coin">
-      <span class="menu-ico">🪙</span>
+      <span class="menu-ico" data-icon="coin">🪙</span>
       <span><b>La Moneda</b><small>Tirá y que decida el destino. Apuestas, series y “¿quién se va temprano?”</small></span>
     </button>
     <button class="menu-card" data-go="battle">
-      <span class="menu-ico">🔫</span>
+      <span class="menu-ico" data-icon="battle">🔫</span>
       <span><b>Batalla en el laberinto</b><small>Hasta 10 soldados peleando solos. El último en pie gana.</small></span>
     </button>
     <button class="menu-card" id="btnHelp">
-      <span class="menu-ico">❓</span>
+      <span class="menu-ico" data-icon="help">❓</span>
       <span><b>Ayuda y tutorial</b><small>Cómo se juega, los modos, los controles y una práctica guiada.</small></span>
     </button>
     <div class="card" id="a11yCard">
@@ -56,13 +57,14 @@
       <p class="hint">Automática baja la calidad sola si el celular se pone lento. Ahorro: 30 cuadros por segundo, menos efectos y menos resolución.</p>
       <label class="switch"><input type="checkbox" id="uiFps"><span>Mostrar cuadros por segundo</span></label>
     </div>
-    <p class="hint center">Versión 0.9.5 · “Mundo vivo”</p>
+    <p class="hint center">Versión 0.9.6 · “Sonido y presentación”</p>
     <p class="hint center" id="installHint">Tip: en el menú del navegador elegí “Agregar a pantalla de inicio” y queda como una app.</p>
   </section>
 
   <!-- ============ MONEDA ============ -->
   <section class="screen" id="screen-coin">
     <div class="stage" id="coinStage" role="button" tabindex="0" aria-label="Tocar para tirar la moneda">
+      <div class="coin-table" aria-hidden="true"></div>
       <div class="coin-shadow" id="coinShadow"></div>
       <div class="coin-wrap" id="coinWrap">
         <div class="coin" id="coin">
@@ -237,6 +239,10 @@
         <label class="switch"><input type="checkbox" id="optDowned"><span>🩸 Equipos: derribados (en vez de morir quedan en el piso y un compañero los puede levantar)</span></label>
         <label class="switch"><input type="checkbox" id="optFriendly"><span>Fuego amigo (en equipos las balas también pegan a los compañeros)</span></label>
         <label class="switch"><input type="checkbox" id="optMusic"><span>🎵 Música que sube con la tensión</span></label>
+        <div class="seg small" id="segMusicStyle">
+          <button data-v="tema">🎼 Tema de batalla (grabado)</button><button data-v="synth">🎹 Sintetizada</button>
+        </div>
+        <label class="switch"><input type="checkbox" id="optAmb"><span>🌆 Ambiente de cada mapa (aire acondicionado, goteras, trenes, máquinas, grillos de noche…)</span></label>
         <label class="switch"><input type="checkbox" id="optNarrator"><span>🎙️ Relator automático (comenta las mejores jugadas)</span></label>
         <label class="switch"><input type="checkbox" id="optVoice"><span>🗣️ Voz para los insultos y el relator (usa la voz del celular)</span></label>
         <div class="label">Volumen general</div>
@@ -313,7 +319,10 @@
 </main>
 
 <script src="js/common.js"></script>
+<script src="js/icons.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/sfxbank.js"></script>
+<script src="js/ambience.js"></script>
 <script src="js/coin.js"></script>
 <script src="js/art.js"></script>
 <script src="js/personas.js"></script>
@@ -331,6 +340,7 @@
 <script src="js/squad.js"></script>
 <script src="js/world2.js"></script>
 <script src="js/editor.js"></script>
+<script src="js/fx.js"></script>
 <script src="js/help.js"></script>
 <script src="js/runway.js"></script>
 <script src="js/main.js"></script>

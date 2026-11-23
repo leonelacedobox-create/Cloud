@@ -448,7 +448,7 @@
       }
       this.addDanger(s.x, s.y, 0.25, 1);
       if (!def.auto || this.time - s.lastNoise > 0.3) { s.lastNoise = this.time; this.emitSound(s.x, s.y, def.noise * (w.sup ? 0.25 : 1), 'shot', s); }
-      if (this.audible()) sfx.shot(w.type, this.camDist(s) + (w.sup || w.type === 'crossbow' ? 16 : 0), this.camPan(s.x));
+      if (this.audible()) sfx.shot(w.type, this.camDist(s), this.camPan(s.x), !!w.sup);
       this.heat = Math.min(1.5, (this.heat || 0) + (this.camDist(s) < 12 ? 0.12 : 0.04));
       this.onShot(s, w);
       return true;
@@ -1489,8 +1489,10 @@
     if (mine) { game.followId = mine.id; game.padOn = true; }
     paintCam(); paintPad();
     game.start();
+    if (App.FX && !cfgOverride) App.FX.introCards(game, $('#canvasWrap'));
     if (App.Music) App.Music.start();
     if (App.Rain && game.speed <= 2 && (game.weather === 'rain' || game.weather === 'storm')) App.Rain.start(game.weather === 'storm');
+    if (App.Amb) App.Amb.start(game.cfg.map, { night: game.night });
     try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { wakeLock = null; }
     announce(game);
   }
@@ -1504,7 +1506,7 @@
   function leaveGame(toSetup = true) {
     const fb = document.querySelector('#canvasWrap .fps'); if (fb) fb.remove();
     onMatchEnd = null;
-    if (App.Music) App.Music.stop(); if (App.Voice) App.Voice.stop(); if (App.Rain) App.Rain.stop();
+    if (App.Music) App.Music.stop(); if (App.Voice) App.Voice.stop(); if (App.Rain) App.Rain.stop(); if (App.Amb) App.Amb.stop();
     if (game) { game.destroy(); game = null; App.game = null; }
     try { if (wakeLock) wakeLock.release(); } catch (e) { /* nada */ }
     wakeLock = null;
@@ -1573,7 +1575,7 @@
   }
   function weaponLine(s) {
     if (!s.alive) return '';
-    if (s.cur === 'knife') return '🔪 cuchillo';
+    if (s.cur === 'knife') return App.Icons ? 'cuchillo' : '🔪 cuchillo';
     const w = s.cur === 'pistol' ? s.inv.pistol : s.inv.primary;
     if (!w) return '';
     return `${WEAPONS[w.type].short} ${w.mag}/${w.res}${s.reloadT > 0 ? ' ⟳' : ''}`;
@@ -1581,6 +1583,7 @@
 
   function onFrame(g) {
     if (App.Music && App.Music.on) App.Music.set(g.paused || g.phase !== 'run' ? 0.12 : tension(g));
+    if (App.Amb && (g.frameN = (g.frameN || 0) + 1) % 15 === 0) App.Amb.duck(g.paused ? 0 : tension(g));
     const mine = g.phase !== 'done' && g.soldiers.find((q) => q.manual && q.alive);
     if (!!mine !== g.padOn) { g.padOn = !!mine; paintPad(); }
     g.soldiers.forEach((s, i) => {
@@ -1590,6 +1593,8 @@
         c.last = key; c.hp.textContent = s.alive ? '♥'.repeat(Math.max(0, Math.ceil(s.hp / HPL))) : '✖';
         if (s.alive && gear) c.hp.append(el('span', { class: 'gear' }, gear));
         c.wp.textContent = weaponLine(s);
+        const wt = s.alive ? (s.cur === 'knife' ? 'knife' : ((s.cur === 'pistol' ? s.inv.pistol : s.inv.primary) || {}).type) : null;
+        if (wt && App.Icons && App.Icons.has(wt)) c.wp.insertAdjacentHTML('afterbegin', App.Icons.svg(wt, 'gi wp-ic'));
         c.chip.classList.toggle('dead', !s.alive);
       }
     });
@@ -1606,7 +1611,7 @@
 
   function onEnd(res) {
     if (game) { game.padOn = false; paintPad(); }
-    if (App.Music) App.Music.stop(1.2); if (App.Rain) App.Rain.stop();
+    if (App.Music) App.Music.stop(1.2); if (App.Rain) App.Rain.stop(); if (App.Amb) App.Amb.stop(2);
     sfx.fanfare(); vibrate([60, 60, 120]);
     const tourn = onMatchEnd; onMatchEnd = null;
     if (res.mode === 'tutorial') { App.state.ui.tutorialSeen = true; save(); showResult(res); return; }
@@ -1687,7 +1692,7 @@
     const list = el('div', { class: 'rank-list' });
     rk.forEach((s, i) => {
       const acc = s.stats.rounds ? Math.round((s.stats.hits / s.stats.rounds) * 100) : 0;
-      list.append(el('div', {},
+      list.append(el('div', { style: `--i:${i}` },
         el('span', {}, `${i + 1}.`), s.photo ? el('img', { class: 'ava', src: s.photo, alt: '', style: `border-color:${s.color}` }) : el('span', { class: 'dot', style: `background:${s.color}` }),
         el('span', {}, `${PERS[s.pers].emoji}${IQ[s.iq].emoji} ${s.name}`),
         el('span', { class: 'k' }, `${s.kills}💥 · ${Math.round(s.stats.dmgDealt)}❤ · ${acc}%${win.includes(s) ? ' · ganó' : ''}`)));
@@ -1862,6 +1867,7 @@
   mapDesc();
   bindSeg('segSize', () => B.size, (v) => { B.size = v; });
   bindSeg('segWeather', () => B.weather || 'none', (v) => { B.weather = v; });
+  bindSeg('segMusicStyle', () => B.musicStyle || 'tema', (v) => { B.musicStyle = v; if (App.Music.preload) App.Music.preload(); });
   bindSeg('segWinRange', () => B.winRange, (v) => { B.winRange = v; renderWins(); });
 
   [['optPowerups', 'powerups'], ['optZone', 'zone'], ['optVaried', 'varied'], ['optLoot', 'loot'], ['optGear', 'gear'], ['optProps', 'props'], ['optEvents', 'events']].forEach(([id, key]) => {
@@ -1869,7 +1875,7 @@
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });
 
-  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true], ['optMusic', 'music', true], ['optVoice', 'voice', false], ['optNarrator', 'narrator', true], ['optDebugAI', 'debugAI', false], ['optAutoRoles', 'autoRoles', true], ['optDowned', 'downed', true], ['optNight', 'night', false]].forEach(([id, key, def]) => {
+  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true], ['optMusic', 'music', true], ['optVoice', 'voice', false], ['optNarrator', 'narrator', true], ['optDebugAI', 'debugAI', false], ['optAutoRoles', 'autoRoles', true], ['optDowned', 'downed', true], ['optNight', 'night', false], ['optAmb', 'amb', true]].forEach(([id, key, def]) => {
     const input = $('#' + id); input.checked = B[key] == null ? def : !!B[key];
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });

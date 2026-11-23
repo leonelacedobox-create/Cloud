@@ -8,20 +8,20 @@
   const pick = (a) => a[Math.floor(rnd() * a.length)];
 
   const LINES = {
-    first: ['¡PRIMERA SANGRE! {k} abre el marcador', '¡Arrancó la cosa! {k} pega primero', '¡Y {k} inaugura la fiesta!'],
-    double: ['¡DOBLE BAJA de {k}!', '¡Dos al hilo! {k} no perdona', '¡Doblete de {k}, qué momento!'],
-    triple: ['¡TRIPLETE! {k} está imparable', '¡Tres de una! ¡Que alguien pare a {k}!'],
+    first: ['¡PRIMERA SANGRE! {k} abre el marcador', '¡Arrancó la cosa! {k} pega primero', '¡Y {k} inaugura la fiesta!', '¡Se rompió el cero! {k} se anota', '¡Abrió la lata {k}!', '¡Primer golpe y es de {k}!'],
+    double: ['¡DOBLE BAJA de {k}!', '¡Dos al hilo! {k} no perdona', '¡Doblete de {k}, qué momento!', '¡Dos de una! {k} pidió la pelota', '¡Doblete! {k} está en llamas'],
+    triple: ['¡TRIPLETE! {k} está imparable', '¡Tres de una! ¡Que alguien pare a {k}!', '¡HAT-TRICK de {k}! ¡No lo puedo creer!', '¡Tres al hilo! ¡{k} se los está comiendo crudos!'],
     spree3: ['{k} ya lleva tres… ¡está encendido!', '¡Racha de {k}! Tres bajas'],
-    spree5: ['¡{k} ES UNA MÁQUINA! Cinco bajas', '¡Cinco! {k} juega a otra cosa'],
-    long: ['¡Qué tiro de {k}! Desde {d} casilleros', '¡Golazo de media cancha! {k} desde {d}', '¡Francotirador! {k} la clavó a {d} casilleros'],
-    knife: ['¡A cuchillo! {k} lo hizo en silencio', '¡Puñalada de {k}! {v} ni lo vio venir', '¡Por la espalda! {k} no tiene piedad'],
+    spree5: ['¡{k} ES UNA MÁQUINA! Cinco bajas', '¡Cinco! {k} juega a otra cosa', '¡Llamen a la policía! {k} ya lleva cinco', '¡Es un show de {k}! ¡Cinco!'],
+    long: ['¡Qué tiro de {k}! Desde {d} casilleros', '¡Golazo de media cancha! {k} desde {d}', '¡Francotirador! {k} la clavó a {d} casilleros', '¡Desde la otra punta! {k} a {d} casilleros', '¡Al ángulo! {k} la puso desde {d}'],
+    knife: ['¡A cuchillo! {k} lo hizo en silencio', '¡Puñalada de {k}! {v} ni lo vio venir', '¡Por la espalda! {k} no tiene piedad', '¡Cuchillazo! {v} se fue sin saber qué pasó', '¡Mano a mano y a cuchillo! Ganó {k}'],
     underdog: ['¡Sorpresa! {k} le ganó a {v}', '¡Batacazo! {k} bajó al favorito {v}'],
     comeback: ['¡Con un hilo de vida, {k} se la lleva!', '¡Agonizando y todo, {k} gana el duelo!'],
     revenge: ['¡VENGANZA! {k} se cobró la deuda con {v}', '¡Ojo por ojo! {k} le devolvió la gentileza a {v}'],
-    duel: ['¡Quedan dos! Mano a mano entre {a} y {b}', '¡Final de película! {a} contra {b}', '¡Se define acá! {a} o {b}'],
+    duel: ['¡Quedan dos! Mano a mano entre {a} y {b}', '¡Final de película! {a} contra {b}', '¡Se define acá! {a} o {b}', '¡Los últimos dos! {a} y {b}, que gane el mejor', '¡Duelo al sol! {a} contra {b}'],
     zone: ['¡Se cierra la zona! Nadie está a salvo', '¡La zona aprieta! A moverse'],
     overtime: ['¡MUERTE SÚBITA! Esto se tiene que terminar', '¡Muerte súbita! Ya no hay dónde esconderse'],
-    end: ['¡Se terminó! {w} se queda con todo', '¡Fin del partido! Ganó {w}', '¡Ahí está! {w} es el último en pie'],
+    end: ['¡Se terminó! {w} se queda con todo', '¡Fin del partido! Ganó {w}', '¡Ahí está! {w} es el último en pie', '¡Campeón! ¡{w} levanta la copa!', '¡Pitazo final! {w} se lleva la gloria'],
     draw: ['¡Empate! Nadie se lleva nada', '¡Tablas! Habrá que tirar la moneda'],
   };
   const PRIO = { end: 9, draw: 9, duel: 7, triple: 7, spree5: 7, say: 6, first: 6, double: 5, revenge: 5, overtime: 5, long: 4, knife: 4, underdog: 4, comeback: 4, spree3: 3, zone: 3 };
@@ -47,7 +47,8 @@
     n.used.add(line); n.t = now; n.p = p;
     line = line.replace('{k}', data.k || '').replace('{v}', data.v || '').replace('{d}', data.d || '').replace('{a}', data.a || '').replace('{b}', data.b || '').replace('{w}', data.w || '');
     show('🎙️ ' + line, p >= 7);
-    if (App.Voice && this.speed <= 2) App.Voice.say(line, { prio: p >= 5, rate: 1.15, pitch: 1.05 });
+    // con más emoción cuanto más importante es la jugada: más rápido y más agudo
+    if (App.Voice && this.speed <= 2) App.Voice.say(line, { prio: p >= 5, rate: 1.08 + p * 0.025, pitch: 0.98 + p * 0.03 });
   };
 
   /** Mira cada baja y decide si vale un comentario. */

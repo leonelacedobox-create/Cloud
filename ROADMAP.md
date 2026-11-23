@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.9.5 ✅ terminada.** Próximas: 0.9.6 → 0.9.7 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.9.6 ✅ terminada.** Próximas: 0.9.7 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -167,7 +167,9 @@ Antes de publicar, seis versiones grandes de mejoras: cuerpos y animaciones, int
 7. **Editor de mapas visual** (dibujar con el dedo paredes, puertas y objetos) en lugar del de texto.
 8. **Eventos nuevos:** apagón con generador para volver a prender, inundación de un sector, helicóptero que ilumina y alarma de humo.
 
-## 0.9.6 — "Sonido y presentación a lo grande"
+## 0.9.6 — "Sonido y presentación a lo grande" ✅
+
+> **Hecho.** Notas: los sitios grandes de sonidos libres (freesound, opengameart, kenney.nl) no se pueden descargar desde acá, así que los sonidos salen de **Freedoom** (BSD) y de paquetes de **Kenney** (CC0) que están en GitHub y npm; los de Freedoom son de 8 bits y se limpiaron. Las voces son quejidos y gritos (las frases siguen saliendo con la voz del celular). La "cámara de la muerte" sigue al que te eliminó (no es en primera persona: el juego es visto desde arriba). Las pantallas se mejoraron con tipografía, íconos, la mesa de la moneda, las cartas y el resultado animado, sin rehacer todo el diseño. Todo lo descargado está en `CREDITOS.md`.
 1. **Sonidos reales descargados** (licencia libre): cada arma con disparo cercano y lejano, recargas, casquillos cayendo según el piso, pasos por superficie, impactos en carne, metal, madera y vidrio, explosiones con eco, puertas, vidrios.
 2. **Ambiente por mapa** (oficina con aire acondicionado y teléfonos, cárcel con ecos, depósito con viento y chapas, base militar con radio) y **eco según el lugar** (pasillos y cuartos grandes).
 3. **Música mejor:** temas de licencia libre o compuestos para el juego, que cambian de intensidad sin cortes.

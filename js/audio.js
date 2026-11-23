@@ -106,7 +106,7 @@
       const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = heavy ? 1400 : 2400; f.Q.value = 0.4;
       rainGain = a.createGain(); rainGain.gain.value = 0.0001;
       rainSrc.connect(f).connect(rainGain).connect(a.destination); rainSrc.start();
-      rainGain.gain.setTargetAtTime((heavy ? 0.07 : 0.045) * (App.audio.master / 100), a.currentTime, 1.2);
+      rainGain.gain.setTargetAtTime((heavy ? 0.07 : 0.045) * App.audio.master, a.currentTime, 1.2);
     },
     stop() {
       if (!rainSrc) return; const a = App.audio.ctx(), s = rainSrc, g = rainGain; rainSrc = rainGain = null;

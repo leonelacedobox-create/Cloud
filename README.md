@@ -138,6 +138,17 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **Eventos nuevos:** en el **apagón** aparece un **generador** que alguien puede prender para volver la luz, **inundación** de un sector (frena a todos), **helicóptero** con reflector que ilumina y delata, y **alarma de humo** que tapa los ruidos.
 - **🖌️ Editor de mapas visual:** pintás con el dedo paredes, pisos, puertas, ventanas, cajones, barriles, mesas, lámparas, cintas (tocando otra vez giran) y zonas oscuras, con **pincel, rectángulo, relleno**, deshacer, zoom, noche, **partir de un mapa del juego**, revisión en vivo y hasta **6 mapas guardados**. Se sigue guardando como texto, así que lo podés copiar y pasarlo por mensaje.
 
+### Novedades de la 0.9.6 — Sonido y presentación a lo grande
+- **Sonidos reales** (`js/sfxbank.js`, `js/fx.js`): cada arma con su disparo **de cerca y de lejos** (de lejos suena sordo y con eco), **recargas por partes** (sacar y meter el cargador, cartucho por cartucho en la escopeta y el revólver, la bomba de la escopeta y el cerrojo del sniper), **casquillos** que suenan según el piso, **pasos** grabados, **impactos** distintos en carne, pared, madera y metal, **explosiones** con golpe grave y eco, **puertas**, **cuchillo**, **rebote de granadas**, **radio** de las escuadras, quejidos y gritos al morir con **la voz de cada soldado** (cada uno tiene su tono). Si un sonido no carga se usa el sintetizado de antes.
+- **Eco según el lugar:** los pasillos y cuartos chicos retumban más que un patio abierto.
+- **Ambiente por mapa** (`js/ambience.js`): aire acondicionado, teléfonos e impresora en la oficina; goteras, ecos y rejas en la cárcel; viento y chapas en el depósito; radio en la base; trenes y bocinas en la estación; heladeras y lector de códigos en el súper; prensas en la fábrica; autos en el estacionamiento; sirenas en el complejo; **grillos de noche**. Baja solo cuando hay tiroteo.
+- **Música grabada:** “Battle Theme A” de cynicmusic (CC0), que se **abre y sube con la tensión** sin cortes. Se puede volver a la sintetizada en Ajustes.
+- **Relator** con muchas más frases y más emoción en la voz según lo importante de la jugada.
+- **Efectos:** humo de verdad (nubes que giran), **onda expansiva** en las explosiones, **luz de los disparos** también de día, **sacudón y viñeta roja** cuando le pegan al que seguís.
+- **Cámara de cine:** **cartas de presentación** de cada soldado al empezar (foto, personalidad, inteligencia y rol; "VS" en equipos), **cámara del que te eliminó** con franjas de cine, y **resultado animado** (podio que sube, filas que entran).
+- **Pantallas:** tipografías propias (**Black Ops One** para la batalla y **Cinzel** para la moneda), **íconos dibujados** de game-icons.net en el menú y en las fichas de los soldados (el arma que tienen en la mano), y la moneda ahora cae sobre una **mesa de madera** con su sonido.
+- **Créditos** de todo lo descargado en `CREDITOS.md` (y resumidos en la Ayuda).
+
 ### Banco de pruebas
 ```sh
 node tools/bench.js --runs 12    # simula cientos de partidas sin dibujar y genera un reporte

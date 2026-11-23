@@ -7,6 +7,7 @@ Uso:  python3 tools/build_single.py [carpeta_de_salida]
 """
 import base64
 import io
+import json
 import os
 import re
 import sys
@@ -39,6 +40,11 @@ CRIS = data_uri("assets/coin-cristina.png")
 html = read("index.html")
 css = read("css/style.css")
 css = css.replace("url(../assets/coin-milei.png)", f"url({MILEI})").replace("url(../assets/coin-cristina.png)", f"url({CRIS})")
+# tipografías (0.9.6) adentro del CSS
+for fn in os.listdir(os.path.join(ROOT, "assets", "fonts")):
+    if fn.endswith(".woff2"):
+        b64 = base64.b64encode(open(os.path.join(ROOT, "assets", "fonts", fn), "rb").read()).decode()
+        css = css.replace(f"url(../assets/fonts/{fn})", f"url(data:font/woff2;base64,{b64})")
 
 # CSS dentro de <style>
 html = html.replace('<link rel="stylesheet" href="css/style.css">', "<style>\n" + css + "\n</style>")
@@ -55,6 +61,11 @@ def inline_script(m):
 
 
 html = re.sub(r'<script src="(js/[^"]+)"></script>', inline_script, html)
+# sonidos reales (0.9.6): van adentro en base64 para que ande sin conexión
+sfx_dir = os.path.join(ROOT, "assets", "sfx")
+sfx = {fn[:-4]: "data:audio/mpeg;base64," + base64.b64encode(open(os.path.join(sfx_dir, fn), "rb").read()).decode()
+       for fn in sorted(os.listdir(sfx_dir)) if fn.endswith(".mp3")}
+html = html.replace("<script>\n/* Banco de sonidos reales", "<script>window.SFX_INLINE = " + json.dumps(sfx) + ";</script>\n<script>\n/* Banco de sonidos reales", 1)
 # las imágenes que usa el JS de la moneda
 html = html.replace("'assets/coin-milei.png'", f"'{MILEI}'").replace("'assets/coin-cristina.png'", f"'{CRIS}'")
 

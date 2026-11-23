@@ -23,7 +23,7 @@ const App = (() => {
     battle: {
       teamMode: 'ffa', teamCount: 2, lives: 3, map: 'maze', size: 'm',
       powerups: true, zone: true, varied: true, loot: true, speed: 1,
-      talk: true, laser: false, friendly: false, volMaster: 100, volShots: 100, customLines: '',
+      talk: true, laser: false, friendly: false, musicStyle: 'tema', amb: true, volMaster: 100, volShots: 100, customLines: '',
       gear: true, props: true, events: true, customMap: '', mode: 'classic',
       wins: [], winRange: 'week',
     },
@@ -60,6 +60,7 @@ const App = (() => {
     b.winRange = ONE(b.winRange, ['week', 'all'], 'week');
     ['volMaster', 'volShots', 'volMusic'].forEach((k) => { if (b[k] != null) b[k] = NUM(+b[k], 0, 100, 100); });
     b.customLines = STR(b.customLines, 400); b.customMap = STR(b.customMap, 6000);
+    if (!['tema', 'synth'].includes(b.musicStyle)) b.musicStyle = 'tema';
     b.myMaps = Array.isArray(b.myMaps) ? b.myMaps.filter((q) => q && typeof q.text === 'string').slice(-6).map((q) => ({ name: STR(q.name, 30) || 'Mapa', text: STR(q.text, 6000) })) : [];
     b.wins = Array.isArray(b.wins) ? b.wins.filter((w) => w && typeof w.t === 'number' && Array.isArray(w.names)).map((w) => ({ t: w.t, names: w.names.filter((n) => typeof n === 'string').slice(0, 10) })).slice(-1000) : [];
     b.betLog = Array.isArray(b.betLog) ? b.betLog.filter((x) => x && typeof x.t === 'number' && typeof x.name === 'string').slice(-500) : [];
@@ -276,7 +277,7 @@ const App = (() => {
   }
 
   const HATS = { none: 'Sin gorro', cowboy: '🤠 Sombrero vaquero', crown: '👑 Corona', party: '🎉 Gorro de fiesta', tophat: '🎩 Galera', beret: '🎨 Boina', santa: '🎅 Gorro de Papá Noel' };
-  const audio = { tone, noise, ctx, get master() { return masterVol; } };
+  const audio = { tone, noise, ctx, get master() { return masterVol; }, get shots() { return shotVol; } };
   return { toast, get loadProblem() { return loadProblem; }, SAVE_V, applyA11y, textK, audio, HATS, state, save, $, $$, el, rnd, rint, shuffle, pname, esc, bindSeg, sfx, vibrate, go, register, newPlayer, ctx, setVol,
     PALETTE, TEAMS, MAX_PLAYERS, get current() { return current; } };
 })();

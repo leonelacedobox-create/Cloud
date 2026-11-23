@@ -98,7 +98,7 @@
           if (half !== lastHalf) { lastHalf = half; if (now - lastTick > 55) { lastTick = now; sfx.tick(half % 2); } }
         } else {
           const tt = t - air;
-          if (!landed) { landed = true; sfx.coinRing(1); vibrate([30, 40, 15]); }
+          if (!landed) { landed = true; sfx.coinRing(1); vibrate([30, 40, 15]); if (App.Bank) App.Bank.play('hit_hard', { vol: 0.22, r: 1.8, lp: 2600, rev: 0.1 }); }   // el golpecito contra la mesa de madera
           if (tt < b1) {                                          // primer rebote
             const u = tt / b1; h = 4 * 0.11 * H * u * (1 - u);
             r = rotEnd + 16 * Math.sin(u * Math.PI) * (wantBack ? -1 : 1);
