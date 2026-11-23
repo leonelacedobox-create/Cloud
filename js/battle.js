@@ -669,7 +669,7 @@
       for (const s of this.soldiers) {
         if (!s.alive) continue;
         for (const it of this.items) {
-          if (it.gone || Math.hypot(it.x - s.x, it.y - s.y) > 0.62) continue;
+          if (it.gone || Math.hypot(it.x - s.x, it.y - s.y) > 0.75) continue;
           if (this.evalItem(s, it) >= 0.15) this.applyPickup(s, it);
         }
       }

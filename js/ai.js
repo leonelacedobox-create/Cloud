@@ -498,7 +498,7 @@
   G.think = function (s) {
     const W = this.W, tx = Math.floor(s.x), ty = Math.floor(s.y), now = this.time;
     const enemies = this.enemiesOf(s);
-    if (!enemies.length) return;
+    if (!enemies.length && !(this.M && this.M.key === 'waves')) return;             // en oleadas, entre una y otra siguen juntando cosas
     const P = s.P, sk = s.sk, tac = IQ[s.iq].tac, hpF = s.hp / s.maxHp;
     if (s.unstickT > 0 && s.path.length > 1 && !s.target) return;          // destrabándose: sigue su ruta
     if (s.dropAt && now >= s.dropAt.until) { s.dropAt = null; s.dropGo = null; }
@@ -509,6 +509,10 @@
     }
     const prevMode = s.mode;
     let path = null;
+    if (s.act && s.act.type === 'hold') {                                   // está esperando (emboscada, escuchando, cuidando un lugar)
+      if (!(this.zone && this.outsideZone(s.x, s.y, 1.2)) && !s.target && !s.carry) return;   // sigue esperando sin cambiar de plan
+      s.act = null;                                                          // la zona o un enemigo a la vista: deja de esperar
+    }
 
     // 1) zona roja
     if (this.zone && this.outsideZone(s.x, s.y, 1.2)) {
@@ -578,6 +582,7 @@
       let bestIt = null, bsc = 0.2;
       for (const it of s.seenItems.values()) {
         if (it.gone) { s.seenItems.delete(it.id); continue; }
+        if (Math.hypot(it.x - s.x, it.y - s.y) < 0.7) { s.seenItems.delete(it.id); continue; }   // ya está encima y no lo pudo agarrar: no insistir
         const gain = this.evalItem(s, it);
         if (gain < 0.2) continue;
         const sc = gain * 3 - Math.hypot(it.x - s.x, it.y - s.y) * 0.12;
@@ -653,6 +658,7 @@
       if (sp > 0.5 && age < 4 && tac >= 0.8) { const dtp = Math.min(age + 1.4, 3.5); px += k.vx * dtp; py += k.vy * dtp; }
       const dest = this.floorIdxNear(px, py);
       path = this.bfs(tx, ty, (i) => i === dest); s.mode = 'hunt';
+      if (path && path.length <= 1 && !s.target) { delete s.know[k.id]; s.headScan = 1.2; s.thinkT = 0.15; path = null; s.mode = 'search'; }   // no se puede llegar más cerca: ahí no hay nadie
       // esperar antes de una puerta cerrada (en vez de abrirla de golpe)
       const di = path ? path.findIndex((i) => this.doorGrid[i] && doorClosed(this.doors.get(i))) : -1;
       if (di > 0 && di <= 4 && age < 10 && s.doorWaited !== path[di] && rnd() < sk.door * 0.6 * tac) {
