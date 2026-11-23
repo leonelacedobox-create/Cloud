@@ -301,6 +301,17 @@ body.in-game { overflow: hidden; }
   text-shadow: 0 2px 4px rgba(0,0,0,.6); opacity: 0; transition: opacity .25s, transform .25s; z-index: 4; }
 .narrator.big { font-size: 21px; background: linear-gradient(90deg, rgba(202,138,4,0), rgba(202,138,4,.9) 12%, rgba(202,138,4,.9) 88%, rgba(202,138,4,0)); }
 .narrator.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+/* ---------- 0.9: accesibilidad ---------- */
+body.txt-l #app > .screen:not(#screen-battle), body.txt-l #battleSetup, body.txt-l .overlay-box, body.txt-l .modal-box { zoom: 1.15; }
+body.txt-xl #app > .screen:not(#screen-battle), body.txt-xl #battleSetup, body.txt-xl .overlay-box, body.txt-xl .modal-box { zoom: 1.32; }
+body.txt-l .hud .chip, body.txt-l .zone-info, body.txt-l .feed div { font-size: 115%; }
+body.txt-xl .hud .chip, body.txt-xl .zone-info, body.txt-xl .feed div { font-size: 130%; }
+body.txt-l .narrator { font-size: 20px; } body.txt-xl .narrator { font-size: 23px; }
+body.lefty .pad .joy { left: auto; right: 14px; }
+body.lefty .pad-btns { right: auto; left: 10px; direction: ltr; }
+body.calm *, body.calm *::before, body.calm *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+.hud .chip .dot.sym { width: 15px; height: 15px; display: grid; place-items: center; font-size: 9px; line-height: 1; color: #fff; text-shadow: 0 0 2px #000; }
+.fps { position: absolute; left: 6px; bottom: 6px; font: 700 11px ui-monospace, monospace; color: #9ef01a; background: rgba(0,0,0,.55); padding: 1px 6px; border-radius: 6px; pointer-events: none; z-index: 5; }
 .controls { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .overlay { position: absolute; inset: 0; background: rgba(5,8,16,.78); display: flex; align-items: flex-start; justify-content: center; padding: 14px; overflow: auto; }
 .overlay-box { width: 100%; max-width: 420px; text-align: center; display: grid; gap: 10px; margin: auto; }

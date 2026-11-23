@@ -132,7 +132,7 @@
     const dpr = Math.min(2, window.devicePixelRatio || 1), W = window.innerWidth, H = window.innerHeight;
     confCv.width = W * dpr; confCv.height = H * dpr; confCv.style.width = W + 'px'; confCv.style.height = H + 'px';
     const r = coinWrap.getBoundingClientRect(), cx = r.left + r.width / 2, cy = Math.min(H * 0.7, Math.max(H * 0.28, r.top + r.height / 2));   // si la moneda quedó fuera de la pantalla, sale de la zona visible
-    const n = big ? 170 : 60, pal = PAL[result];
+    const n = (big ? 170 : 60) * (state.ui.motion === false ? 0.3 : 1), pal = PAL[result];
     for (let i = 0; i < n; i++) {
       const a = -Math.PI / 2 + (rnd() - 0.5) * (big ? 2.6 : 1.7), v = (big ? 9 : 6) + rnd() * (big ? 9 : 6);
       bits.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, rot: rnd() * 6, vr: (rnd() - 0.5) * 0.4, w: 5 + rnd() * 6, h: 3 + rnd() * 4, c: pal[rint(pal.length)], life: 1 });

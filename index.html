@@ -40,6 +40,22 @@
       <span class="menu-ico">🔫</span>
       <span><b>Batalla en el laberinto</b><small>Hasta 10 soldados peleando solos. El último en pie gana.</small></span>
     </button>
+    <button class="menu-card" id="btnHelp">
+      <span class="menu-ico">❓</span>
+      <span><b>Ayuda y tutorial</b><small>Cómo se juega, los modos, los controles y una práctica guiada.</small></span>
+    </button>
+    <div class="card" id="a11yCard">
+      <div class="label">Tamaño del texto</div>
+      <div class="seg" id="segText"><button data-v="normal">Normal</button><button data-v="grande">Grande</button><button data-v="enorme">Enorme</button></div>
+      <label class="switch"><input type="checkbox" id="uiCb"><span>🎨 Ayuda para daltonismo (colores seguros y símbolos por equipo ● ▲ ■ ◆)</span></label>
+      <label class="switch"><input type="checkbox" id="uiVib"><span>📳 Vibración</span></label>
+      <label class="switch"><input type="checkbox" id="uiLeft"><span>🫲 Modo zurdo (joystick a la derecha y botones a la izquierda)</span></label>
+      <label class="switch"><input type="checkbox" id="uiMotion"><span>🎥 Animaciones y sacudidas de cámara (apagalo si te marea)</span></label>
+      <div class="label">Calidad y batería</div>
+      <div class="seg" id="segQuality"><button data-v="auto">Automática</button><button data-v="alta">Alta</button><button data-v="ahorro">Ahorro</button></div>
+      <p class="hint">Automática baja la calidad sola si el celular se pone lento. Ahorro: 30 cuadros por segundo, menos efectos y menos resolución.</p>
+      <label class="switch"><input type="checkbox" id="uiFps"><span>Mostrar cuadros por segundo</span></label>
+    </div>
     <p class="hint center">Versión 0.9 · “Pulido y sentidos”</p>
     <p class="hint center" id="installHint">Tip: en el menú del navegador elegí “Agregar a pantalla de inicio” y queda como una app.</p>
   </section>

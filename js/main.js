@@ -39,6 +39,16 @@
     }
   });
 
+  // accesibilidad, calidad y batería
+  const U = state.ui;
+  App.bindSeg('segText', () => U.text, (v) => { U.text = v; App.applyA11y(); });
+  App.bindSeg('segQuality', () => U.quality, (v) => { U.quality = v; });
+  [['uiCb', 'cb'], ['uiVib', 'vib'], ['uiLeft', 'left'], ['uiMotion', 'motion'], ['uiFps', 'fps']].forEach(([id, k]) => {
+    const i = $('#' + id); i.checked = !!U[k];
+    i.addEventListener('change', () => { U[k] = i.checked; App.applyA11y(); save(); if (k === 'vib' && i.checked) App.vibrate(30); });
+  });
+  App.applyA11y();
+
   // ya instalada: ocultar el consejo
   if (matchMedia('(display-mode: standalone)').matches || navigator.standalone) $('#installHint').hidden = true;
 

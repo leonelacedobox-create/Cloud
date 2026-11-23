@@ -182,6 +182,9 @@
       this.itemId = 1; this.lootTimer = 14;
       this.endT = 0; this.deaths = 0; this.winners = []; this.zone = null;
       this.pov = false; this.stuckEvents = 0; this.ctl = { mx: 0, my: 0, fire: false, sneak: false }; this.padOn = false;
+      const U = App.state.ui || {};
+      this.quality = U.quality === 'ahorro' ? 'ahorro' : 'alta'; this.autoQ = U.quality !== 'alta' && U.quality !== 'ahorro'; this.perfN = 0; this.perfT = 0; this.slowWin = 0;
+      if (U.motion === false) cfg.camShake = false;
       this.camMode = 'auto'; this.followId = null; this.focus = null; this.focusUntil = 0; this.camX = 0; this.camY = 0;
 
       const wrap = canvas.parentElement;
@@ -843,6 +846,8 @@
         if (p.life <= 0) this.parts.splice(i, 1);
       }
       this.stepShells(dt);
+      const pcap = this.quality === 'ahorro' ? 140 : this.quality === 'media' ? 320 : 700;
+      if (this.parts.length > pcap) this.parts.splice(0, this.parts.length - pcap);
       for (let i = this.rings.length - 1; i >= 0; i--) { this.rings[i].t += dt; if (this.rings[i].t > 0.7) this.rings.splice(i, 1); }
 
       this.recStep(dt);
@@ -926,6 +931,9 @@
     start() { this.last = performance.now(); this.raf = requestAnimationFrame(this.frame); }
     frame(now) {
       if (this.dead) return;
+      if (this.quality === 'ahorro' && this.lastDraw && now - this.lastDraw < 30) { this.raf = requestAnimationFrame(this.frame); return; }   // ahorro: 30 cuadros por segundo
+      this.lastDraw = now;
+      this.perf(now);
       const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
       this.now = now;
       if (!this.paused) {
@@ -947,12 +955,28 @@
       if (this.phase !== 'done') this.raf = requestAnimationFrame(this.frame);
     }
 
+    /** Mide los cuadros por segundo; en calidad automática baja la calidad si el celular no da abasto. */
+    perf(now) {
+      if (!this.perfT) { this.perfT = now; this.perfN = 0; return; }
+      this.perfN++;
+      if (now - this.perfT < 500) return;
+      const fps = this.perfN * 1000 / (now - this.perfT); this.perfT = now; this.perfN = 0; this.fps = fps;
+      if (App.state.ui && App.state.ui.fps) {
+        let b = this.cv.parentElement.querySelector('.fps');
+        if (!b) { b = document.createElement('div'); b.className = 'fps'; this.cv.parentElement.append(b); }
+        b.textContent = `${Math.round(fps)} fps · ${this.quality}`;
+      }
+      if (!this.autoQ || this.paused || this.phase !== 'run' || this.time < 3 || document.hidden) return;
+      this.slowWin = fps < 40 ? this.slowWin + 1 : 0;
+      if (this.slowWin >= 4 && this.quality !== 'ahorro') { this.quality = this.quality === 'alta' ? 'media' : 'ahorro'; this.slowWin = 0; this.resize(); }
+    }
+
     /* ---------- dibujo ---------- */
     resize() {
       const cv = this.cv, wrap = cv.parentElement;
       const cw = wrap.clientWidth, ch = wrap.clientHeight;
       if (!cw || !ch) return;
-      const dpr = Math.min(3, window.devicePixelRatio || 1);
+      const dpr = Math.min(this.quality === 'ahorro' ? 1 : this.quality === 'media' ? 1.5 : 3, window.devicePixelRatio || 1);
       cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
       this.dpr = dpr; this.cw = cw; this.ch = ch;
       this.fitTs = Math.floor(Math.min(cw / this.W, ch / this.H) * 100) / 100;
@@ -1198,13 +1222,14 @@
         x.fillStyle = 'rgba(0,0,0,.5)'; x.fillRect(cx - wTot / 2, top - 8, wTot, 3);
         x.fillStyle = '#facc15'; x.fillRect(cx - wTot / 2, top - 8, wTot * (1 - s.reloadT / Math.max(0.01, s.reloadTot)), 3);
       }
-      const fs = Math.max(9, Math.min(14, ts * 0.5));
+      const fs = Math.max(9, Math.min(14, ts * 0.5)) * App.textK();
       x.font = `800 ${fs}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'bottom';
       x.lineWidth = 3.2; x.strokeStyle = 'rgba(0,0,0,.85)'; x.lineJoin = 'round';
       const ny = top - (s.reloadT > 0 ? 10 : 5);
-      x.strokeText(s.name, cx, ny); x.fillStyle = '#fff'; x.fillText(s.name, cx, ny);
+      const nm = (s.team >= 0 && TEAMS[s.team].sym ? TEAMS[s.team].sym + ' ' : '') + s.name;
+      x.strokeText(nm, cx, ny); x.fillStyle = '#fff'; x.fillText(nm, cx, ny);
       if (s.photoImg && s.photoImg.complete && s.photoImg.naturalWidth) {                 // foto del compañero, redonda, al lado del nombre
-        const tw = x.measureText(s.name).width, r = fs * 0.75, ax = cx - tw / 2 - r - 3, ay = ny - fs * 0.5;
+        const tw = x.measureText(nm).width, r = fs * 0.75, ax = cx - tw / 2 - r - 3, ay = ny - fs * 0.5;
         x.save(); x.beginPath(); x.arc(ax, ay, r, 0, 6.283); x.clip(); x.drawImage(s.photoImg, ax - r, ay - r, r * 2, r * 2); x.restore();
         x.strokeStyle = s.color; x.lineWidth = 2; x.beginPath(); x.arc(ax, ay, r, 0, 6.283); x.stroke();
       }
@@ -1409,6 +1434,7 @@
   function applyAudio() { App.setVol((B.volMaster == null ? 100 : B.volMaster) / 100, (B.volShots == null ? 100 : B.volShots) / 100); }
 
   function leaveGame(toSetup = true) {
+    const fb = document.querySelector('#canvasWrap .fps'); if (fb) fb.remove();
     onMatchEnd = null;
     if (App.Music) App.Music.stop(); if (App.Voice) App.Voice.stop();
     if (game) { game.destroy(); game = null; App.game = null; }
@@ -1433,7 +1459,7 @@
           }
           game.followId = game.followId === s.id ? null : s.id; game.camMode = 'auto'; game.setScale(); paintCam();
         },
-      }, s.photo ? el('img', { class: 'ava', src: s.photo, alt: '', style: `border-color:${s.color}` }) : el('span', { class: 'dot', style: `background:${s.color}` }),
+      }, s.photo ? el('img', { class: 'ava', src: s.photo, alt: '', style: `border-color:${s.color}` }) : el('span', { class: 'dot' + (s.team >= 0 && TEAMS[s.team].sym ? ' sym' : ''), style: `background:${s.team >= 0 && TEAMS[s.team].sym ? TEAMS[s.team].color : s.color}` }, s.team >= 0 && TEAMS[s.team].sym ? TEAMS[s.team].sym : ''),
       el('span', { class: 'nm' }, (g.cfg.varied ? PERS[s.pers].emoji + ' ' : '') + s.name), hp, wp);
       hud.append(chip);
       return { chip, hp, wp, last: '' };

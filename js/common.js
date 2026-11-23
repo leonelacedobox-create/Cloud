@@ -17,6 +17,7 @@ const App = (() => {
   const defaults = () => ({
     sound: true,
     theme: 'auto',
+    ui: { text: 'normal', cb: false, vib: true, left: false, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches, quality: 'auto', fps: false, tutorialSeen: false },
     players: Array.from({ length: 4 }, (_, i) => newPlayer(i)),
     coin: { mode: 'libre', style: 'clasica', best: 1, leaver: 'winner', totals: { milei: 0, cristina: 0 }, history: [] },
     battle: {
@@ -39,6 +40,7 @@ const App = (() => {
       if (!raw) return d;
       const s = JSON.parse(raw);
       const out = Object.assign(d, { sound: s.sound !== false, theme: s.theme || 'auto' });
+      out.ui = Object.assign(d.ui, s.ui || {});
       out.coin = Object.assign(d.coin, s.coin || {});
       out.battle = Object.assign(d.battle, s.battle || {});
       out.hist = s.hist && s.hist.players ? s.hist : null;
@@ -187,7 +189,18 @@ const App = (() => {
     beep(high) { tone(high ? 880 : 440, high ? 0.35 : 0.15, { type: 'square', vol: 0.07 }); },
     fanfare() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.28, { type: 'triangle', vol: 0.12, delay: i * 0.14 })); tone(1047, 0.7, { type: 'triangle', vol: 0.12, delay: 0.6 }); },
   };
-  function vibrate(p) { try { if (state.sound && navigator.vibrate) navigator.vibrate(p); } catch (e) { /* nada */ } }
+  function vibrate(p) { try { if (state.ui.vib !== false && navigator.vibrate) navigator.vibrate(p); } catch (e) { /* nada */ } }
+
+  /* ---------- accesibilidad (0.9) ---------- */
+  // paleta segura para daltonismo (Okabe-Ito) y símbolos distintos por equipo
+  const TEAM_BASE = TEAMS.map((t) => t.color), TEAM_CB = ['#D55E00', '#0072B2', '#009E73', '#F0E442'], TEAM_SYM = ['●', '▲', '■', '◆'];
+  function applyA11y() {
+    const u = state.ui, b = document.body;
+    b.classList.toggle('txt-l', u.text === 'grande'); b.classList.toggle('txt-xl', u.text === 'enorme');
+    b.classList.toggle('lefty', !!u.left); b.classList.toggle('calm', !u.motion); b.classList.toggle('cb', !!u.cb);
+    TEAMS.forEach((t, i) => { t.color = u.cb ? TEAM_CB[i] : TEAM_BASE[i]; t.sym = u.cb ? TEAM_SYM[i] : ''; });
+  }
+  const textK = () => (state.ui.text === 'enorme' ? 1.4 : state.ui.text === 'grande' ? 1.2 : 1);
 
   /* ---------- pantallas ---------- */
   const screens = {};
@@ -206,6 +219,6 @@ const App = (() => {
 
   const HATS = { none: 'Sin gorro', cowboy: '🤠 Sombrero vaquero', crown: '👑 Corona', party: '🎉 Gorro de fiesta', tophat: '🎩 Galera', beret: '🎨 Boina', santa: '🎅 Gorro de Papá Noel' };
   const audio = { tone, noise, ctx, get master() { return masterVol; } };
-  return { audio, HATS, state, save, $, $$, el, rnd, rint, shuffle, pname, esc, bindSeg, sfx, vibrate, go, register, newPlayer, ctx, setVol,
+  return { applyA11y, textK, audio, HATS, state, save, $, $$, el, rnd, rint, shuffle, pname, esc, bindSeg, sfx, vibrate, go, register, newPlayer, ctx, setVol,
     PALETTE, TEAMS, MAX_PLAYERS, get current() { return current; } };
 })();
