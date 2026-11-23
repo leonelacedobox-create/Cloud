@@ -295,6 +295,7 @@ body.in-game { overflow: hidden; }
 .tm-acts { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
 .tbets { display: grid; gap: 6px; }
 .champ { text-align: center; } .champ .big { font-size: 54px; }
+.confetti { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 70; }
 .controls { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .overlay { position: absolute; inset: 0; background: rgba(5,8,16,.78); display: flex; align-items: flex-start; justify-content: center; padding: 14px; overflow: auto; }
 .overlay-box { width: 100%; max-width: 420px; text-align: center; display: grid; gap: 10px; margin: auto; }

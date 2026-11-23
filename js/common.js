@@ -18,7 +18,7 @@ const App = (() => {
     sound: true,
     theme: 'auto',
     players: Array.from({ length: 4 }, (_, i) => newPlayer(i)),
-    coin: { mode: 'libre', best: 1, leaver: 'winner', totals: { milei: 0, cristina: 0 }, history: [] },
+    coin: { mode: 'libre', style: 'clasica', best: 1, leaver: 'winner', totals: { milei: 0, cristina: 0 }, history: [] },
     battle: {
       teamMode: 'ffa', teamCount: 2, lives: 3, map: 'maze', size: 'm',
       powerups: true, zone: true, varied: true, loot: true, speed: 1,
@@ -152,6 +152,8 @@ const App = (() => {
     },
     whoosh() { noise(0.45, { vol: 0.16, freq: 400, q: 0.8, sweepTo: 2400 }); },
     clink() { sfx.coinRing(0.35); },
+    tick(k = 0) { tone(1500 + k * 260, 0.035, { type: 'square', vol: 0.035 }); },
+    pop() { tone(300, 0.08, { type: 'triangle', vol: 0.08 }); tone(620, 0.06, { type: 'triangle', vol: 0.06, delay: 0.04 }); },
     // cada arma suena distinto; si está lejos de la cámara suena más bajo y más sordo
     shot(kind, dist = 0) {
       const far = dist > 12, m = shotVol * (dist < 8 ? 1 : Math.max(0.12, 1 - (dist - 8) / 26));

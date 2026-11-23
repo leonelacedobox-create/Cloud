@@ -66,14 +66,16 @@
   /** Anima el lanzamiento y termina mostrando la cara `result`. */
   function animateToss(result) {
     return new Promise((resolve) => {
-      const H = coinWrap.offsetWidth * 0.85;                     // altura máxima del salto (relativa al tamaño)
-      const air = 1250 + rint(350);                              // ms en el aire
-      const spins = 5 + rint(4);                                 // vueltas completas
+      const st = C.style || 'clasica';                           // estilo de tirada: clásica, alta, trompo o loca
+      const H = coinWrap.offsetWidth * (st === 'alta' ? 1.4 : st === 'trompo' ? 0.45 : 0.85);   // altura máxima del salto (relativa al tamaño)
+      const air = st === 'alta' ? 1900 + rint(400) : st === 'trompo' ? 1000 + rint(250) : 1250 + rint(350);   // ms en el aire
+      const spins = st === 'trompo' ? 12 + rint(5) : st === 'alta' ? 7 + rint(4) : 5 + rint(4);               // vueltas completas
+      let lastHalf = -1, lastTick = 0;
       const wantBack = result === 'cristina';
       const isBack = Math.round(((rot % 360) + 360) % 360 / 180) % 2 === 1;
       const rot0 = rot;
       const rotEnd = rot0 + 360 * spins + (wantBack !== isBack ? 180 : 0);
-      const tiltAmp = 10 + rnd() * 8;
+      const tiltAmp = st === 'loca' ? 28 + rnd() * 14 : 10 + rnd() * 8;
       const tiltPhase = rnd() * 6;
       const b1 = 300, b2 = 190, wob = 520;
       const total = air + b1 + b2 + wob;
@@ -91,7 +93,9 @@
           h = 4 * H * u * (1 - u);
           r = rot0 + (rotEnd - rot0) * (u < 0.5 ? easeOut(u * 2) * 0.5 : 0.5 + (u - 0.5)); // gira rápido al inicio
           tilt = tiltAmp * Math.sin(u * Math.PI * 2.4 + tiltPhase) * (1 - u * 0.6);
-          sc = 1 + 0.14 * (h / H);
+          sc = 1 + 0.14 * (h / H) + (st === 'loca' ? 0.12 * Math.sin(u * 17) : 0);
+          const half = Math.floor(r / 180);                      // un "tic" cada vez que pasa una cara
+          if (half !== lastHalf) { lastHalf = half; if (now - lastTick > 55) { lastTick = now; sfx.tick(half % 2); } }
         } else {
           const tt = t - air;
           if (!landed) { landed = true; sfx.coinRing(1); vibrate([30, 40, 15]); }
@@ -115,6 +119,37 @@
       }
       requestAnimationFrame(frame);
     });
+  }
+
+  /* ---------- confeti ---------- */
+  const PAL = { milei: ['#7dd3fc', '#ffffff', '#f5c518', '#38bdf8'], cristina: ['#a78bfa', '#ffffff', '#f5c518', '#c084fc'] };
+  let confCv = null, confRun = false, bits = [];
+  function burst(result) {
+    const big = series.done || (C.mode === 'temprano' && C.best === 1);
+    if (!confCv) {
+      confCv = el('canvas', { class: 'confetti' }); document.body.append(confCv);
+    }
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = window.innerWidth, H = window.innerHeight;
+    confCv.width = W * dpr; confCv.height = H * dpr; confCv.style.width = W + 'px'; confCv.style.height = H + 'px';
+    const r = coinWrap.getBoundingClientRect(), cx = r.left + r.width / 2, cy = Math.min(H * 0.7, Math.max(H * 0.28, r.top + r.height / 2));   // si la moneda quedó fuera de la pantalla, sale de la zona visible
+    const n = big ? 170 : 60, pal = PAL[result];
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (rnd() - 0.5) * (big ? 2.6 : 1.7), v = (big ? 9 : 6) + rnd() * (big ? 9 : 6);
+      bits.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, rot: rnd() * 6, vr: (rnd() - 0.5) * 0.4, w: 5 + rnd() * 6, h: 3 + rnd() * 4, c: pal[rint(pal.length)], life: 1 });
+    }
+    sfx.pop(); if (big) setTimeout(() => sfx.fanfare(), 150);
+    if (!confRun) { confRun = true; requestAnimationFrame(confFrame); }
+  }
+  function confFrame() {
+    const x = confCv.getContext('2d'), dpr = confCv.width / parseFloat(confCv.style.width);
+    x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, confCv.width, confCv.height);
+    for (let i = bits.length - 1; i >= 0; i--) {
+      const b = bits[i];
+      b.x += b.vx; b.y += b.vy; b.vy += 0.32; b.vx *= 0.985; b.rot += b.vr; b.life -= 0.0085;
+      if (b.life <= 0 || b.y > window.innerHeight + 20) { bits.splice(i, 1); continue; }
+      x.save(); x.translate(b.x, b.y); x.rotate(b.rot); x.globalAlpha = Math.min(1, b.life * 2.2); x.fillStyle = b.c; x.fillRect(-b.w / 2, -b.h / 2, b.w, b.h * (0.4 + 0.6 * Math.abs(Math.sin(b.rot * 2)))); x.restore();
+    }
+    if (bits.length) requestAnimationFrame(confFrame); else { confRun = false; x.clearRect(0, 0, confCv.width, confCv.height); }
   }
 
   /* ---------- lógica de la tirada ---------- */
@@ -161,6 +196,7 @@
     series[result]++; series.n++;
     if (series[result] >= need()) series.done = true;
     showResult(result);
+    burst(result);
     renderStats(); renderSeries(); updateButton();
     save();
   }
@@ -308,6 +344,7 @@
     resultBox.innerHTML = '';
     renderRoster(); renderSeries(); updateButton();
   });
+  bindSeg('segStyle', () => C.style || 'clasica', (v) => { C.style = v; });
   bindSeg('segBest', () => C.best, (v) => { C.best = +v; newSeries(); resultBox.innerHTML = ''; renderSeries(); updateButton(); });
   bindSeg('segLeaver', () => C.leaver, (v) => { C.leaver = v; });
 
