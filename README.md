@@ -78,6 +78,16 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **🎓 Práctica guiada:** 8 pasos con flechas en el mapa (caminar, disparar, recargar, agarrar un arma, cambiar de arma, tirar una granada, curarse y eliminar al muñeco de práctica). Aparece la primera vez que entrás a la batalla y desde ❓ Ayuda.
 - **❓ Ayuda:** todo explicado por secciones (moneda, batalla, controles, modos, armas, torneo, sonido y consejos).
 
+### Novedades de la 0.9.1 — cacería de errores
+- **Probada en 9 pantallas emuladas** (celulares chicos de 320 px, iPhone SE, Galaxy S8, Pixel 5, iPhone grande, tablet, computadora y dos celulares acostados). Arreglos: el panel ⚙️ de cada soldado ya no se sale en pantallas angostas, la barra de controles entra en celulares de 360 px, con el celular acostado las fichas van a un costado y el mapa se ve más grande, y el joystick ya no tapa la pantalla del resultado.
+- **Celulares lentos:** la calidad automática ahora sí baja sola (antes esperaba tiempo de juego, que en un celular lento casi no corre). Los objetos del piso se dibujan una vez y se copian, y no se dibuja lo que queda fuera de la pantalla: en un celular 3 veces más lento pasó de ~14 a ~45 cuadros por segundo.
+- **IA:** los soldados que esperaban (emboscada, escuchando) ya no se quedan clavados cuando les cambia el plan o la zona los alcanza; no insisten con un objeto que no pueden agarrar ni con un ruido al que no se puede llegar; entre oleadas siguen juntando cosas. Soldados quietos sin motivo: menos del 3,5% del tiempo en todos los mapas y modos.
+- **Justicia:** los soldados "piensan" en orden alternado (nadie reacciona siempre después que su rival) y qué equipo arranca en cada punta se sortea.
+- **Balance** con 120 partidas por tabla: cada personalidad gana entre 8% y 19% (antes entre 0% y 21%); las inteligencias quedan escalonadas (Novato 8%, Normal 23%, Veterano 33%, Maestro 37%). En Bandera, si hay empate después de la prórroga desempatan las bajas.
+- **Datos guardados:** ahora tienen versión y se revisan al abrir (sirven los de cualquier versión vieja; los valores raros se corrigen). Se arregló un error por el que los jugadores cambiaban de número al reabrir la app y las apuestas apuntaban a otro. Si los datos están dañados se arranca de cero guardando una copia, y si el celular se queda sin lugar (por ejemplo, por muchas fotos) avisa.
+- **Límites:** 10 soldados en todos los modos y en mapas grandes; en partidas largas con reaparición los objetos viejos del piso desaparecen.
+- **Errores:** si algo falla aparece un aviso; tocándolo (o desde ❓ Ayuda → 🐞) se copia la información del celular para mandármela.
+
 ### Banco de pruebas
 ```sh
 node tools/bench.js --runs 12    # simula cientos de partidas sin dibujar y genera un reporte

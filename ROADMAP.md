@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.9 ✅ terminada** (0.2, 0.5, 0.7 y 0.9 están hechas). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.9.1 ✅ terminada** (0.2, 0.5, 0.7, 0.9 y 0.9.1 están hechas). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -96,7 +96,9 @@
 
 ---
 
-## 0.9.1 — "Cacería de errores"
+## 0.9.1 — "Cacería de errores" ✅
+
+> **Hecho.** Notas: las pruebas en celulares se hicieron **emulados** (pantallas, horizontal, tablet y CPU 3 a 8 veces más lenta); falta que lo pruebes en tu celular de verdad: si algo anda mal, en ❓ Ayuda → 🐞 se copia la información para mandármela. Los textos se revisaron a mano (no hay corrector ortográfico instalado).
 - Pruebas en **celulares reales** (Android y iPhone, distintas pantallas, vertical y horizontal).
 - Arreglo de trabas y bucles de la IA, soldados dormidos y casos raros con puertas.
 - Balance final con cientos de partidas simuladas por configuración.
