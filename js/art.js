@@ -358,6 +358,19 @@ const Art = (() => {
   /* ---------- cosas en el piso ---------- */
   const RARITY = { pistol: '#9ca3af', shotgun: '#fb923c', ashotgun: '#f97316', lmg: '#facc15', sniper: '#38bdf8', hmg: '#f43f5e', smg: '#fbbf24', rifle: '#a78bfa', revolver: '#cbd5e1', crossbow: '#34d399' };
   const G2 = (x, u) => { const g = x.createLinearGradient(0, -0.3 * u, 0, 0.3 * u); g.addColorStop(0, '#0b0d12'); g.addColorStop(0.5, '#6b7280'); g.addColorStop(1, '#0b0d12'); return g; };
+  /** Los objetos del piso se dibujan una sola vez en una imagen chiquita y después se copian (mucho más liviano). */
+  function drawItemCached(x, it, ts, time) {
+    const k = Math.min(2, x.getTransform().a || 1), half = ts * 0.9;
+    let c = it._spr;
+    if (!c || c.ts !== ts || c.k !== k) {
+      const cv = document.createElement('canvas'); cv.width = cv.height = Math.ceil(half * 2 * k);
+      const g = cv.getContext('2d'); g.scale(k, k);
+      drawItem(g, Object.assign({}, it, { x: half / ts, y: half / ts }), ts, -it.id / 4);
+      c = it._spr = { ts, k, cv };
+    }
+    const p = 1 + Math.sin(time * 4 + it.id) * 0.035;
+    x.save(); x.translate(it.x * ts, it.y * ts); x.scale(p, p); x.drawImage(c.cv, -half, -half, half * 2, half * 2); x.restore();
+  }
   function drawItem(x, it, ts, time) {
     const u = ts * 0.4, cx = it.x * ts, cy = it.y * ts, pulse = 1 + Math.sin(time * 4 + it.id) * 0.06;
     x.save(); x.translate(cx, cy);
@@ -452,5 +465,5 @@ const Art = (() => {
     x.restore();
   }
 
-  return { makeLooks, drawSoldier, drawCorpse, drawDoor, drawItem, head, GUNS, RARITY };
+  return { makeLooks, drawSoldier, drawCorpse, drawDoor, drawItem: drawItemCached, drawItemRaw: drawItem, head, GUNS, RARITY };
 })();

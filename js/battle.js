@@ -957,7 +957,7 @@
 
     /** Mide los cuadros por segundo; en calidad automática baja la calidad si el celular no da abasto. */
     perf(now) {
-      if (!this.perfT) { this.perfT = now; this.perfN = 0; return; }
+      if (!this.perfT) { this.perfT = now; this.perfStart = now; this.perfN = 0; return; }
       this.perfN++;
       if (now - this.perfT < 500) return;
       const fps = this.perfN * 1000 / (now - this.perfT); this.perfT = now; this.perfN = 0; this.fps = fps;
@@ -966,9 +966,10 @@
         if (!b) { b = document.createElement('div'); b.className = 'fps'; this.cv.parentElement.append(b); }
         b.textContent = `${Math.round(fps)} fps · ${this.quality}`;
       }
-      if (!this.autoQ || this.paused || this.phase !== 'run' || this.time < 3 || document.hidden) return;
-      this.slowWin = fps < 40 ? this.slowWin + 1 : 0;
-      if (this.slowWin >= 4 && this.quality !== 'ahorro') { this.quality = this.quality === 'alta' ? 'media' : 'ahorro'; this.slowWin = 0; this.resize(); }
+      if (!this.autoQ || this.paused || this.phase === 'done' || now - this.perfStart < 2500 || document.hidden) return;     // tiempo real: en un celular lento el juego avanza más despacio
+      const lim = this.quality === 'alta' ? 40 : 28, need = this.quality === 'alta' ? 4 : 8;   // de media a ahorro solo si sigue lento un buen rato
+      this.slowWin = fps < lim ? this.slowWin + 1 : 0;
+      if (this.slowWin >= need && this.quality !== 'ahorro') { this.quality = this.quality === 'alta' ? 'media' : 'ahorro'; this.slowWin = 0; this.resize(); }
     }
 
     /* ---------- dibujo ---------- */
@@ -1042,11 +1043,12 @@
       const shk = this.shake > 0 ? this.shake * 7 : 0;
       x.save(); x.translate(-left * ts + (shk ? (rnd() - 0.5) * shk : 0), -top * ts + (shk ? (rnd() - 0.5) * shk : 0));
 
-      for (const d of this.doors.values()) Art.drawDoor(x, d, ts);
+      const inV = (px, py, m = 1.5) => px > left - m && px < right + m && py > top - m && py < bottom + m;   // solo se dibuja lo que entra en pantalla
+      for (const d of this.doors.values()) if (inV(d.tx, d.ty)) Art.drawDoor(x, d, ts);
       this.drawWorld(x, ts, left, top, this.cw / ts, this.ch / ts);
-      for (const c of this.corpses) Art.drawCorpse(x, c, ts, this.time);
+      for (const c of this.corpses) if (inV(c.x, c.y)) Art.drawCorpse(x, c, ts, this.time);
       this.drawShells(x, ts);
-      for (const it of this.items) { if (it.kind === 'power') this.drawPowerup(x, it); else Art.drawItem(x, it, ts, this.time); }
+      for (const it of this.items) { if (!inV(it.x, it.y)) continue; if (it.kind === 'power') this.drawPowerup(x, it); else Art.drawItem(x, it, ts, this.time); }
       this.drawModeUnder(x, ts);
       if (this.zone) this.drawZone(x);
       // ondas de sonido (disparos, gritos, puertas)
@@ -1059,7 +1061,7 @@
       x.globalAlpha = 1;
       const alive = this.soldiers.filter((s) => s.alive).sort((a, b2) => a.y - b2.y);
       if (this.cfg.laser) this.drawLasers(x, alive.filter(vis));
-      for (const s of alive) if (vis(s)) Art.drawSoldier(x, s, ts, this.time);
+      for (const s of alive) if (inV(s.x, s.y, 2) && vis(s)) Art.drawSoldier(x, s, ts, this.time);
       for (const bu of this.bullets) {
         if (povS && !this.canSeePoint(povS, bu.x, bu.y)) continue;
         const sp = Math.hypot(bu.vx, bu.vy), tx = bu.vx / sp, ty = bu.vy / sp;
@@ -1077,14 +1079,14 @@
       }
       x.globalAlpha = 1;
       this.drawSmoke(x, ts);
-      for (const s of alive) if (vis(s)) this.drawLabel(x, s);
+      for (const s of alive) if (inV(s.x, s.y, 3) && vis(s)) this.drawLabel(x, s);
       this.drawModeOver(x, ts);
       x.restore();
       if (this.hasDarkness()) this.drawDarkness(x, left, top);
       if (this.fogMul < 1) { x.fillStyle = 'rgba(205,215,230,0.24)'; x.fillRect(0, 0, this.cw, this.ch); }
       if (povS) this.drawFog(x, povS, left, top);
 
-      if (!this.isFull) this.drawMini(x);
+      if (!this.isFull && !(this.padOn && this.ch < 400)) this.drawMini(x);           // con el joystick en un celular acostado no hay lugar para el minimapa
 
       // cuenta regresiva y cartel de arranque
       let txt = '', size = 0, alpha = 1;
@@ -1513,7 +1515,7 @@
 
   function onFrame(g) {
     if (App.Music && App.Music.on) App.Music.set(g.paused || g.phase !== 'run' ? 0.12 : tension(g));
-    const mine = g.soldiers.find((q) => q.manual && q.alive);
+    const mine = g.phase !== 'done' && g.soldiers.find((q) => q.manual && q.alive);
     if (!!mine !== g.padOn) { g.padOn = !!mine; paintPad(); }
     g.soldiers.forEach((s, i) => {
       const c = chips[i]; if (!c) return;
@@ -1535,6 +1537,7 @@
   }
 
   function onEnd(res) {
+    if (game) { game.padOn = false; paintPad(); }
     if (App.Music) App.Music.stop(1.2);
     sfx.fanfare(); vibrate([60, 60, 120]);
     const tourn = onMatchEnd; onMatchEnd = null;
@@ -1692,7 +1695,7 @@
   /* ----- control manual: joystick, botones y teclado ----- */
   const pad = $('#manualPad'), joy = $('#joy'), knob = $('#joyKnob');
   function paintPad() {
-    const mine = game && game.soldiers.some((q) => q.manual && q.alive);
+    const mine = game && game.soldiers.some((q) => q.manual && q.alive) && game.phase !== 'done';
     pad.hidden = !mine;
     $('#btnManual').classList.toggle('primary', !!(game && game.soldiers.some((q) => q.manual)));
     if (!mine && game) { game.ctl.mx = game.ctl.my = 0; game.ctl.fire = false; knob.style.transform = ''; }

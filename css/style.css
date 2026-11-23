@@ -317,7 +317,7 @@ body.calm *, body.calm *::before, body.calm *::after { transition-duration: .01m
 .tut-hint { border: 1px solid var(--gold2, #c9a227); }
 .fps { position: absolute; left: 6px; bottom: 6px; font: 700 11px ui-monospace, monospace; color: #9ef01a; background: rgba(0,0,0,.55); padding: 1px 6px; border-radius: 6px; pointer-events: none; z-index: 5; }
 .controls { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
-.overlay { position: absolute; inset: 0; background: rgba(5,8,16,.78); display: flex; align-items: flex-start; justify-content: center; padding: 14px; overflow: auto; }
+.overlay { position: absolute; inset: 0; z-index: 10; background: rgba(5,8,16,.78); display: flex; align-items: flex-start; justify-content: center; padding: 14px; overflow: auto; }
 .overlay-box { width: 100%; max-width: 420px; text-align: center; display: grid; gap: 10px; margin: auto; }
 .overlay-box h2 { margin: 0; font-size: 26px; }
 .win-title { font-size: 24px; font-weight: 900; color: var(--gold); margin: 0; }
@@ -373,3 +373,27 @@ body.pov-on .canvas-wrap { border-color: #7dd3fc; }
 textarea.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 1.15; letter-spacing: 1px; white-space: pre; overflow: auto; }
 .hud .chip .hp .gear { letter-spacing: 0; font-size: 10px; margin-left: 4px; color: var(--muted); }
 .mapok { color: var(--ok); } .maperr { color: var(--danger); }
+
+/* ---------- 0.9.1: pantallas chicas y celular acostado ---------- */
+.sdet { min-width: 0; }
+.sdet > * { min-width: 0; }
+.sdet select { max-width: 100%; }
+.sdet .seg.small { display: flex; flex-wrap: wrap; }
+.sdet .seg.small button { flex: 1 1 40%; }
+@media (max-width: 380px) {
+  .sdet { padding-left: 4px; }
+  .controls { gap: 4px; }
+  .controls .btn.small { padding: 6px 7px; font-size: 13px; }
+  .controls .seg.small button { padding: 6px 7px; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  #battleGame { display: grid; grid-template-columns: minmax(120px, 22%) 1fr; grid-template-rows: 1fr auto; gap: 6px; }
+  #battleGame .hud { grid-row: 1 / span 2; grid-template-columns: 1fr; align-content: start; overflow-y: auto; min-height: 0; }
+  #battleGame .canvas-wrap { grid-column: 2; min-height: 0; }
+  #battleGame .controls { grid-column: 2; }
+  .pad .joy { width: 96px; height: 96px; bottom: 8px; }
+  .pad-btns { bottom: 8px; grid-template-columns: repeat(3, 42px); }
+  .pad-btns button { width: 42px; height: 42px; font-size: 18px; }
+  .pad-btns button.fire { grid-column: auto; width: 56px; height: 56px; font-size: 26px; }
+  .narrator { top: 8%; font-size: 15px; }
+}
