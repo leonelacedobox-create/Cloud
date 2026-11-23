@@ -23,6 +23,7 @@ const App = (() => {
       teamMode: 'ffa', teamCount: 2, lives: 3, map: 'maze', size: 'm',
       powerups: true, zone: true, varied: true, loot: true, speed: 1,
       talk: true, laser: false, friendly: false, volMaster: 100, volShots: 100, customLines: '',
+      gear: true, props: true, events: true, customMap: '',
       wins: [], winRange: 'week',
     },
   });
@@ -162,6 +163,8 @@ const App = (() => {
       }
       void lp;
     },
+    glass() { [3800, 5200, 6400].forEach((f, i) => tone(f, 0.18, { type: 'triangle', vol: 0.05, delay: i * 0.03 })); noise(0.18, { vol: 0.1, freq: 5000, q: 0.7, type: 'highpass' }); },
+    alarm() { for (let i = 0; i < 4; i++) { tone(660, 0.22, { type: 'square', vol: 0.05, delay: i * 0.44 }); tone(880, 0.22, { type: 'square', vol: 0.05, delay: i * 0.44 + 0.22 }); } },
     hit() { noise(0.12, { vol: 0.14, freq: 900, q: 1.2 }); tone(180, 0.12, { type: 'sawtooth', vol: 0.06, slide: -90 }); },
     boom() { noise(0.55, { vol: 0.3, freq: 700, q: 0.7, type: 'lowpass', sweepTo: 80 }); tone(90, 0.5, { type: 'sine', vol: 0.2, slide: -60 }); },
     pickup() { tone(660, 0.1, { type: 'triangle', vol: 0.1 }); tone(990, 0.16, { type: 'triangle', vol: 0.1, delay: 0.08 }); },

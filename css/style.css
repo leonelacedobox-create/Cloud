@@ -249,7 +249,7 @@ body.in-game { overflow: hidden; }
 .feed { position: absolute; left: 6px; top: 6px; display: flex; flex-direction: column; gap: 3px; pointer-events: none; max-width: 70%; }
 .feed div { background: rgba(0,0,0,.6); color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 8px; animation: feedin .25s ease; }
 @keyframes feedin { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
-.zone-info { position: absolute; right: 6px; top: 6px; background: rgba(0,0,0,.6); color: #ffd1d1; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 8px; pointer-events: none; }
+.zone-info { position: absolute; right: 6px; top: 6px; background: rgba(0,0,0,.6); color: #ffd1d1; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 8px; pointer-events: none; white-space: pre-line; text-align: right; }
 .zone-info:empty { display: none; }
 .controls { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .overlay { position: absolute; inset: 0; background: rgba(5,8,16,.78); display: flex; align-items: flex-start; justify-content: center; padding: 14px; overflow: auto; }
@@ -301,3 +301,10 @@ textarea {
 .sect-title { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: #9fb0d6; margin: 6px 0 -2px; }
 .hud .chip.mood { box-shadow: 0 0 0 2px rgba(239,68,68,.6); }
 body.pov-on .canvas-wrap { border-color: #7dd3fc; }
+
+/* ---------- 0.5: selector de mapas y editor ---------- */
+.seg.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); }
+.seg.grid4 button { padding: 9px 2px; font-size: 13px; }
+textarea.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 1.15; letter-spacing: 1px; white-space: pre; overflow: auto; }
+.hud .chip .hp .gear { letter-spacing: 0; font-size: 10px; margin-left: 4px; color: var(--muted); }
+.mapok { color: var(--ok); } .maperr { color: var(--danger); }

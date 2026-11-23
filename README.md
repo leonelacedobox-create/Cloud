@@ -14,14 +14,21 @@ Mini app para el celular (HTML + JavaScript, sin dependencias) con dos juegos pa
 - Mapas aleatorios grandes: Laberinto, Habitaciones y Arena, en tres tamaños (Chico, Medio, Grande). Una **cámara sigue la acción** (o a un soldado si tocás su nombre arriba), hay **minimapa** y un botón 🎥 para alternar entre *Auto*, *Siguiendo* y *Todo el mapa*.
 - Máximo **3 vidas** por soldado (cada vida son 100 puntos de vida; cada arma hace un daño distinto), power-ups (escudo, velocidad, vida extra) y zona que se achica. Con 10 soldados una partida dura de 1 a 1,5 minutos en Medio y unos 3 en Grande.
 
-### Armas
-- Todos empiezan con **pistola** (12 balas + reserva) y **cuchillo**, y tienen un tercer espacio libre para recoger un arma del piso.
-- En el piso hay **sniper, ametralladora ligera, escopeta, escopeta automática y ametralladora pesada**, más cajas de munición. Cada arma tiene su cargador, su recarga, su alcance, su ruido y su velocidad de movimiento.
-- Hay que **recargar** (se ve la barrita amarilla). Las automáticas disparan en ráfagas y pierden puntería si no paran.
-- Cuando un soldado muere **suelta sus armas con las balas que le quedaban**. Los demás las recogen si son mejores que la que tienen o si les conviene por las balas (si es la misma arma, se quedan con la munición).
-- Sin balas en ningún arma, pelean con el **cuchillo** (por la espalda pega mucho más fuerte).
-- Cada soldado decide qué arma usar según la distancia al enemigo: escopeta de cerca, sniper de lejos, cuchillo en el cuerpo a cuerpo.
-- Velocidad 1×/2×/4×, pausa, cuenta regresiva, podio final, revancha y **tabla de victorias** (semana / total).
+### Mapas (8 opciones)
+- **Clásicos:** Laberinto, Habitaciones y Arena (ahora con cajones, barriles y ventanas).
+- **Temáticos:** 🪖 **Base militar** (barracas con puertas, patio de grava, sacos de arena y búnkeres oscuros), 🏢 **Oficina** (escritorios, vidrios entre oficinas, alfombra que silencia los pasos, cocina y sala de reuniones con carteles), ⛓️ **Cárcel** (celdas con barrotes, torre de vigilancia, patio y celdas de castigo a oscuras) y 📦 **Depósito** (estantes largos formando pasillos, muelle de metal ruidoso, barriles y una oficina).
+- **✏️ Propio:** dibujá tu mapa con texto (`#` pared, `.` piso, `D` puerta, `C` cajón, `B` barril, `W` ventana, `c` alfombra, `m` metal, `g` grava, `o` oscuro) y el botón *Revisar* lo valida.
+- **Cobertura y objetos:** los **cajones** frenan balas pero no la vista (se puede disparar por encima si estás pegado) y se rompen; los **barriles** explotan en cadena; las **ventanas** dejan ver y disparar pero no pasar, y el vidrio roto delata el tiroteo.
+- **Pisos:** alfombra (pasos casi mudos), metal y grava (pasos fuertes). **Zonas oscuras:** a oscuras solo se ve de cerca o con linterna; el que la prende se delata.
+- **Eventos:** ⚡ apagón, 🌫️ niebla, 🚨 alarma (todos saben más o menos dónde están los demás) y 📦 cargamento que cae con paracaídas y se anuncia con sonido. Si una partida se estanca entra la ☠️ muerte súbita.
+
+### Armas y equipo
+- Todos empiezan con **pistola** (con munición y recarga) y **cuchillo**, y tienen un tercer espacio para un arma del piso.
+- **9 armas del piso:** sniper, ametralladora ligera y pesada, escopeta, escopeta automática, subfusil, rifle de asalto, revólver y **ballesta silenciosa**. Cada una con su cargador, recarga, alcance, ruido y velocidad.
+- **Granadas:** de fragmentación, de humo (tapa la vista) y aturdidora. La IA las tira simulando la trayectoria (rebotan: doblan esquinas y puertas), huye de las que están por explotar y les dispara a los barriles que están junto al rival.
+- **Protección:** chaleco, casco, **botiquines** de tres tamaños (se usan quietos y en silencio, y se interrumpen si los lastiman) y mochila (más munición y granadas).
+- **Accesorios:** silenciador, mira y cargador extendido.
+- Al morir un soldado **suelta todo** lo que llevaba. Sin balas, pelean con el cuchillo (por la espalda pega mucho más).
 
 ### Personajes
 Cada soldado es una persona distinta vista desde arriba (dibujada con código, `js/art.js`): piel, peinado (corto, largo, pelado, gorra, gorro, afro, colita, cresta), barba, lentes y ropa del color que elijas. Caminan con las piernas, apuntan con los dos brazos, retroceden al disparar y **estiran la mano para abrir y cerrar puertas**.

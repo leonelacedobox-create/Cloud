@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.2 ✅ terminada** (la lista de abajo está hecha). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.5 ✅ terminada** (0.2 y 0.5 están hechas). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -53,7 +53,9 @@
 
 ---
 
-## 0.5 — "Más cosas para hacer" (objetos, mapas y ambiente)
+## 0.5 — "Más cosas para hacer" (objetos, mapas y ambiente) ✅
+
+> **Hecho.** Notas: el editor de mapas es por texto (el editor visual queda para 1.x). Se agregó una ☠️ muerte súbita para evitar partidas estancadas. El balance fino con todo el equipo nuevo se revisa de nuevo en 0.9.1.
 - **Granadas:** de fragmentación, de humo (tapa la vista) y aturdidora. La IA las usa (lanza por esquinas y puertas) y huye de ellas.
 - **Protección:** chaleco, casco, botiquines de varios tamaños y mochila con más munición.
 - **Accesorios:** silenciador, mira y cargador extendido.

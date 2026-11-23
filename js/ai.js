@@ -4,7 +4,8 @@
 
 (() => {
   const { rnd, rint } = App;
-  const { Game, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed } = App.battle;
+  const { Game, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, magOf, MED } = App.battle;
+  const FUSE = { frag: 2.4, smoke: 1.1, flash: 1.7 };
   const { PERS, IQ, pickLine } = Personas;
   const G = Game.prototype;
   const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
@@ -15,7 +16,7 @@
     const P = s.P, b = P.base, tac = IQ[s.iq].tac;
     const j = (v) => clamp01(v * (0.55 + 0.45 * tac) + (rnd() - 0.5) * 0.3);
     Object.assign(s.sk, {
-      cover: j(b.cover), flank: j(b.flank), stalk: j(b.stalk), scav: j(b.scav), coord: j(b.coord),
+      cover: j(b.cover), flank: j(b.flank), stalk: j(b.stalk), scav: j(b.scav), coord: j(b.coord), nade: j(b.nade == null ? 0.4 : b.nade),
       flee: clamp01(b.flee * (0.7 + 0.3 * tac) + (rnd() - 0.5) * 0.2),
     });
     s.mood = { fear: 0, fury: 0, conf: 0.5 };
@@ -23,9 +24,11 @@
       reactT: 0, hurtT: 99, hurtBy: -1, lastHurt: -99, cover: null, coverCd: 0, nest: null, fightAt: null, rushT: 0,
       dodgeT: 0, dodgeCd: 0, dodgeDir: [0, 0], freezeT: 0, flankUntil: 0, nVis: 0, fleeT: -99, headScan: 0,
       doorWaited: -1, reloadDelay: null, unstickT: 0, doSpot: 0,
+      stunT: 0, flashlight: false, nadeCd: 0, dropAt: null, dropGo: null, dropAmbush: false, aimPt: null, aimT: 0, healFail: 0,
+      gren: { frag: 0, smoke: 0, flash: 0 }, armor: { vest: 0, helm: 0 }, meds: [], pack: false,
     });
     s.stuck = { x: s.x, y: s.y, t: 0, n: 0 };
-    s.stats = { shots: 0, rounds: 0, hits: 0, dmgDealt: 0, dmgTaken: 0, killsBy: {}, longKill: 0, hidden: 0, fled: 0, talk: 0, dist: 0, doors: 0, pickups: 0, reloads: 0, stuck: 0, knifeKills: 0, shared: 0 };
+    s.stats = { shots: 0, rounds: 0, hits: 0, dmgDealt: 0, dmgTaken: 0, killsBy: {}, longKill: 0, hidden: 0, fled: 0, talk: 0, dist: 0, doors: 0, pickups: 0, reloads: 0, stuck: 0, knifeKills: 0, shared: 0, thrown: 0, absorbed: 0, healed: 0 };
   };
 
   /* ================= puntería y errores humanos ================= */
@@ -63,6 +66,7 @@
   };
 
   G.sense = function (s) {
+    if (s.stunT > 0) { s.target = null; s.td = 0; s.nVis = 0; return; }           // aturdido: no ve nada
     let tgt = null, best = -1e9, nVis = 0, td = 1e9;
     const sight = this.sightOf(s);
     for (const e of this.enemiesOf(s)) {
@@ -70,6 +74,7 @@
       if (d > sight) continue;
       if (d > 2.2 && Math.abs(angDiff(s.look, Math.atan2(dy, dx))) > FOV / 2) continue;   // fuera del campo de visión
       if (!this.los(s.x, s.y, e.x, e.y)) continue;
+      if (!this.visibleLit(s, e, d)) continue;                                           // a oscuras solo se ve de cerca o con linterna
       // velocidad estimada del enemigo (para predecir hacia dónde va)
       const old = s.know[e.id];
       let vx = 0, vy = 0;
@@ -149,7 +154,6 @@
     // recarga
     const w = this.weaponOf(s);
     if (w && s.reloadT <= 0 && s.swapT <= 0 && w.res > 0) {
-      const def = WEAPONS[w.type];
       if (w.mag <= 0) {                               // sin balas: los novatos tardan en acordarse
         if (s.reloadDelay == null) s.reloadDelay = rnd() < iq.forget ? 0.4 + rnd() * 0.9 : 0;
         s.reloadDelay -= dt;
@@ -157,7 +161,7 @@
       } else {
         s.reloadDelay = null;
         const calm = !s.target || s.td > 12;           // con un enemigo cerca no recarga de a poco
-        if (calm && (w.mag < def.mag * 0.5 || (s.mode === 'cover' && w.mag < def.mag * 0.85))) this.startReload(s);
+        if (calm && (w.mag < magOf(w) * 0.5 || (s.mode === 'cover' && w.mag < magOf(w) * 0.85))) this.startReload(s);
       }
     } else s.reloadDelay = null;
   };
@@ -242,21 +246,23 @@
       const i = this.queue[k]; if (this.doorGrid[i]) continue;
       const cx = (i % W) + 0.5, cy = ((i / W) | 0) + 0.5;
       const dT = Math.hypot(cx - tx, cy - ty);
-      if (dT < 3 || this.los(cx, cy, tx, ty)) continue;                    // sigue expuesto
+      if (dT < 3 || this.losShot(tx, ty, cx, cy)) continue;                // sigue expuesto a las balas
       let sc = this.dist[i] + (dT < myD ? 2.5 : 0) - (dT > 6 ? 0 : 1.5);
       if (this.findPeek(i, tx, ty) < 0) sc += 3;                          // sin lugar para asomarse
+      if (this.barrelsNear(cx, cy, 2.4).length) sc += 6;                  // junto a un barril explosivo: mala idea
       if (sc < bs) { bs = sc; best = i; }
     }
     return best;
   };
   G.findPeek = function (hide, tx, ty) {
     const W = this.W, hx = hide % W, hy = (hide / W) | 0;
+    if (this.losShot(hx + 0.5, hy + 0.5, tx, ty)) return hide;              // detrás de un cajón: dispara por encima sin moverse
     let best = -1, bd = 9;
     for (const [dx, dy] of D8) {
       const nx = hx + dx, ny = hy + dy;
       if (nx < 0 || ny < 0 || nx >= W || ny >= this.H || this.g[ny * W + nx] || this.doorGrid[ny * W + nx]) continue;
       if (dx && dy && (this.g[hy * W + nx] || this.g[ny * W + hx])) continue;
-      if (!this.los(nx + 0.5, ny + 0.5, tx, ty)) continue;
+      if (!this.losShot(nx + 0.5, ny + 0.5, tx, ty)) continue;
       const d = Math.hypot(dx, dy);
       if (d < bd) { bd = d; best = ny * W + nx; }
     }
@@ -305,7 +311,8 @@
     } else if (c.phase === 'hide') {
       r.desired = Math.atan2(c.ty - s.y, c.tx - s.x); r.scanning = true;
       const w = this.weaponOf(s), def = w ? WEAPONS[w.type] : null;
-      if (w && w.res > 0 && w.mag < def.mag * 0.85 && s.reloadT <= 0 && s.swapT <= 0) this.startReload(s);
+      if (w && w.res > 0 && w.mag < magOf(w) * 0.85 && s.reloadT <= 0 && s.swapT <= 0) this.startReload(s);
+      if (!s.act && s.reloadT <= 0 && this.wantHeal(s)) this.startHeal(s);
       if (s.target && s.td < 4.5) { s.cover = null; s.thinkT = 0; return; }       // me encontraron: a pelear
       if (c.t >= c.hideDur && s.reloadT <= 0) {
         if (c.peek >= 0 && c.peeks < c.maxPeeks && !(w && w.mag <= 0 && w.res <= 0)) { c.phase = 'peek'; c.t = 0; c.peekDur = 0.9 + rnd() * 1.1; }
@@ -359,6 +366,73 @@
       if (sc > bs) { bs = sc; bestI = i; }
     }
     return bestI >= 0 ? this.pathTo(bestI) : null;
+  };
+
+  /* ================= granadas ================= */
+  /** Decide si tira una granada y de qué tipo; busca el mejor tiro simulando la trayectoria (rebota en las paredes). */
+  G.tryGrenade = function (s) {
+    const g = s.gren;
+    if (!g || g.frag + g.smoke + g.flash <= 0 || this.time < s.nadeCd) return false;
+    const iq = IQ[s.iq], now = this.time, e = s.target, k = e ? null : this.bestKnowledge(s);
+    if (rnd() > clamp01(s.sk.nade * (0.5 + 0.5 * iq.tac)) * 0.6 + 0.05) { s.nadeCd = now + 1.5; return false; }   // no siempre las usa
+    let tgt = null, type = null;
+    if (e) {
+      if (g.frag > 0 && !this.losShot(s.x, s.y, e.x, e.y) && s.td > 4 && s.td < 12) { tgt = e; type = 'frag'; }               // detrás de un cajón: no se le puede disparar
+      else if (g.frag > 0 && s.td > 4.5 && s.td < 12 && this.enemiesOf(s).filter((o) => Math.hypot(o.x - e.x, o.y - e.y) < 3.2).length >= 2) { tgt = e; type = 'frag'; }   // varios juntos
+      else if (g.smoke > 0 && s.td > 5 && (s.hp < s.maxHp * 0.55 || e.wtype === 'sniper')) {                                   // cruzar a descubierto: se tapa con humo
+        tgt = { x: s.x + (e.x - s.x) * 0.35, y: s.y + (e.y - s.y) * 0.35 }; type = 'smoke';
+      }
+    } else if (k && now - k.t < 6 && k.kind !== 'step') {
+      const dist = Math.hypot(k.x - s.x, k.y - s.y);
+      if (dist >= 4.5 && dist <= 11 && !this.los(s.x, s.y, k.x, k.y)) {                                                       // sin línea de vista: doblando la esquina
+        type = g.frag > 0 && g.flash > 0 ? (rnd() < 0.5 ? 'flash' : 'frag') : g.frag > 0 ? 'frag' : g.flash > 0 ? 'flash' : null;
+        tgt = k;
+      }
+    }
+    if (!type || !tgt) { s.nadeCd = now + 1.2; return false; }
+    const base = Math.atan2(tgt.y - s.y, tgt.x - s.x), mates = s.team >= 0 ? this.soldiers.filter((m) => m.alive && m !== s && m.team === s.team) : [];
+    let best = null, bd = 1e9;
+    for (const da of [0, 0.12, -0.12, 0.25, -0.25, 0.4, -0.4, 0.6, -0.6, 0.9, -0.9, 1.3, -1.3, 1.8, -1.8, 2.4, -2.4, 3.1]) {
+      for (const sp of [5.5, 8, 11, 13]) {
+        const a = base + da, p = this.simGrenade(s.x, s.y, a, sp, FUSE[type]);
+        const me = Math.hypot(p.x - s.x, p.y - s.y);
+        if (type === 'frag' && me < 4.2) continue;                                                                          // no explotarse a sí mismo
+        if (type === 'flash' && me < 3.5) continue;
+        if (mates.some((m) => Math.hypot(m.x - p.x, m.y - p.y) < 3.4)) continue;                                           // ni a un compañero
+        const d = Math.hypot(p.x - tgt.x, p.y - tgt.y);
+        if (d < bd) { bd = d; best = { a, sp }; }
+      }
+    }
+    if (!best || bd > (type === 'smoke' ? 1.8 : 2.3)) { s.nadeCd = now + 1.5; return false; }
+    s.act = { type: 'throw', t: 0, dur: 0.5, gtype: type, ang: best.a, speed: best.sp, released: false };
+    s.nadeCd = now + 4 + rnd() * 3; s.path = []; s.mode = 'throw';
+    return true;
+  };
+  /** Si un barril está junto al enemigo (y lejos de mí), le dispara al barril. */
+  G.barrelTarget = function (s) {
+    const e = s.target;
+    if (!e || s.cur === 'knife') return null;
+    for (const b of this.barrelsNear(e.x, e.y, 2.3)) {
+      const dm = Math.hypot(b.x - s.x, b.y - s.y);
+      if (dm < 3.8 || dm > this.defOf(s).range || !this.losShot(s.x, s.y, b.x, b.y)) continue;
+      if (s.team >= 0 && this.soldiers.some((m) => m.alive && m.team === s.team && Math.hypot(m.x - b.x, m.y - b.y) < 3)) continue;
+      if (IQ[s.iq].tac < 0.7 && rnd() < 0.5) continue;
+      return b;
+    }
+    return null;
+  };
+
+  /* ================= curarse ================= */
+  G.wantHeal = function (s) {
+    if (!s.meds.length || s.act || s.target || s.healFail > 4 || s.stunT > 0) return false;
+    if (s.maxHp - s.hp < 30 || s.hurtT < 2.5) return false;
+    const k = this.bestKnowledge(s);
+    return !(k && this.time - k.t < 2);                                    // hay peligro cerca: primero lo resuelve
+  };
+  G.startHeal = function (s) {
+    const miss = s.maxHp - s.hp;
+    const pick = s.meds.find((t) => MED[t].amt <= miss * 1.15) || s.meds[s.meds.length - 1];
+    s.act = { type: 'heal', t: 0, dur: MED[pick].dur, size: pick }; s.mode = 'heal'; s.path = [];
   };
 
   /* ================= acecho, flanqueo y francotiradores ================= */
@@ -427,6 +501,7 @@
     if (!enemies.length) return;
     const P = s.P, sk = s.sk, tac = IQ[s.iq].tac, hpF = s.hp / s.maxHp;
     if (s.unstickT > 0 && s.path.length > 1 && !s.target) return;          // destrabándose: sigue su ruta
+    if (s.dropAt && now >= s.dropAt.until) { s.dropAt = null; s.dropGo = null; }
     this.markSeen(s);
     for (const it of this.items) {                                         // objetos que ve o que tiene cerca
       const d = Math.hypot(it.x - s.x, it.y - s.y);
@@ -468,6 +543,8 @@
     // 3) sin enemigo a la vista
     let k = null;
     if (!path && !s.target) k = this.bestKnowledge(s);
+    // 3-0) curarse con un botiquín cuando no hay peligro cerca
+    if (!path && !s.target && this.wantHeal(s)) { this.startHeal(s); return; }
     // 3a) recuperarse después de huir: se queda escondido (o busca vida)
     if (!path && !s.target && now - s.fleeT < 14 && hpF < 0.6 && sk.flee > 0.3 && s.rushT <= 0 && !this.bestHeal(s)) {
       s.act = { type: 'hold', t: 0, dur: 3 + rnd() * 4, face: k ? Math.atan2(k.y - s.y, k.x - s.x) : rnd() * 6.28 };
@@ -487,6 +564,21 @@
         const goal = Math.floor(bestIt.y) * W + Math.floor(bestIt.x);
         const p2 = this.bfs(tx, ty, (i) => i === goal, 26);
         if (p2) { path = p2; s.mode = 'loot'; }
+      }
+    }
+    // 3b2) cargamento que se oyó caer: algunos corren a buscarlo y otros lo emboscan
+    if (!path && !s.target && s.dropAt && now < s.dropAt.until && s.rushT <= 0) {
+      if (s.dropGo == null) {
+        s.dropGo = rnd() < clamp01((0.3 + sk.scav * 0.4 + (P.loud ? 0.25 : 0) - (P.sneak && sk.scav < 0.6 ? 0.15 : 0)) * (0.5 + 0.5 * tac) + 0.15);
+        s.dropAmbush = !s.dropGo && P.sneak && rnd() < 0.6;
+      }
+      const d = Math.hypot(s.dropAt.x - s.x, s.dropAt.y - s.y);
+      if (s.dropGo) {
+        if (d < 2.2) { s.dropAt = null; s.dropGo = null; }
+        else { const dest = this.floorIdxNear(s.dropAt.x, s.dropAt.y); path = this.bfs(tx, ty, (i) => i === dest); if (path) s.mode = 'drop'; }
+      } else if (s.dropAmbush) {
+        if (d > 11) { const t = (d - 9) / d, dest = this.floorIdxNear(s.x + (s.dropAt.x - s.x) * t, s.y + (s.dropAt.y - s.y) * t); path = this.bfs(tx, ty, (i) => i === dest); if (path) s.mode = 'drop'; }
+        else if (d > 4) { s.act = { type: 'hold', t: 0, dur: 5 + rnd() * 5, face: Math.atan2(s.dropAt.y - s.y, s.dropAt.x - s.x) }; s.mode = 'drop'; s.path = []; return; }
       }
     }
     // 3c) oportunista: se acerca a donde se oye una pelea y espera
@@ -580,7 +672,32 @@
   G.steer = function (s, dt) {
     const P = s.P;
     const r = { vx: 0, vy: 0, desired: s.angle, speedMul: 1, sneak: P.sneak, scanning: false };
+    if (s.stunT > 0) {                                                       // aturdido: tambalea sin ver nada
+      r.vx = Math.sin(this.time * 5 + s.id) * 0.8; r.vy = Math.cos(this.time * 4 + s.id) * 0.8; r.speedMul = 0.5;
+      r.scanning = true; r.sneak = false; r.desired = s.angle + Math.sin(this.time * 9) * 0.5; s.act = null; return r;
+    }
+    for (const gr of this.grenades) {                                        // granada a punto de explotar: salir corriendo
+      if (gr.type !== 'frag' || gr.fuse - gr.t > 2.0) continue;
+      const gx = s.x - gr.x, gy = s.y - gr.y, gd = Math.hypot(gx, gy);
+      if (gd > 4.4) continue;
+      if (!gr.aware) gr.aware = {};
+      if (gr.aware[s.id] === undefined) gr.aware[s.id] = rnd() < 0.55 + IQ[s.iq].dodge * 0.45;
+      if (!gr.aware[s.id]) continue;
+      s.act = null; s.cover = null; s.icon = { ch: '💣', t: 0.6 };
+      r.vx = gx / (gd || 1); r.vy = gy / (gd || 1); r.desired = Math.atan2(r.vy, r.vx); r.speedMul = 1.3; r.sneak = false;
+      return r;
+    }
     let act = s.act;
+    if (act && act.type === 'heal') {                                        // usar un botiquín: quieto y en silencio
+      act.t += dt; r.sneak = true; r.scanning = true;
+      if (s.hurtT < 0.2 && act.t > 0.15) { s.act = null; s.healFail++; return r; }     // lo lastimaron: se interrumpe (el botiquín no se gasta)
+      if (act.t >= act.dur) {
+        const k = s.meds.indexOf(act.size);
+        if (k >= 0) { s.meds.splice(k, 1); const before = s.hp; s.hp = Math.min(s.maxHp, s.hp + MED[act.size].amt); s.stats.healed += s.hp - before; }
+        s.act = null; s.icon = { ch: '✚', t: 1 }; s.mood.fear = Math.max(0, s.mood.fear - 0.2);
+      }
+      return r;
+    }
     if (act && s.target && (act.type === 'peek' || act.type === 'hold')) { s.act = act = null; }
     if (act && (act.type === 'open' || act.type === 'close') && s.target && s.td < 3) { s.act = act = null; }
 
@@ -613,6 +730,13 @@
         const dx = act.px - s.x, dy = act.py - s.y, d = Math.hypot(dx, dy);
         if (d > 0.07) { r.vx = dx / d; r.vy = dy / d; r.speedMul = 0.55; }
         if (act.t >= act.dur) s.act = null;
+      } else if (act.type === 'throw') {
+        r.desired = act.ang;
+        if (!act.released && act.t >= act.dur * 0.6 && Math.abs(angDiff(s.angle, act.ang)) < 0.5) {
+          act.released = true; this.throwGrenade(s, act.gtype, act.ang, act.speed);
+          if (act.gtype === 'flash') s.rushT = 4;                          // tira la aturdidora y entra enseguida
+        }
+        if (act.t >= act.dur) s.act = null;
       }
       return r;
     }
@@ -630,7 +754,11 @@
     const pathMode = s.mode === 'zone' || s.mode === 'flee' || s.mode === 'stalk' || s.mode === 'flank';
     if (tgt && !pathMode) {
       const dx = tgt.x - s.x, dy = tgt.y - s.y;
-      r.desired = Math.atan2(dy, dx); r.sneak = false;
+      r.desired = s.aimPt ? Math.atan2(s.aimPt.y - s.y, s.aimPt.x - s.x) : Math.atan2(dy, dx); r.sneak = false;
+      if (IQ[s.iq].tac >= 0.6) {                                           // no pararse junto a un barril si hay un enemigo mirando
+        const nb = this.barrelsNear(s.x, s.y, 2.0);
+        if (nb.length) { const bx = s.x - nb[0].x, by = s.y - nb[0].y, bd = Math.hypot(bx, by) || 1; r.vx += (bx / bd) * 0.9; r.vy += (by / bd) * 0.9; }
+      }
       if (td < pmin) { r.vx = -dx / td; r.vy = -dy / td; }                  // retroceder
       else if (td <= pmax) {                                                 // mantener y moverse de costado
         if (s.cur !== 'knife') {
@@ -664,7 +792,7 @@
     s.cd -= dt; s.burstCd -= dt; s.talkCd -= dt; s.radioCd -= dt; s.hurtT += dt; s.dodgeCd -= dt; s.dodgeT -= dt;
     s.freezeT -= dt; s.reactT -= dt; s.rushT = Math.max(0, s.rushT - dt); s.unstickT = Math.max(0, s.unstickT - dt);
     s.shieldT = Math.max(0, s.shieldT - dt); if (s.shieldT <= 0) s.shieldHp = 0;
-    s.speedT = Math.max(0, s.speedT - dt);
+    s.speedT = Math.max(0, s.speedT - dt); s.stunT = Math.max(0, s.stunT - dt);
     const P = s.P, iq = IQ[s.iq], m = s.mood, st = s.stats;
 
     this.sense(s);
@@ -690,11 +818,26 @@
       s.zoneT += dt;
       if (s.zoneT >= 1) { s.zoneT = 0; this.damage(s, null, 14, true); if (!s.alive) return; }
     } else s.zoneT = 0;
+    if (this.overtime) {                                                       // muerte súbita: nadie puede esconderse para siempre
+      s.otT = (s.otT || 0) + dt;
+      if (s.otT >= 1) { s.otT = 0; this.damage(s, null, 5 + (this.time - this.overtimeAt) * 0.25, true); if (!s.alive) return; }
+    }
 
     this.chatter(s);
 
+    // linterna: los ruidosos la prenden a oscuras (y se delatan); los silenciosos no
+    s.lT = (s.lT || 0) - dt;
+    if (s.lT <= 0) { s.lT = 0.5; s.flashlight = !this.isLit(s.x, s.y) && !P.sneak; }
+    // ¿le conviene dispararle a un barril que está junto al enemigo?
+    s.aimT = (s.aimT || 0) - dt;
+    if (s.aimT <= 0) { s.aimT = 0.3; s.aimPt = s.target ? this.barrelTarget(s) : null; }
+
     // ----- qué quiere hacer -----
     const frozen = s.freezeT > 0;
+    if (!s.act && !frozen && s.stunT <= 0 && (!s.cover || s.cover.phase !== 'go')) {
+      s.gT = (s.gT || 0) - dt;
+      if (s.gT <= 0) { s.gT = 0.4; if (!this.tryGrenade(s) && !s.act && this.wantHeal(s)) this.startHeal(s); }
+    }
     const r = frozen ? { vx: 0, vy: 0, desired: s.angle, speedMul: 1, sneak: false, scanning: false } : this.steer(s, dt);
     let { vx, vy, desired, speedMul, scanning } = r;
     const hidden = s.cover || s.mode === 'hold' || s.mode === 'scav' || s.mode === 'nest' || s.mode === 'recover' || s.mode === 'doorwait';
@@ -728,7 +871,7 @@
     const stepN = Math.floor(s.phase / Math.PI);
     if (stepN !== s.lastStep) {                                              // pasos: suenan según cómo camina
       s.lastStep = stepN;
-      this.emitSound(s.x, s.y, s.sneak ? 1.8 : (s.mode === 'hunt' || s.mode === 'attack') && !P.sneak ? 6.5 : 4.2, 'step', s);
+      this.emitSound(s.x, s.y, (s.sneak ? 1.8 : (s.mode === 'hunt' || s.mode === 'attack') && !P.sneak ? 6.5 : 4.2) * this.stepMul(s.x, s.y), 'step', s);   // la alfombra amortigua, el metal y la grava hacen ruido
     }
     this.checkStuck(s, dt, vx || vy);
 
@@ -741,11 +884,11 @@
     s.look += angDiff(s.look, s.angle + s.headOff) * Math.min(1, dt * 10);
 
     // ----- atacar -----
-    if (s.target && !s.act && !frozen && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.reactT <= 0) {
-      const b = bearing(s, s.target);
+    if (s.target && !s.act && !frozen && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.reactT <= 0) {
+      const aim = s.aimPt || s.target, b = Math.atan2(aim.y - s.y, aim.x - s.x), ad = Math.hypot(aim.x - s.x, aim.y - s.y);
       if (s.cur === 'knife') { if (s.td <= KNIFE.range + 0.2 && Math.abs(angDiff(s.angle, b)) < 0.6) this.melee(s, s.target); }
-      else if (s.td <= this.defOf(s).range && Math.abs(angDiff(s.angle, b)) < 0.14) {
-        if (this.clearShot(s, s.target)) this.fire(s, 0); else s.strafeT = 0;   // con fuego amigo: no dispara si hay un compañero en medio
+      else if (ad <= this.defOf(s).range && Math.abs(angDiff(s.angle, b)) < 0.14) {
+        if (this.clearShot(s, aim)) this.fire(s, 0); else s.strafeT = 0;   // con fuego amigo: no dispara si hay un compañero en medio
       }
     }
   };

@@ -87,6 +87,10 @@ const Art = (() => {
     shotgun:  { len: 2.2, fore: 1.35 },
     ashotgun: { len: 2.1, fore: 1.3 },
     hmg:      { len: 2.4, fore: 1.4 },
+    smg:      { len: 1.6, fore: 1.0 },
+    rifle:    { len: 2.7, fore: 1.6 },
+    revolver: { len: 1.4, fore: 0.8 },
+    crossbow: { len: 1.9, fore: 1.1 },
   };
   // Degradados que dan volumen (brillo en el centro, borde oscuro): se usan en todas las piezas
   const MET = [[0, '#0a0c11'], [0.3, '#3d4554'], [0.52, '#a3acbb'], [0.74, '#434b5a'], [1, '#0a0c11']];
@@ -116,6 +120,35 @@ const Art = (() => {
         line(0.5, 0.05, 0.75, 0.05, dark, 0.05);                     // ventana de expulsión
         line(0.14, -0.1, 1.0, -0.1, hi, 0.025);                      // brillo
         dot(1.04, 0, 0.05, '#000'); box(0.95, 1.0, 0, 0.09, STEELB, 0.02);   // boca y mira
+        break;
+      case 'smg':
+        box(-0.15, 0.4, 0, 0.3, POLY, 0.1); box(0.35, 1.15, 0, 0.34, POLY, 0.08);
+        for (let i = 0; i < 4; i++) line(0.5 + i * 0.1, -0.13, 0.5 + i * 0.1, 0.13, dark, 0.03);
+        box(0.6, 0.9, 0.3, 0.22, MET, 0.04); box(1.1, 1.6, 0, 0.11, MET, 0.03); box(1.5, 1.62, 0, 0.19, MET, 0.02);
+        line(0.4, -0.15, 1.1, -0.15, hi, 0.025);
+        break;
+      case 'rifle':
+        box(-0.3, 0.55, 0, 0.34, POLY, 0.1);                         // culata
+        box(0.5, 1.5, 0, 0.34, POLY, 0.06);                          // cuerpo
+        box(0.85, 1.15, 0.27, 0.24, MET, 0.04);                      // cargador curvo
+        box(0.9, 1.35, -0.02, 0.18, GLASS, 0.06); dot(1.34, -0.02, 0.07, '#7dd3fc');   // mira
+        box(1.5, 2.25, 0, 0.26, [[0, '#2b2f3a'], [0.5, '#5b6270'], [1, '#2b2f3a']], 0.05);   // guardamanos
+        box(2.25, 2.72, 0, 0.1, MET, 0.03); box(2.62, 2.74, 0, 0.18, MET, 0.02);
+        line(0.55, -0.15, 1.45, -0.15, hi, 0.025);
+        break;
+      case 'revolver':
+        box(-0.05, 0.5, 0, 0.3, WOOD, 0.12);                         // empuñadura de madera
+        box(0.4, 0.95, 0, 0.3, MET, 0.05);                           // armazón
+        x.fillStyle = G(0, 0.42, MET); x.beginPath(); x.arc(0.62 * u, 0, 0.23 * u, 0, 6.2832); x.fill(); x.strokeStyle = dark; x.lineWidth = lw; x.stroke();   // tambor
+        for (let i = 0; i < 6; i++) { const a = i * 1.047; dot(0.62 + Math.cos(a) * 0.12, Math.sin(a) * 0.12, 0.03, '#05070b'); }
+        box(0.9, 1.4, 0, 0.14, MET, 0.04); dot(1.38, 0, 0.04, '#e5e7eb');
+        break;
+      case 'crossbow':
+        box(-0.2, 0.9, 0, 0.26, WOOD, 0.1);                          // culata
+        box(0.8, 1.95, 0, 0.12, MET, 0.03);                          // riel
+        box(1.55, 1.68, 0, 1.4, [[0, '#1f2937'], [0.5, '#4b5563'], [1, '#1f2937']], 0.05);   // brazos del arco
+        line(1.62, -0.68, 1.0, 0, '#e5e7eb', 0.03); line(1.62, 0.68, 1.0, 0, '#e5e7eb', 0.03);   // cuerda
+        line(1.0, 0, 1.9, 0, '#cbd5e1', 0.045);                      // flecha apoyada
         break;
       case 'knife': {
         box(0, 0.36, 0, 0.25, [[0, '#120b04'], [0.5, '#6a4521'], [1, '#120b04']], 0.1);   // mango
@@ -217,7 +250,7 @@ const Art = (() => {
     const sway = Math.sin(s.phase) * 0.07 * u * g, rec = s.recoil * (wt === 'sniper' ? 0.5 : 0.3) * u;
     x.translate(0, sway);
     if (ap.pack) { x.fillStyle = shade(s.color, -0.5); x.beginPath(); x.roundRect(-1.05 * u, -0.6 * u, 0.62 * u, 1.2 * u, 0.2 * u); x.fill(); }
-    const act = s.act, reach = act && (act.type === 'open' || act.type === 'close');
+    const act = s.act, reach = act && (act.type === 'open' || act.type === 'close' || act.type === 'throw');
     const e = reach ? Math.sin(Math.min(1, act.t / act.dur) * Math.PI) : 0;       // 0 -> 1 -> 0
     const reloading = s.reloadT > 0 && !reach, rp = reloading ? 1 - s.reloadT / Math.max(0.01, s.reloadTot) : 0;
     const thrust = s.meleeT > 0 ? Math.sin(Math.min(1, (0.25 - s.meleeT) / 0.25) * Math.PI) * 1.15 : 0;
@@ -234,6 +267,7 @@ const Art = (() => {
       drawGunAt(0.15 * u - rec, 0.1 * u, 0.15);
       arm(0, -0.9 * u, 0.5 * u, -0.7 * u, 0.7 * u, -0.1 * u);
       arm(0, 0.9 * u, (0.9 + 0.6 * e) * u, (0.9 - 0.4 * e) * u, (0.9 + 1.25 * e) * u, 0.05 * u);
+      if (act.type === 'throw') { x.fillStyle = act.gtype === 'frag' ? '#3f6212' : act.gtype === 'smoke' ? '#9ca3af' : '#fde047'; x.beginPath(); x.arc((0.9 + 1.25 * e) * u + 0.2 * u, 0.05 * u, 0.26 * u, 0, 6.2832); x.fill(); x.strokeStyle = '#111'; x.lineWidth = 1; x.stroke(); }
     } else if (wt === 'knife') {                        // cuchillo: estocada hacia adelante
       const hx = (0.95 + thrust) * u, hy = 0.3 * u - thrust * 0.15 * u;
       drawGunAt(hx, hy, -0.05);
@@ -255,6 +289,10 @@ const Art = (() => {
     ell(x, 0, 0, 0.62 * u, 1.02 * u); x.fill(); x.stroke();
     x.fillStyle = shade(s.color, -0.22); ell(x, -0.1 * u, 0, 0.3 * u, 0.7 * u); x.fill();
     x.fillStyle = shade(s.color, 0.3); ell(x, 0.2 * u, -0.35 * u, 0.18 * u, 0.28 * u); x.fill();
+    if (s.armor && s.armor.vest > 0) {                                         // chaleco antibalas
+      x.fillStyle = 'rgba(58,70,96,.72)'; ell(x, 0.02 * u, 0, 0.5 * u, 0.86 * u); x.fill(); x.strokeStyle = 'rgba(10,14,24,.7)'; x.lineWidth = Math.max(1, u * 0.07); x.stroke();
+      x.fillStyle = 'rgba(255,255,255,.14)'; ell(x, 0.15 * u, -0.25 * u, 0.15 * u, 0.3 * u); x.fill();
+    }
     if (s.team >= 0) { x.fillStyle = s.teamColor; x.beginPath(); x.roundRect(-0.2 * u, -1.28 * u, 0.6 * u, 0.34 * u, 0.1 * u); x.fill(); x.strokeStyle = 'rgba(0,0,0,.5)'; x.lineWidth = 1; x.stroke(); }
     // fogonazo
     if (s.recoil > 0.55 && wt !== 'knife' && !reloading && !reach) {
@@ -269,7 +307,12 @@ const Art = (() => {
     x.restore();
 
     // cabeza (puede mirar a un costado)
-    x.save(); x.rotate(s.look); x.translate(0.08 * u + Math.cos(s.phase * 2) * 0.03 * u * g, 0); head(x, ap, u); x.restore();
+    x.save(); x.rotate(s.look); x.translate(0.08 * u + Math.cos(s.phase * 2) * 0.03 * u * g, 0); head(x, ap, u);
+    if (s.armor && s.armor.helm > 0) {                                         // casco
+      x.fillStyle = 'rgba(88,98,118,.92)'; x.beginPath(); x.arc(-0.03 * u, 0, 0.68 * u, 0, 6.2832); x.fill(); x.strokeStyle = 'rgba(10,14,24,.7)'; x.lineWidth = Math.max(1, u * 0.07); x.stroke();
+      x.fillStyle = 'rgba(255,255,255,.3)'; ell(x, -0.1 * u, -0.2 * u, 0.22 * u, 0.14 * u); x.fill();
+    }
+    x.restore();
 
     if (s.shieldHp > 0) {
       x.strokeStyle = `rgba(56,189,248,${0.55 + Math.sin(time * 8) * 0.3})`; x.lineWidth = Math.max(2, u * 0.25);
@@ -280,7 +323,8 @@ const Art = (() => {
   }
 
   /* ---------- cosas en el piso ---------- */
-  const RARITY = { pistol: '#9ca3af', shotgun: '#fb923c', ashotgun: '#f97316', lmg: '#facc15', sniper: '#38bdf8', hmg: '#f43f5e' };
+  const RARITY = { pistol: '#9ca3af', shotgun: '#fb923c', ashotgun: '#f97316', lmg: '#facc15', sniper: '#38bdf8', hmg: '#f43f5e', smg: '#fbbf24', rifle: '#a78bfa', revolver: '#cbd5e1', crossbow: '#34d399' };
+  const G2 = (x, u) => { const g = x.createLinearGradient(0, -0.3 * u, 0, 0.3 * u); g.addColorStop(0, '#0b0d12'); g.addColorStop(0.5, '#6b7280'); g.addColorStop(1, '#0b0d12'); return g; };
   function drawItem(x, it, ts, time) {
     const u = ts * 0.4, cx = it.x * ts, cy = it.y * ts, pulse = 1 + Math.sin(time * 4 + it.id) * 0.06;
     x.save(); x.translate(cx, cy);
@@ -290,6 +334,7 @@ const Art = (() => {
       x.fillStyle = 'rgba(0,0,0,.35)'; ell(x, 0.1 * u, 0.25 * u, len * u * 0.6, 0.45 * u); x.fill();
       x.rotate(it.ang); x.translate(-len * u * 0.45, 0);
       gun(x, it.type, u * 0.95, col);
+      if (it.att) { let k = 0; for (const [key, c] of [['sup', '#9ca3af'], ['scope', '#38bdf8'], ['ext', '#facc15']]) if (it.att[key]) { x.fillStyle = c; x.beginPath(); x.arc((len * 0.5 + k * 0.32) * u, 0.62 * u, 0.13 * u, 0, 6.2832); x.fill(); k++; } }
     } else if (it.kind === 'ammo') {
       x.fillStyle = '#4ade80'; x.globalAlpha = 0.18; x.beginPath(); x.arc(0, 0, u * 1.3 * pulse, 0, 6.2832); x.fill(); x.globalAlpha = 1;
       x.rotate(it.ang * 0.3);
@@ -297,6 +342,37 @@ const Art = (() => {
       x.strokeStyle = '#a3e635'; x.lineWidth = Math.max(1, u * 0.1); x.stroke();
       x.fillStyle = '#facc15';
       for (let i = -2; i <= 2; i++) { x.beginPath(); x.roundRect((i * 0.28 - 0.08) * u, -0.3 * u, 0.16 * u, 0.6 * u, 0.06 * u); x.fill(); }
+    } else if (it.kind === 'gren') {
+      const col = it.type === 'frag' ? '#4d7c0f' : it.type === 'smoke' ? '#9ca3af' : '#fde047';
+      x.fillStyle = col; x.globalAlpha = 0.2; x.beginPath(); x.arc(0, 0, u * 1.2 * pulse, 0, 6.2832); x.fill(); x.globalAlpha = 1;
+      x.fillStyle = 'rgba(0,0,0,.3)'; ell(x, 0.1 * u, 0.2 * u, 0.55 * u, 0.5 * u); x.fill();
+      x.fillStyle = col; x.beginPath(); x.arc(0, 0, 0.5 * u, 0, 6.2832); x.fill(); x.strokeStyle = '#111'; x.lineWidth = Math.max(1, u * 0.09); x.stroke();
+      if (it.type === 'frag') { x.strokeStyle = 'rgba(0,0,0,.45)'; x.lineWidth = 1; for (let k = -1; k <= 1; k++) { x.beginPath(); x.moveTo(-0.4 * u, k * 0.2 * u); x.lineTo(0.4 * u, k * 0.2 * u); x.stroke(); } }
+      x.fillStyle = '#d4d4d8'; x.beginPath(); x.arc(0.1 * u, -0.5 * u, 0.12 * u, 0, 6.2832); x.fill();
+    } else if (it.kind === 'med') {
+      const sz = it.type === 'large' ? 1.0 : it.type === 'med' ? 0.8 : 0.62;
+      x.fillStyle = '#f472b6'; x.globalAlpha = 0.0; x.globalAlpha = 1;
+      x.fillStyle = 'rgba(0,0,0,.3)'; x.beginPath(); x.roundRect((-0.7 * sz + 0.1) * u, (-0.55 * sz + 0.15) * u, 1.4 * sz * u, 1.1 * sz * u, 0.15 * u); x.fill();
+      x.fillStyle = '#f8fafc'; x.beginPath(); x.roundRect(-0.7 * sz * u, -0.55 * sz * u, 1.4 * sz * u, 1.1 * sz * u, 0.15 * u); x.fill(); x.strokeStyle = '#94a3b8'; x.lineWidth = Math.max(1, u * 0.07); x.stroke();
+      x.fillStyle = '#dc2626'; x.fillRect(-0.4 * sz * u, -0.12 * sz * u, 0.8 * sz * u, 0.24 * sz * u); x.fillRect(-0.12 * sz * u, -0.4 * sz * u, 0.24 * sz * u, 0.8 * sz * u);
+    } else if (it.kind === 'armor') {
+      x.fillStyle = 'rgba(0,0,0,.3)'; ell(x, 0.1 * u, 0.2 * u, 0.7 * u, 0.6 * u); x.fill();
+      if (it.type === 'vest') {
+        x.fillStyle = '#475569'; x.beginPath(); x.roundRect(-0.55 * u, -0.6 * u, 1.1 * u, 1.2 * u, 0.25 * u); x.fill(); x.strokeStyle = '#0f172a'; x.lineWidth = Math.max(1, u * 0.09); x.stroke();
+        x.fillStyle = '#cbd5e1'; x.fillRect(-0.5 * u, -0.1 * u, 1.0 * u, 0.12 * u); x.fillStyle = '#1e293b'; x.fillRect(-0.3 * u, -0.5 * u, 0.6 * u, 0.15 * u);
+      } else {
+        x.fillStyle = '#64748b'; x.beginPath(); x.arc(0, 0, 0.55 * u, Math.PI, 0); x.lineTo(0.62 * u, 0.2 * u); x.lineTo(-0.62 * u, 0.2 * u); x.closePath(); x.fill(); x.strokeStyle = '#0f172a'; x.lineWidth = Math.max(1, u * 0.09); x.stroke();
+        x.fillStyle = 'rgba(255,255,255,.3)'; ell(x, -0.2 * u, -0.25 * u, 0.2 * u, 0.1 * u); x.fill();
+      }
+    } else if (it.kind === 'pack') {
+      x.fillStyle = 'rgba(0,0,0,.3)'; x.beginPath(); x.roundRect(-0.5 * u + 2, -0.6 * u + 3, 1.0 * u, 1.2 * u, 0.3 * u); x.fill();
+      x.fillStyle = '#4d5d2a'; x.beginPath(); x.roundRect(-0.55 * u, -0.65 * u, 1.1 * u, 1.3 * u, 0.3 * u); x.fill(); x.strokeStyle = '#1f2a12'; x.lineWidth = Math.max(1, u * 0.09); x.stroke();
+      x.fillStyle = '#3a461f'; x.fillRect(-0.4 * u, -0.1 * u, 0.8 * u, 0.5 * u); x.fillStyle = '#d4d4d8'; x.fillRect(-0.08 * u, -0.3 * u, 0.16 * u, 0.2 * u);
+    } else if (it.kind === 'attach') {
+      x.fillStyle = '#a3e635'; x.globalAlpha = 0.15; x.beginPath(); x.arc(0, 0, u * 1.1 * pulse, 0, 6.2832); x.fill(); x.globalAlpha = 1;
+      if (it.type === 'sup') { x.fillStyle = G2(x, u); x.beginPath(); x.roundRect(-0.7 * u, -0.22 * u, 1.4 * u, 0.44 * u, 0.2 * u); x.fill(); x.strokeStyle = '#0b0d12'; x.lineWidth = 1.2; x.stroke(); x.fillStyle = '#05070b'; for (let k = -2; k <= 2; k++) { x.beginPath(); x.arc(k * 0.24 * u, 0, 0.05 * u, 0, 6.2832); x.fill(); } }
+      else if (it.type === 'scope') { x.fillStyle = '#1f2937'; x.beginPath(); x.roundRect(-0.7 * u, -0.2 * u, 1.4 * u, 0.4 * u, 0.15 * u); x.fill(); x.strokeStyle = '#0b0d12'; x.lineWidth = 1.2; x.stroke(); x.fillStyle = '#7dd3fc'; x.beginPath(); x.arc(0.55 * u, 0, 0.18 * u, 0, 6.2832); x.fill(); x.fillStyle = '#e5e7eb'; x.fillRect(-0.3 * u, -0.28 * u, 0.1 * u, 0.56 * u); x.fillRect(0.1 * u, -0.28 * u, 0.1 * u, 0.56 * u); }
+      else { x.fillStyle = '#374151'; x.beginPath(); x.roundRect(-0.3 * u, -0.7 * u, 0.6 * u, 1.4 * u, 0.1 * u); x.fill(); x.strokeStyle = '#0b0d12'; x.lineWidth = 1.2; x.stroke(); x.fillStyle = '#facc15'; for (let k = -2; k <= 2; k++) { x.beginPath(); x.roundRect(-0.2 * u, k * 0.24 * u - 0.07 * u, 0.4 * u, 0.12 * u, 0.04 * u); x.fill(); } }
     }
     x.restore();
   }

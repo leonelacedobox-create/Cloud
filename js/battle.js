@@ -17,10 +17,17 @@
     shotgun:  { name: 'Escopeta', short: 'ESC', dmg: 9, pellets: 8, cd: 0.95, mag: 6, res: 12, reload: 2.6, bspeed: 12, spread: 0.2, range: 5.5, noise: 15, move: 0.95, auto: false, tier: 4, pref: [1.2, 3.8] },
     ashotgun: { name: 'Escopeta automática', short: 'EAU', dmg: 7, pellets: 6, cd: 0.38, mag: 8, res: 16, reload: 3.0, bspeed: 12, spread: 0.24, range: 5.2, noise: 15, move: 0.93, auto: true, tier: 5, pref: [1.2, 4] },
     hmg:      { name: 'Ametralladora pesada', short: 'AMP', dmg: 15, pellets: 1, cd: 0.09, mag: 80, res: 120, reload: 4.2, bspeed: 15, spread: 0.13, range: 12, noise: 17, move: 0.78, auto: true, tier: 7, pref: [4, 9.5] },
+    smg:      { name: 'Subfusil', short: 'SUB', dmg: 8, pellets: 1, cd: 0.07, mag: 32, res: 64, reload: 1.8, bspeed: 14, spread: 0.11, range: 8, noise: 13, move: 1.03, auto: true, tier: 4, pref: [1.8, 5] },
+    rifle:    { name: 'Rifle de asalto', short: 'RIF', dmg: 18, pellets: 1, cd: 0.14, mag: 30, res: 60, reload: 2.2, bspeed: 18, spread: 0.06, range: 14, noise: 15, move: 0.96, auto: true, tier: 6, pref: [4, 11] },
+    revolver: { name: 'Revólver', short: 'REV', dmg: 55, pellets: 1, cd: 0.75, mag: 6, res: 12, reload: 2.4, bspeed: 16, spread: 0.03, range: 11, noise: 14, move: 1.0, auto: false, tier: 4, pref: [3, 9] },
+    crossbow: { name: 'Ballesta silenciosa', short: 'BAL', dmg: 80, pellets: 1, cd: 1.4, mag: 1, res: 8, reload: 1.6, bspeed: 20, spread: 0.02, range: 16, noise: 2.5, move: 1.0, auto: false, tier: 5, pref: [5, 13] },
   };
   const KNIFE = { name: 'Cuchillo', short: 'CUC', dmg: 55, cd: 0.55, range: 1.2, noise: 2.5, move: 1.12, pref: [0, 0.9] };
-  const LOOT_WEIGHTS = [['shotgun', 20], ['ashotgun', 12], ['lmg', 20], ['sniper', 14], ['hmg', 8]];
-  const cap = (def) => def.mag + def.res * 2;     // máximo de balas que se pueden llevar
+  const LOOT_WEIGHTS = [['shotgun', 14], ['ashotgun', 8], ['lmg', 12], ['sniper', 10], ['hmg', 5], ['smg', 14], ['rifle', 10], ['revolver', 10], ['crossbow', 7]];
+  const MED = { small: { amt: 35, dur: 1.8 }, med: { amt: 65, dur: 2.8 }, large: { amt: 100, dur: 4 } };
+  const magOf = (w) => Math.round(WEAPONS[w.type].mag * (w.ext ? 1.5 : 1));                 // el cargador extendido da 50% más
+  // máximo de balas que se pueden llevar (con mochila, 50% más)
+  const cap = (def, w, s) => (def.mag * (w && w.ext ? 1.5 : 1) + def.res * 2) * (s && s.pack ? 1.5 : 1);
 
   /* personalidades, niveles de inteligencia y frases: ver js/personas.js */
   const PERS = Personas.PERS, pickLine = Personas.pickLine;
@@ -183,14 +190,25 @@
       if (!portrait) [cols, rows] = [rows, cols];
       this.seed = String(cfg.seed || (1000 + Math.floor(Math.random() * 9000)));
       this.srnd = mulberry32(hashSeed(this.seed));
-      const m = genMap(cfg.map, cols, rows, this.srnd);
+      let m;
+      if (cfg.map === 'custom') {
+        m = Maps.parse(cfg.customMap);
+        if (m.error) { cfg.map = 'rooms'; m = genMap('rooms', cols, rows, this.srnd); Maps.decorate(m, 'rooms', this.srnd); }
+        else m.fixedDoors = true;
+      } else if (cfg.map === 'maze' || cfg.map === 'rooms' || cfg.map === 'arena') {
+        m = genMap(cfg.map, cols, rows, this.srnd);
+        Maps.decorate(m, cfg.map, this.srnd);
+      } else { m = Maps.themed(cfg.map, cols, rows, this.srnd); m.fixedDoors = true; }
+      if (cfg.props === false) { m.props = []; m.windows = []; }
       this.W = m.W; this.H = m.H; this.g = m.g; this.center = m.center;
       const f = clamp(Math.sqrt((this.W * this.H) / (27 * 39)), 0.8, 1.7);
       this.zoneDelay = 55 * f; this.zoneTime = 130 * f;
       const N = this.W * this.H;
       this.seen = new Uint32Array(N); this.stamp = 0; this.prev = new Int32Array(N); this.dist = new Int32Array(N); this.queue = new Int32Array(N);
       this.doorGrid = new Uint8Array(N); this.doors = new Map();
-      this.makeDoors(cfg.map);
+      this.makeDoors(cfg.map, m);
+      this.initWorld(m);
+      this.darkAny = this.dark.some((v) => v);
       this.floor = [];
       for (let i = 0; i < N; i++) if (!this.g[i] && !this.doorGrid[i]) this.floor.push(i);
       this.spawn();
@@ -204,10 +222,11 @@
       window.addEventListener('resize', this.resize);
     }
 
-    destroy() { cancelAnimationFrame(this.raf); window.removeEventListener('resize', this.resize); this.dead = true; }
+    destroy() { cancelAnimationFrame(this.raf); window.removeEventListener('resize', this.resize); this.dead = true; this.static = null; this.mini = null; this.fog = null; this.dk = null; }
 
     /* ---------- mundo ---------- */
-    isWall(x, y) { return x < 0 || y < 0 || x >= this.W || y >= this.H || this.g[y * this.W + x] === 1; }
+    /** Pared de verdad (frena vista, balas y sonido). Los cajones, barriles y ventanas no cuentan. */
+    isWall(x, y) { return x < 0 || y < 0 || x >= this.W || y >= this.H || this.wl[y * this.W + x] === 1; }
     isSolid(x, y) {
       if (x < 0 || y < 0 || x >= this.W || y >= this.H) return true;
       const i = y * this.W + x;
@@ -248,9 +267,18 @@
       return c;
     }
 
-    makeDoors(type) {
-      if (type === 'arena') return;
+    makeDoors(type, m) {
       const rnd = this.srnd, shuffle = (a) => seededShuffle(a, this.srnd);
+      if (m && m.fixedDoors) {                                  // mapas temáticos o propios: las puertas vienen dibujadas
+        for (const d of m.doors || []) {
+          const idx = d.y * this.W + d.x, open = rnd() < 0.25;
+          if (this.g[idx]) continue;
+          this.doorGrid[idx] = 1;
+          this.doors.set(idx, { idx, tx: d.x, ty: d.y, along: d.along, open, anim: open ? 1 : 0, flip: rnd() < 0.5 ? 1 : -1 });
+        }
+        return;
+      }
+      if (type === 'arena') return;
       const { W, H, g } = this;
       const p = type === 'rooms' ? 0.92 : 0.22;
       const cands = [];
@@ -356,14 +384,14 @@
     startReload(s) {
       const w = this.weaponOf(s); if (!w) return false;
       const def = WEAPONS[w.type];
-      if (w.res <= 0 || w.mag >= def.mag) return false;
+      if (w.res <= 0 || w.mag >= magOf(w)) return false;
       s.reloadT = s.reloadTot = def.reload; s.stats.reloads++;
       this.emitSound(s.x, s.y, 4.5, 'reload', s);
       return true;
     }
     finishReload(s) {
       const w = this.weaponOf(s); if (!w) return;
-      const def = WEAPONS[w.type], take = Math.min(def.mag - w.mag, w.res);
+      const take = Math.min(magOf(w) - w.mag, w.res);
       w.mag += take; w.res -= take;
     }
     fire(s, extra = 0) {
@@ -379,7 +407,7 @@
         s.bloom = Math.min(def.spread * 1.3, s.bloom + def.spread * 0.14);
       }
       const move = s.gait > 0.5 ? 1.3 : s.sneak ? 0.8 : 1;
-      const spread = def.spread * this.aimMul(s) * move + s.bloom + extra;
+      const spread = def.spread * this.aimMul(s) * move * (w.scope ? 0.8 : 1) + s.bloom + extra;
       const life = def.range / def.bspeed + 0.15;
       for (let i = 0; i < def.pellets; i++) {
         const a = s.angle + (rnd() - 0.5) * 2 * spread * (def.pellets > 1 ? 1.15 : 1);
@@ -387,16 +415,16 @@
         this.bullets.push({
           x: s.x + Math.cos(a) * 0.5, y: s.y + Math.sin(a) * 0.5,
           vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-          owner: s, color: s.color, life, dmg: def.dmg, w: w.type,
+          owner: s, color: s.color, life, dmg: def.dmg * (w.sup ? 0.92 : 1), w: w.type, d: 0,
         });
       }
       // humito del caño
-      for (let k = 0; k < (def.pellets > 1 ? 3 : 2); k++) {
+      for (let k = 0; k < (w.sup || w.type === 'crossbow' ? 0 : def.pellets > 1 ? 3 : 2); k++) {
         const ca = Math.cos(s.angle), sa = Math.sin(s.angle);
         this.parts.push({ x: s.x + ca * 0.95, y: s.y + sa * 0.95, vx: ca * (0.5 + rnd()) + (rnd() - 0.5) * 0.7, vy: sa * (0.5 + rnd()) + (rnd() - 0.5) * 0.7, life: 0.35 + rnd() * 0.3, max: 0.65, color: '#cfd3dc', size: 0.06 + rnd() * 0.06 });
       }
-      if (!def.auto || this.time - s.lastNoise > 0.3) { s.lastNoise = this.time; this.emitSound(s.x, s.y, def.noise, 'shot', s); }
-      if (this.audible()) sfx.shot(w.type, this.camDist(s));
+      if (!def.auto || this.time - s.lastNoise > 0.3) { s.lastNoise = this.time; this.emitSound(s.x, s.y, def.noise * (w.sup ? 0.25 : 1), 'shot', s); }
+      if (this.audible()) sfx.shot(w.type, this.camDist(s) + (w.sup || w.type === 'crossbow' ? 16 : 0));
       this.onShot(s, w);
       return true;
     }
@@ -414,8 +442,8 @@
     audible() { return this.speed === 1 || (this.speed === 2 && ((this._sfxN = (this._sfxN || 0) + 1) % 2 === 0)); }
 
     /* ---------- botín en el piso ---------- */
-    addItem(kind, type, x, y, mag = 0, res = 0) {
-      const it = { id: this.itemId++, kind, type, x, y, mag, res, ang: (this.lootRnd || rnd)() * 6.283, t: 0, gone: false };
+    addItem(kind, type, x, y, mag = 0, res = 0, att = null) {
+      const it = { id: this.itemId++, kind, type, x, y, mag, res, att, ang: (this.lootRnd || rnd)() * 6.283, t: 0, gone: false };
       this.items.push(it); return it;
     }
     pickWeaponType() {
@@ -427,18 +455,30 @@
     spawnLootAt(i, forced) {
       const R = this.lootRnd || rnd, RI = (n) => Math.floor(R() * n);
       const x = (i % this.W) + 0.5, y = ((i / this.W) | 0) + 0.5;
-      const roll = R();
-      if ((forced === 'weapon' || roll < 0.6) && this.cfg.loot !== false) {
+      const roll = R(), gear = this.cfg.gear !== false, wpn = this.cfg.loot !== false;
+      const pick = (arr) => arr[RI(arr.length)];
+      const weapon = () => {
         const t = this.pickWeaponType(), d = WEAPONS[t];
-        return this.addItem('weapon', t, x, y, d.mag, Math.round(d.res * (0.5 + R() * 0.5)));
+        const att = { sup: R() < 0.1, scope: R() < 0.12, ext: R() < 0.1 };
+        return this.addItem('weapon', t, x, y, d.mag, Math.round(d.res * (0.5 + R() * 0.5)), att);
+      };
+      if (forced === 'weapon' && wpn) return weapon();
+      if (forced === 'ammo') return this.addItem('ammo', 'ammo', x, y);
+      if (wpn && roll < 0.34) return weapon();
+      if (roll < 0.41) return this.addItem('ammo', 'ammo', x, y);
+      if (gear) {
+        if (roll < 0.64) return this.addItem('gren', pick(['frag', 'frag', 'smoke', 'flash']), x, y);
+        if (roll < 0.74) return this.addItem('med', pick(['small', 'small', 'med', 'med', 'large']), x, y);
+        if (roll < 0.82) return this.addItem('armor', pick(['vest', 'vest', 'helm']), x, y);
+        if (roll < 0.89) return this.addItem('attach', pick(['sup', 'scope', 'ext']), x, y);
+        if (roll < 0.91) return this.addItem('pack', 'pack', x, y);
       }
-      if (roll < 0.85 || forced === 'ammo') return this.addItem('ammo', 'ammo', x, y);
-      if (this.cfg.powerups) return this.addItem('power', ['shield', 'speed', 'heal'][RI(3)], x, y);
+      if (this.cfg.powerups) return this.addItem('power', pick(['shield', 'speed']), x, y);
       return this.addItem('ammo', 'ammo', x, y);
     }
     initLoot() {
       const n = this.soldiers.length;
-      const total = Math.max(4, Math.round(n * 1.4)) + 3;
+      const total = Math.max(6, Math.round(n * 2.4)) + 3, nW = Math.round(total * 0.4);
       const used = this.spawnPoints.slice();
       for (let k = 0; k < total; k++) {
         const RI = (n) => Math.floor(this.lootRnd() * n);
@@ -449,11 +489,11 @@
           if (md > bd) { bd = md; best = i; }
         }
         used.push([(best % this.W) + 0.5, ((best / this.W) | 0) + 0.5]);
-        this.spawnLootAt(best, k < total - 3 ? 'weapon' : k === total - 3 ? 'ammo' : null);
+        this.spawnLootAt(best, k < nW ? 'weapon' : k === nW ? 'ammo' : null);
       }
     }
     spawnMoreLoot() {
-      if (this.items.length >= this.soldiers.length * 2 + 4) return;
+      if (this.items.length >= this.soldiers.length * 2.5 + 5) return;
       this.spawnLootAt(this.floor[rint(this.floor.length)], null);
     }
     dropWeapons(s) {
@@ -461,29 +501,56 @@
         if (!w || ammoOf(w) <= 0) return;
         const a = rnd() * 6.283, m = 0.15 + rnd() * 0.3;
         let x = s.x + Math.cos(a) * m, y = s.y + Math.sin(a) * m;
-        if (this.isWall(Math.floor(x), Math.floor(y))) { x = s.x; y = s.y; }
-        this.addItem('weapon', w.type, x, y, w.mag, w.res);
+        if (this.isSolid(Math.floor(x), Math.floor(y))) { x = s.x; y = s.y; }
+        this.addItem('weapon', w.type, x, y, w.mag, w.res, { sup: !!w.sup, scope: !!w.scope, ext: !!w.ext });
       };
       drop(s.inv.pistol); drop(s.inv.primary);
       s.inv.pistol = { type: 'pistol', mag: 0, res: 0 }; s.inv.primary = null;
+      const spot = () => { const a = rnd() * 6.283, m = 0.2 + rnd() * 0.4; let x = s.x + Math.cos(a) * m, y = s.y + Math.sin(a) * m; if (this.isSolid(Math.floor(x), Math.floor(y))) { x = s.x; y = s.y; } return [x, y]; };
+      for (const t of ['frag', 'smoke', 'flash']) for (let k = 0; k < s.gren[t]; k++) { const [x, y] = spot(); this.addItem('gren', t, x, y); }
+      s.gren = { frag: 0, smoke: 0, flash: 0 };
+      for (const t of s.meds) { const [x, y] = spot(); this.addItem('med', t, x, y); }
+      s.meds = [];
+      if (s.armor.vest > 30) { const [x, y] = spot(); this.addItem('armor', 'vest', x, y); }
+      if (s.armor.helm > 15) { const [x, y] = spot(); this.addItem('armor', 'helm', x, y); }
+      s.armor = { vest: 0, helm: 0 };
     }
 
     /** Cuánto le conviene a este soldado agarrar esto (0 = nada). */
     evalItem(s, it) {
       if (it.kind === 'weapon') {
         const def = WEAPONS[it.type], tot = it.mag + it.res;
-        if (it.type === 'pistol') return Math.min(tot, cap(def) - ammoOf(s.inv.pistol)) / 24;    // solo sirve por las balas
+        if (it.type === 'pistol') return Math.min(tot, cap(def, s.inv.pistol, s) - ammoOf(s.inv.pistol)) / 24;    // solo sirve por las balas
         const pr = s.inv.primary;
-        if (pr && pr.type === it.type) return Math.min(tot, cap(def) - ammoOf(pr)) / (def.mag + def.res) * 1.4;
-        const nv = this.weaponValue(s, it.type, tot), cv = pr ? this.weaponValue(s, pr.type, ammoOf(pr)) : 0;
+        if (pr && pr.type === it.type) return Math.min(tot, cap(def, pr, s) - ammoOf(pr)) / (def.mag + def.res) * 1.4;
+        const attBonus = it.att ? (it.att.sup ? 0.5 : 0) + (it.att.scope ? 0.4 : 0) + (it.att.ext ? 0.3 : 0) : 0;
+        const nv = this.weaponValue(s, it.type, tot) + attBonus, cv = pr ? this.weaponValue(s, pr.type, ammoOf(pr)) + (pr.sup ? 0.5 : 0) + (pr.scope ? 0.4 : 0) + (pr.ext ? 0.3 : 0) : 0;
         return nv - cv > 0.6 ? (nv - cv) / 3 : 0;
+      }
+      if (it.kind === 'gren') {
+        const have = s.gren[it.type], lim = s.pack ? 3 : 2;
+        if (have >= lim) return 0;
+        const base = it.type === 'frag' ? 0.7 : it.type === 'flash' ? 0.5 : 0.45;
+        return base * (0.55 + 0.45 * (s.sk.nade == null ? 0.5 : s.sk.nade)) * (1 - 0.35 * have);
+      }
+      if (it.kind === 'med') {
+        if (s.meds.length >= (s.pack ? 3 : 2)) return 0;
+        const miss = (s.maxHp - s.hp) / s.maxHp, size = it.type === 'large' ? 1 : it.type === 'med' ? 0.8 : 0.6;
+        return (0.3 + miss * 1.4) * size + 0.1;
+      }
+      if (it.kind === 'armor') return it.type === 'vest' ? (s.armor.vest >= 60 ? 0 : 0.85) : (s.armor.helm >= 30 ? 0 : 0.55);
+      if (it.kind === 'pack') return s.pack ? 0 : 0.7;
+      if (it.kind === 'attach') {
+        const w = s.inv.primary || s.inv.pistol;
+        if (!w || w[it.type]) return 0;
+        return it.type === 'sup' ? (s.P.sneak ? 0.8 : 0.35) : it.type === 'scope' ? 0.5 : (WEAPONS[w.type].auto ? 0.6 : 0.4);
       }
       if (it.kind === 'ammo') {
         let g = 0;
         for (const w of [s.inv.pistol, s.inv.primary]) {
           if (!w) continue;
           const def = WEAPONS[w.type];
-          g += Math.min(Math.ceil(def.mag * 1.5), cap(def) - ammoOf(w)) / (def.mag + def.res) * 1.2;
+          g += Math.min(Math.ceil(def.mag * 1.5), cap(def, w, s) - ammoOf(w)) / (def.mag + def.res) * 1.2;
         }
         return g;
       }
@@ -497,7 +564,7 @@
         const def = WEAPONS[it.type], tot = it.mag + it.res;
         const own = it.type === 'pistol' ? s.inv.pistol : (s.inv.primary && s.inv.primary.type === it.type ? s.inv.primary : null);
         if (own) {                                           // misma arma: se queda con las balas
-          const take = Math.min(tot, cap(def) - ammoOf(own));
+          const take = Math.min(tot, cap(def, own, s) - ammoOf(own));
           if (take <= 0) return false;
           own.res += take;
           const left = tot - take; it.mag = 0; it.res = left;
@@ -505,8 +572,8 @@
           label = `balas de ${def.name.toLowerCase()}`;
         } else {                                             // arma nueva: suelta la que tenía
           const old = s.inv.primary;
-          if (old && ammoOf(old) > 0) this.addItem('weapon', old.type, s.x + (rnd() - 0.5) * 0.5, s.y + (rnd() - 0.5) * 0.5, old.mag, old.res);
-          s.inv.primary = { type: it.type, mag: it.mag, res: it.res };
+          if (old && ammoOf(old) > 0) this.addItem('weapon', old.type, s.x + (rnd() - 0.5) * 0.5, s.y + (rnd() - 0.5) * 0.5, old.mag, old.res, { sup: !!old.sup, scope: !!old.scope, ext: !!old.ext });
+          s.inv.primary = { type: it.type, mag: it.mag, res: it.res, sup: !!(it.att && it.att.sup), scope: !!(it.att && it.att.scope), ext: !!(it.att && it.att.ext) };
           s.cur = 'primary'; s.swapT = 0.6; s.reloadT = 0; s.wtype = it.type; s.dryTold = false;
           it.gone = true; label = def.name.toLowerCase();
         }
@@ -514,12 +581,31 @@
         let any = false;
         for (const w of [s.inv.pistol, s.inv.primary]) {
           if (!w) continue;
-          const def = WEAPONS[w.type], add = Math.min(Math.ceil(def.mag * 1.5), cap(def) - ammoOf(w));
+          const def = WEAPONS[w.type], add = Math.min(Math.ceil(def.mag * 1.5), cap(def, w, s) - ammoOf(w));
           if (add > 0) { w.res += add; any = true; }
         }
         if (!any) return false;
         it.gone = true; label = 'munición'; s.dryTold = false;
         if (s.cur === 'knife') { s.cur = s.inv.primary && ammoOf(s.inv.primary) > 0 ? 'primary' : 'pistol'; s.swapT = 0.4; }
+      } else if (it.kind === 'gren') {
+        const lim = s.pack ? 3 : 2;
+        if (s.gren[it.type] >= lim) return false;
+        s.gren[it.type]++; it.gone = true; label = it.type === 'frag' ? 'granada' : it.type === 'smoke' ? 'granada de humo' : 'granada aturdidora';
+      } else if (it.kind === 'med') {
+        if (s.meds.length >= (s.pack ? 3 : 2)) return false;
+        s.meds.push(it.type); s.meds.sort((a, b) => MED[b].amt - MED[a].amt); it.gone = true; label = it.type === 'large' ? 'botiquín grande' : it.type === 'med' ? 'botiquín mediano' : 'botiquín chico';
+      } else if (it.kind === 'armor') {
+        if (it.type === 'vest') { if (s.armor.vest >= 60) return false; s.armor.vest = 100; label = 'chaleco'; }
+        else { if (s.armor.helm >= 30) return false; s.armor.helm = 50; label = 'casco'; }
+        it.gone = true;
+      } else if (it.kind === 'pack') {
+        if (s.pack) return false;
+        s.pack = true; it.gone = true; label = 'mochila';
+        for (const w of [s.inv.pistol, s.inv.primary]) if (w) w.res += Math.ceil(WEAPONS[w.type].mag * 0.6);
+      } else if (it.kind === 'attach') {
+        const w = s.inv.primary || s.inv.pistol;
+        if (!w || w[it.type]) return false;
+        w[it.type] = true; it.gone = true; label = it.type === 'sup' ? 'silenciador' : it.type === 'scope' ? 'mira' : 'cargador extendido';
       } else {
         if (it.type === 'shield') { s.shieldHp = 70; s.shieldT = 15; } else if (it.type === 'speed') s.speedT = 9;
         else s.hp = Math.min(s.maxHp + HPL * 0.5, s.hp + HPL * 0.6);
@@ -545,7 +631,7 @@
 
     /* ---------- sonido ---------- */
     emitSound(x, y, r, kind, src) {
-      if (RING_COLOR[kind] && this.rings.length < 14) this.rings.push({ x, y, r: Math.min(r, 5), t: 0, kind });
+      if (RING_COLOR[kind] && this.rings.length < 14 && !(kind === 'shot' && r <= 5)) this.rings.push({ x, y, r: Math.min(r, 5), t: 0, kind });
       if (!src) return;
       for (const s of this.soldiers) {
         if (!s.alive || s === src || (src.team >= 0 && s.team === src.team)) continue;
@@ -611,7 +697,7 @@
     }
 
     /* ---------- percepción ---------- */
-    sightOf(s) { const d = this.defOf(s); return s.P.sight + (d.scope || 0); }
+    sightOf(s) { const d = this.defOf(s), w = this.weaponOf(s); return (s.P.sight + (d.scope || 0) + (w && w.scope ? 4 : 0)) * (this.fogMul || 1); }
     damage(s, by, dmg, zone) {
       if (!s.alive || (this.phase === 'ending' && !zone)) return;
       if (!zone && s.shieldHp > 0) {
@@ -619,7 +705,12 @@
         this.spark(s.x, s.y, '#38bdf8', 4);
         if (dmg <= 0) return;
       }
-      if (!zone && s.mood) dmg *= (1 - s.mood.fury * Math.min(1, s.P.rage) * 0.3) * (s.P.tough || 1);   // la furia y el aguante propio reducen el daño
+      if (!zone && s.mood) dmg *= (1 - s.mood.fury * Math.min(1, s.P.rage) * 0.3) * (s.P.tough || 1);
+      if (!zone && s.armor && (s.armor.vest > 0 || s.armor.helm > 0)) {           // el chaleco y el casco absorben una parte
+        const red = (s.armor.vest > 0 ? 0.4 : 0) + (s.armor.helm > 0 ? 0.2 : 0), ab = dmg * red, vs = s.armor.vest > 0 ? (s.armor.helm > 0 ? 0.67 : 1) : 0;
+        s.armor.vest = Math.max(0, s.armor.vest - ab * vs * 1.2); s.armor.helm = Math.max(0, s.armor.helm - ab * (1 - vs) * 1.2);
+        s.stats.absorbed = (s.stats.absorbed || 0) + ab; dmg -= ab;
+      }   // la furia y el aguante propio reducen el daño
       const dealt = Math.min(dmg, s.hp);
       s.hp -= dmg; s.flash = 0.18;
       this.spark(s.x, s.y, s.color, 5);
@@ -668,6 +759,7 @@
       this.items.forEach((it) => { it.t += dt; });
       if (this.phase === 'run') this.collectItems();
       for (const d of this.doors.values()) d.anim = Math.max(0, Math.min(1, d.anim + (d.open ? 1 : -1) * dt * 3.2));
+      this.stepWorld(dt);
       this.teamTick(dt);
       for (const s of this.soldiers) this.updateSoldier(s, dt);
 
@@ -677,9 +769,9 @@
         const n = Math.max(1, Math.ceil(Math.hypot(b.vx, b.vy) * dt / 0.22)), sd = dt / n;
         let gone = false;
         for (let k = 0; k < n && !gone; k++) {
-          b.x += b.vx * sd; b.y += b.vy * sd;
+          b.x += b.vx * sd; b.y += b.vy * sd; b.d = (b.d || 0) + Math.hypot(b.vx, b.vy) * sd;
           const bx = Math.floor(b.x), by = Math.floor(b.y);
-          if (this.isWall(bx, by)) { gone = true; this.spark(b.x - b.vx * sd, b.y - b.vy * sd, '#ffe08a', 3); break; }
+          if (this.bulletTile(b, bx, by)) { gone = true; break; }
           if (!b.door && this.doorGrid[by * this.W + bx]) { b.door = true; this.spark(b.x, b.y, '#c9955a', 5); }
           for (const s of this.soldiers) {
             if (!s.alive || s === b.owner || (b.owner.team >= 0 && s.team === b.owner.team && !this.cfg.friendly)) continue;
@@ -797,7 +889,7 @@
     }
 
     buildStatic() {
-      const ts = this.ts, dpr = Math.min(2, this.dpr), W = this.W, H = this.H, g = this.g;
+      const ts = this.ts, dpr = Math.min(2, this.dpr), W = this.W, H = this.H, g = this.wl;
       this.sdpr = dpr;
       const c = document.createElement('canvas');
       c.width = Math.ceil(W * ts * dpr); c.height = Math.ceil(H * ts * dpr);
@@ -827,6 +919,7 @@
         if (open(1, 0)) x.fillRect(px + ts - e, py, e, ts);
         x.fillStyle = 'rgba(255,255,255,.04)'; x.fillRect(px + e, py + e, ts - e * 2, ts - e * 2);
       }
+      this.drawStaticExtras(x, ts);
       this.static = c;
     }
     buildMini() {
@@ -835,7 +928,7 @@
       const x = c.getContext('2d');
       x.fillStyle = 'rgba(10,14,26,.85)'; x.fillRect(0, 0, c.width, c.height);
       x.fillStyle = '#5b6fa8';
-      for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) if (this.g[y * W + xx]) x.fillRect(xx * k, y * k, k + 0.4, k + 0.4);
+      for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) if (this.wl[y * W + xx]) x.fillRect(xx * k, y * k, k + 0.4, k + 0.4);
       this.mini = c; this.miniK = k;
     }
 
@@ -850,9 +943,11 @@
       if (r > l && b > t) x.drawImage(this.static, l * ts * sd, t * ts * sd, (r - l) * ts * sd, (b - t) * ts * sd, (l - left) * ts, (t - top) * ts, (r - l) * ts, (b - t) * ts);
       const povS = this.povSoldier();
       const vis = (o) => !povS || o === povS || (povS.team >= 0 && o.team === povS.team) || this.canSeeFrom(povS, o);
-      x.save(); x.translate(-left * ts, -top * ts);
+      const shk = this.shake > 0 ? this.shake * 7 : 0;
+      x.save(); x.translate(-left * ts + (shk ? (rnd() - 0.5) * shk : 0), -top * ts + (shk ? (rnd() - 0.5) * shk : 0));
 
       for (const d of this.doors.values()) Art.drawDoor(x, d, ts);
+      this.drawWorld(x, ts, left, top, this.cw / ts, this.ch / ts);
       for (const c of this.corpses) Art.drawCorpse(x, c, ts);
       for (const it of this.items) { if (it.kind === 'power') this.drawPowerup(x, it); else Art.drawItem(x, it, ts, this.time); }
       if (this.zone) this.drawZone(x);
@@ -883,8 +978,11 @@
         else { x.fillStyle = p.color; x.beginPath(); x.arc(p.x * ts, p.y * ts, Math.max(1, p.size * ts), 0, 6.283); x.fill(); }
       }
       x.globalAlpha = 1;
+      this.drawSmoke(x, ts);
       for (const s of alive) if (vis(s)) this.drawLabel(x, s);
       x.restore();
+      if (this.hasDarkness()) this.drawDarkness(x, left, top);
+      if (this.fogMul < 1) { x.fillStyle = 'rgba(205,215,230,0.24)'; x.fillRect(0, 0, this.cw, this.ch); }
       if (povS) this.drawFog(x, povS, left, top);
 
       if (!this.isFull) this.drawMini(x);
@@ -1138,7 +1236,8 @@
     const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: Math.min(p.team || 0, B.teamCount - 1), pers: p.pers || 'auto', iq: p.iq == null ? 1 : p.iq }));
     const seed = ($('#seedInput').value || '').trim();
     return { players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
-      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, seed: seed || null };
+      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, seed: seed || null,
+      gear: B.gear !== false, props: B.props !== false, events: B.events !== false, customMap: B.customMap || Maps.SAMPLE };
   }
 
   async function startGame() {
@@ -1146,6 +1245,7 @@
     if (cfg.teamMode && new Set(cfg.players.map((p) => p.team)).size < 2) {
       alert('Para jugar por equipos tiene que haber soldados en al menos 2 equipos distintos.'); return;
     }
+    if (cfg.map === 'custom') { const chk = Maps.parse(cfg.customMap); if (chk.error) { alert('Tu mapa no sirve todavía: ' + chk.error); return; } }
     App.ctx();
     applyAudio();
     Personas.setCustom(B.customLines);
@@ -1154,7 +1254,7 @@
     $('#resultOverlay').hidden = true; $('#pauseOverlay').hidden = true;
     feed.innerHTML = ''; zoneInfo.textContent = '';
     if (game) game.destroy();
-    game = new Game($('#battleCanvas'), cfg, { onKill, onPickup, onEnd, onFrame });
+    game = new Game($('#battleCanvas'), cfg, { onKill, onPickup, onEnd, onFrame, onEvent: (t) => addFeed(t, 4500) });
     App.game = game;
     $('#pauseSeed').textContent = `Semilla del mapa: ${game.seed}`;
     document.body.classList.remove('pov-on');
@@ -1214,6 +1314,12 @@
   }
   function onPickup(s, label) { addFeed(`✨ ${s.name} agarró ${label}`, 2500); }
 
+  /** Equipo que lleva: granadas, chaleco, casco, botiquines, mochila. */
+  function gearLine(s) {
+    if (!s.alive) return '';
+    const g = s.gren.frag + s.gren.smoke + s.gren.flash;
+    return `${g ? '💣' + g : ''}${s.armor.vest > 0 ? '🦺' : ''}${s.armor.helm > 0 ? '⛑️' : ''}${s.meds.length ? '🩹' + s.meds.length : ''}${s.pack ? '🎒' : ''}`;
+  }
   function weaponLine(s) {
     if (!s.alive) return '';
     if (s.cur === 'knife') return '🔪 cuchillo';
@@ -1225,17 +1331,20 @@
   function onFrame(g) {
     g.soldiers.forEach((s, i) => {
       const c = chips[i]; if (!c) return;
-      const key = `${s.alive ? Math.ceil(s.hp / HPL) : -1}|${weaponLine(s)}`;
+      const gear = gearLine(s), key = `${s.alive ? Math.ceil(s.hp / HPL) : -1}|${weaponLine(s)}|${gear}`;
       if (c.last !== key) {
         c.last = key; c.hp.textContent = s.alive ? '♥'.repeat(Math.max(0, Math.ceil(s.hp / HPL))) : '✖';
+        if (s.alive && gear) c.hp.append(el('span', { class: 'gear' }, gear));
         c.wp.textContent = weaponLine(s);
         c.chip.classList.toggle('dead', !s.alive);
       }
     });
-    if (g.cfg.zone && g.phase === 'run') {
-      const left = Math.ceil(g.zoneDelay - g.time);
-      zoneInfo.textContent = left > 0 ? `⚠️ Zona en ${left}s` : g.time < g.zoneDelay + g.zoneTime ? '🔴 Zona achicándose' : '🔴 Zona final';
-    } else if (g.phase !== 'run') zoneInfo.textContent = '';
+    if (g.phase === 'run') {
+      const left = Math.ceil(g.zoneDelay - g.time), bits = [];
+      if (g.eventText) bits.push(g.eventText);
+      if (g.cfg.zone) bits.push(left > 0 ? `⚠️ Zona en ${left}s` : g.time < g.zoneDelay + g.zoneTime ? '🔴 Zona achicándose' : '🔴 Zona final');
+      zoneInfo.textContent = bits.join('\n');
+    } else zoneInfo.textContent = '';
   }
 
   function onEnd(res) {
@@ -1263,7 +1372,10 @@
     if ((r = best((s) => s.stats.talk, 3))) out.push(['🗣️', 'El más bocón', r[0], `${r[1]} insultos`]);
     if ((r = best((s) => s.stats.dist, 20))) out.push(['🏃', 'El que más caminó', r[0], `${Math.round(r[1])} casilleros`]);
     if ((r = best((s) => s.stats.shared, 0))) out.push(['🤝', 'El más generoso', r[0], `${r[1]} balas pasadas`]);
-    return out.slice(0, 7);
+    if ((r = best((s) => s.stats.thrown, 1))) out.push(['💣', 'Rey de las granadas', r[0], `${r[1]} lanzadas`]);
+    if ((r = best((s) => s.stats.absorbed, 60))) out.push(['🦺', 'El más blindado', r[0], `${Math.round(r[1])} de daño frenado`]);
+    if ((r = best((s) => s.stats.healed, 60))) out.push(['🩹', 'El más curado', r[0], `${Math.round(r[1])} de vida recuperada`]);
+    return out.slice(0, 8);
   }
 
   function showResult(res) {
@@ -1348,12 +1460,27 @@
   bindSeg('segTeamMode', () => B.teamMode, (v) => { B.teamMode = v; renderRoster(); });
   bindSeg('segTeamCount', () => B.teamCount, (v) => { B.teamCount = +v; renderRoster(); });
   bindSeg('segLives', () => B.lives, (v) => { B.lives = +v; });
-  bindSeg('segMap', () => B.map, (v) => { B.map = v; });
+  const mapDesc = () => {
+    const t = Maps.TYPES.find((m) => m.key === B.map);
+    $('#mapDesc').textContent = t ? t.desc : '';
+    $('#customMapBox').hidden = B.map !== 'custom';
+  };
+  bindSeg('segMap', () => B.map, (v) => { B.map = v; mapDesc(); });
+  const customMap = $('#customMap');
+  customMap.value = B.customMap || Maps.SAMPLE;
+  customMap.addEventListener('input', () => { B.customMap = customMap.value; save(); });
+  $('#btnMapSample').addEventListener('click', () => { customMap.value = Maps.SAMPLE; B.customMap = Maps.SAMPLE; save(); $('#mapCheckMsg').textContent = ''; });
+  $('#btnMapCheck').addEventListener('click', () => {
+    const m = Maps.parse(customMap.value), box = $('#mapCheckMsg');
+    box.className = 'hint ' + (m.error ? 'maperr' : 'mapok');
+    box.textContent = m.error ? '❌ ' + m.error : `✅ Mapa válido: ${m.W}×${m.H}, ${m.props.length} cajones/barriles, ${m.doors.length} puertas, ${m.windows.length} ventanas.`;
+  });
+  mapDesc();
   bindSeg('segSize', () => B.size, (v) => { B.size = v; });
   bindSeg('segWinRange', () => B.winRange, (v) => { B.winRange = v; renderWins(); });
 
-  [['optPowerups', 'powerups'], ['optZone', 'zone'], ['optVaried', 'varied'], ['optLoot', 'loot']].forEach(([id, key]) => {
-    const input = $('#' + id); input.checked = key === 'loot' ? B.loot !== false : !!B[key];
+  [['optPowerups', 'powerups'], ['optZone', 'zone'], ['optVaried', 'varied'], ['optLoot', 'loot'], ['optGear', 'gear'], ['optProps', 'props'], ['optEvents', 'events']].forEach(([id, key]) => {
+    const input = $('#' + id); input.checked = ['loot', 'gear', 'props', 'events'].includes(key) ? B[key] !== false : !!B[key];
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });
 
@@ -1391,5 +1518,5 @@
     enter() { renderRoster(); renderWins(); },
     leave() { if (game) leaveGame(false); },
   });
-  App.battle = { genMap, Game, PERS, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, cap };
+  App.battle = { genMap, Game, PERS, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, cap, magOf, MED };
 })();

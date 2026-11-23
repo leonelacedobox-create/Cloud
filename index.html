@@ -40,7 +40,7 @@
       <span class="menu-ico">🔫</span>
       <span><b>Batalla en el laberinto</b><small>Hasta 10 soldados peleando solos. El último en pie gana.</small></span>
     </button>
-    <p class="hint center">Versión 0.2 · “Cerebros”</p>
+    <p class="hint center">Versión 0.5 · “Más cosas para hacer”</p>
     <p class="hint center" id="installHint">Tip: en el menú del navegador elegí “Agregar a pantalla de inicio” y queda como una app.</p>
   </section>
 
@@ -143,10 +143,26 @@
           <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button>
         </div>
         <div class="label">Mapa</div>
-        <div class="seg" id="segMap">
+        <div class="seg grid4" id="segMap">
           <button data-v="maze">Laberinto</button>
           <button data-v="rooms">Habitaciones</button>
           <button data-v="arena">Arena</button>
+          <button data-v="base">Base militar</button>
+          <button data-v="oficina">Oficina</button>
+          <button data-v="carcel">Cárcel</button>
+          <button data-v="deposito">Depósito</button>
+          <button data-v="custom">✏️ Propio</button>
+        </div>
+        <p class="hint" id="mapDesc"></p>
+        <div id="customMapBox" hidden>
+          <div class="label">Tu mapa (texto)</div>
+          <textarea id="customMap" class="mono" rows="9" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"></textarea>
+          <p class="hint"><b>#</b> pared · <b>.</b> piso · <b>D</b> puerta · <b>C</b> cajón · <b>B</b> barril · <b>W</b> ventana · <b>c</b> alfombra · <b>m</b> metal · <b>g</b> grava · <b>o</b> oscuro</p>
+          <div class="row-actions">
+            <button class="btn small" id="btnMapSample">Cargar el ejemplo</button>
+            <button class="btn small ghost" id="btnMapCheck">Revisar</button>
+          </div>
+          <p class="hint" id="mapCheckMsg"></p>
         </div>
         <div class="label">Tamaño</div>
         <div class="seg" id="segSize">
@@ -158,7 +174,10 @@
           <button class="btn small" id="btnSeedRnd" aria-label="Número al azar">🎲</button>
         </div>
         <label class="switch"><input type="checkbox" id="optLoot"><span>Armas en el piso (sniper, ametralladoras, escopetas…) y munición</span></label>
-        <label class="switch"><input type="checkbox" id="optPowerups"><span>Power-ups (escudo, velocidad, vida extra)</span></label>
+        <label class="switch"><input type="checkbox" id="optGear"><span>Equipo extra: granadas (frag, humo, aturdidora), chalecos, cascos, botiquines, mochila y accesorios</span></label>
+        <label class="switch"><input type="checkbox" id="optProps"><span>Cajones, barriles explosivos y ventanas</span></label>
+        <label class="switch"><input type="checkbox" id="optEvents"><span>Eventos del mapa (apagón, niebla, alarma y cargamentos)</span></label>
+        <label class="switch"><input type="checkbox" id="optPowerups"><span>Power-ups (escudo y velocidad)</span></label>
         <label class="switch"><input type="checkbox" id="optZone"><span>Zona que se achica (evita partidas eternas)</span></label>
         <label class="switch"><input type="checkbox" id="optVaried"><span>Personalidades variadas (8 tipos al azar; apagado: todos agresivos). Cada soldado se puede ajustar con ⚙️</span></label>
       </div>
@@ -223,7 +242,9 @@
 <script src="js/coin.js"></script>
 <script src="js/art.js"></script>
 <script src="js/personas.js"></script>
+<script src="js/maps.js"></script>
 <script src="js/battle.js"></script>
+<script src="js/props.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/main.js"></script>
 </body>
