@@ -22,12 +22,13 @@ const App = (() => {
     battle: {
       teamMode: 'ffa', teamCount: 2, lives: 3, map: 'maze', size: 'm',
       powerups: true, zone: true, varied: true, loot: true, speed: 1,
+      talk: true, laser: false, friendly: false, volMaster: 100, volShots: 100, customLines: '',
       wins: [], winRange: 'week',
     },
   });
 
   function newPlayer(i) {
-    return { id: nextId++, name: '', color: PALETTE[i % PALETTE.length], team: i % 2, pick: null, hits: 0 };
+    return { id: nextId++, name: '', color: PALETTE[i % PALETTE.length], team: i % 2, pick: null, hits: 0, pers: 'auto', iq: 1 };
   }
 
   function load() {
@@ -106,6 +107,8 @@ const App = (() => {
 
   /* ---------- sonido (sintetizado, sin archivos) ---------- */
   let ac = null;
+  let masterVol = 1, shotVol = 1;                         // volumen general y de disparos (0..1)
+  function setVol(master, shots) { if (master != null) masterVol = master; if (shots != null) shotVol = shots; }
   function ctx() {
     if (!state.sound) return null;
     try {
@@ -126,7 +129,7 @@ const App = (() => {
     const o = a.createOscillator(), g = a.createGain();
     o.type = type; o.frequency.setValueAtTime(freq, t);
     if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    g.gain.setValueAtTime(Math.max(0.0002, vol * masterVol), t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
   }
   function noise(dur, { vol = 0.2, freq = 1200, q = 1, type = 'bandpass', sweepTo = 0, delay = 0 } = {}) {
@@ -135,7 +138,7 @@ const App = (() => {
     const s = a.createBufferSource(); s.buffer = noiseBuf(a, dur);
     const f = a.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
     if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + dur);
-    const g = a.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    const g = a.createGain(); g.gain.setValueAtTime(Math.max(0.0002, vol * masterVol), t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     s.connect(f).connect(g).connect(a.destination); s.start(t); s.stop(t + dur + 0.02);
   }
   const sfx = {
@@ -146,14 +149,18 @@ const App = (() => {
     },
     whoosh() { noise(0.45, { vol: 0.16, freq: 400, q: 0.8, sweepTo: 2400 }); },
     clink() { sfx.coinRing(0.35); },
-    // cada arma suena distinto
-    shot(kind) {
+    // cada arma suena distinto; si está lejos de la cámara suena más bajo y más sordo
+    shot(kind, dist = 0) {
+      const far = dist > 12, m = shotVol * (dist < 8 ? 1 : Math.max(0.12, 1 - (dist - 8) / 26));
+      if (m <= 0.01) return;
+      const lp = far ? { type: 'lowpass', freq: 900 } : {};
       switch (kind) {
-        case 'sniper': noise(0.35, { vol: 0.2, freq: 3200, q: 0.6, sweepTo: 300 }); tone(140, 0.3, { type: 'sawtooth', vol: 0.09, slide: -90 }); break;
-        case 'shotgun': case 'ashotgun': noise(0.22, { vol: 0.2, freq: 1200, q: 0.5, type: 'lowpass', sweepTo: 150 }); tone(110, 0.18, { type: 'square', vol: 0.07, slide: -60 }); break;
-        case 'lmg': case 'hmg': noise(0.06, { vol: 0.09, freq: 1800, q: 0.8, sweepTo: 400 }); tone(kind === 'hmg' ? 140 : 220, 0.06, { type: 'square', vol: 0.05, slide: -80 }); break;
-        default: noise(0.09, { vol: 0.07, freq: 2200, q: 0.9, sweepTo: 500 }); tone(520, 0.08, { type: 'square', vol: 0.03, slide: -300 });
+        case 'sniper': noise(0.35, { vol: 0.2 * m, freq: far ? 900 : 3200, q: 0.6, sweepTo: 300, ...(far ? { type: 'lowpass' } : {}) }); tone(140, 0.3, { type: 'sawtooth', vol: 0.09 * m, slide: -90 }); break;
+        case 'shotgun': case 'ashotgun': noise(0.22, { vol: 0.2 * m, freq: 1200, q: 0.5, type: 'lowpass', sweepTo: 150 }); tone(110, 0.18, { type: 'square', vol: 0.07 * m, slide: -60 }); break;
+        case 'lmg': case 'hmg': noise(0.06, { vol: 0.09 * m, freq: far ? 700 : 1800, q: 0.8, sweepTo: 400, ...(far ? { type: 'lowpass' } : {}) }); tone(kind === 'hmg' ? 140 : 220, 0.06, { type: 'square', vol: 0.05 * m, slide: -80 }); break;
+        default: noise(0.09, { vol: 0.07 * m, freq: far ? 800 : 2200, q: 0.9, sweepTo: 500, ...(far ? { type: 'lowpass' } : {}) }); tone(520, 0.08, { type: 'square', vol: 0.03 * m, slide: -300 });
       }
+      void lp;
     },
     hit() { noise(0.12, { vol: 0.14, freq: 900, q: 1.2 }); tone(180, 0.12, { type: 'sawtooth', vol: 0.06, slide: -90 }); },
     boom() { noise(0.55, { vol: 0.3, freq: 700, q: 0.7, type: 'lowpass', sweepTo: 80 }); tone(90, 0.5, { type: 'sine', vol: 0.2, slide: -60 }); },
@@ -178,6 +185,6 @@ const App = (() => {
     if (screens[name] && screens[name].enter) screens[name].enter();
   }
 
-  return { state, save, $, $$, el, rnd, rint, shuffle, pname, esc, bindSeg, sfx, vibrate, go, register, newPlayer, ctx,
+  return { state, save, $, $$, el, rnd, rint, shuffle, pname, esc, bindSeg, sfx, vibrate, go, register, newPlayer, ctx, setVol,
     PALETTE, TEAMS, MAX_PLAYERS, get current() { return current; } };
 })();

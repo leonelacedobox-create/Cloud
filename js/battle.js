@@ -22,42 +22,19 @@
   const LOOT_WEIGHTS = [['shotgun', 20], ['ashotgun', 12], ['lmg', 20], ['sniper', 14], ['hmg', 8]];
   const cap = (def) => def.mag + def.res * 2;     // máximo de balas que se pueden llevar
 
-  /* ================= personalidades ================= */
-  // base: tendencia a cada táctica (0..1). Cada soldado la varía al azar.
-  const PERS = {
-    agresivo: {
-      emoji: '🔥', label: 'agresivo', speed: 3.0, sight: 12, loud: true, sneak: false, run: 1.12, distMul: 0.75, accMul: 1.35, burst: [8, 8],
-      wpref: { shotgun: 1.2, ashotgun: 1.4, hmg: 0.8 },
-      base: { peek: 0.25, door: 0.25, blind: 0.55, listen: 0.95, ambush: 0.12 },
-    },
-    cauteloso: {
-      emoji: '🛡️', label: 'cauteloso', speed: 2.8, sight: 12, loud: false, sneak: true, run: 1, distMul: 1.3, accMul: 0.9, burst: [3, 3],
-      wpref: { lmg: 0.8, sniper: 0.8 },
-      base: { peek: 0.9, door: 0.75, blind: 0.35, listen: 1.15, ambush: 0.7 },
-    },
-    francotirador: {
-      emoji: '🎯', label: 'francotirador', speed: 2.5, sight: 15, loud: false, sneak: true, run: 1, distMul: 1.5, accMul: 0.7, burst: [3, 3],
-      wpref: { sniper: 2.5, lmg: 0.4 },
-      base: { peek: 0.75, door: 0.5, blind: 0.2, listen: 1.05, ambush: 0.9 },
-    },
-  };
+  /* personalidades, niveles de inteligencia y frases: ver js/personas.js */
+  const PERS = Personas.PERS, pickLine = Personas.pickLine;
   const SIZES = { s: [9, 13], m: [13, 19], l: [17, 25] };   // celdas (columnas, filas) en pantalla vertical
   const FOV = 2.3;                                          // campo de visión (radianes, ~130°)
   const PU_COLOR = { shield: '#38bdf8', speed: '#facc15', heal: '#f472b6' };
   const PU_NAME = { shield: 'escudo', speed: 'velocidad', heal: 'vida extra' };
   const RING_COLOR = { shot: '#ffd166', shout: '#ff6b6b', door: '#c9955a', boom: '#ff9f43' };
 
-  const LINES = {
-    seen: (n) => [`¡${n}, sos un pollito!`, `¡Vení, ${n}, no seas gallina!`, `¡Te voy a hacer pelota, ${n}!`, '¡Ahí estás, boludo!', `¡${n}, sos un cobarde!`, '¡Peleá, mocoso!', `¡Sos un pavo, ${n}!`],
-    hunt: (n) => [`¡Salí de ahí, ${n}!`, '¡Te escucho, gallina!', `¡${n}, te voy a encontrar!`, '¿Dónde te metiste, cobarde?', '¡No te escondás, pollito!'],
-    kill: (n) => [`¡Chau, ${n}!`, '¡Uno menos!', '¡Eso te pasa, boludo!', '¡Fácil!'],
-    hurt: () => ['¡Auch! ¡Cobarde!', '¡Me pegaste, bobo!', '¡Esto no se queda así!'],
-    dry: () => ['¡Sin balas! ¡A cuchillazos!', '¡Se acabó la munición! ¡Vení!', '¡Con el cuchillo te alcanza, boludo!'],
-  };
-  const pickLine = (kind, n) => { const a = LINES[kind](n); return a[rint(a.length)]; };
-
   /* ================= generación de mapas ================= */
-  function genMap(type, cols, rows) {
+  function genMap(type, cols, rows, rng) {
+    const rnd = rng || App.rnd;
+    const rint = (n) => Math.floor(rnd() * n);
+    const shuffle = (arr) => seededShuffle(arr, rnd);
     const W = cols * 2 + 1, H = rows * 2 + 1;
     const g = new Uint8Array(W * H).fill(1);
     const at = (x, y) => y * W + x;
@@ -166,6 +143,26 @@
     return 1;
   };
 
+  /* ----- semilla: mismo número = mismo mapa, puertas, botín y punto de partida ----- */
+  function hashSeed(str) {
+    let h = 2166136261;
+    for (const ch of String(str)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function seededShuffle(arr, rng) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+
   /* ================= la partida ================= */
   class Game {
     constructor(canvas, cfg, hooks) {
@@ -177,16 +174,19 @@
       this.bullets = []; this.parts = []; this.items = []; this.corpses = []; this.rings = [];
       this.itemId = 1; this.lootTimer = 14;
       this.endT = 0; this.deaths = 0; this.winners = []; this.zone = null;
+      this.pov = false; this.stuckEvents = 0;
       this.camMode = 'auto'; this.followId = null; this.focus = null; this.focusUntil = 0; this.camX = 0; this.camY = 0;
 
       const wrap = canvas.parentElement;
       const portrait = wrap.clientHeight >= wrap.clientWidth;
       let [cols, rows] = SIZES[cfg.size] || SIZES.m;
       if (!portrait) [cols, rows] = [rows, cols];
-      const m = genMap(cfg.map, cols, rows);
+      this.seed = String(cfg.seed || (1000 + Math.floor(Math.random() * 9000)));
+      this.srnd = mulberry32(hashSeed(this.seed));
+      const m = genMap(cfg.map, cols, rows, this.srnd);
       this.W = m.W; this.H = m.H; this.g = m.g; this.center = m.center;
       const f = clamp(Math.sqrt((this.W * this.H) / (27 * 39)), 0.8, 1.7);
-      this.zoneDelay = 70 * f; this.zoneTime = 150 * f;
+      this.zoneDelay = 55 * f; this.zoneTime = 130 * f;
       const N = this.W * this.H;
       this.seen = new Uint32Array(N); this.stamp = 0; this.prev = new Int32Array(N); this.dist = new Int32Array(N); this.queue = new Int32Array(N);
       this.doorGrid = new Uint8Array(N); this.doors = new Map();
@@ -194,7 +194,9 @@
       this.floor = [];
       for (let i = 0; i < N; i++) if (!this.g[i] && !this.doorGrid[i]) this.floor.push(i);
       this.spawn();
+      this.lootRnd = this.srnd;
       this.initLoot();
+      this.lootRnd = null;
       this.resize = this.resize.bind(this);
       this.frame = this.frame.bind(this);
       this.resize();
@@ -248,6 +250,7 @@
 
     makeDoors(type) {
       if (type === 'arena') return;
+      const rnd = this.srnd, shuffle = (a) => seededShuffle(a, this.srnd);
       const { W, H, g } = this;
       const p = type === 'rooms' ? 0.92 : 0.22;
       const cands = [];
@@ -278,6 +281,7 @@
     /* ---------- soldados ---------- */
     spawn() {
       const cfg = this.cfg, W = this.W;
+      const rnd = this.srnd, rint = (n) => Math.floor(this.srnd() * n), shuffle = (a) => seededShuffle(a, this.srnd);
       const pos = (i) => [(i % W) + 0.5, ((i / W) | 0) + 0.5];
       const flo = this.floor.map(pos);
       const pickFar = (chosen, pool) => {
@@ -307,13 +311,13 @@
         places = shuffle(chosen);
       }
       this.spawnPoints = places.slice();
-      const names = Object.keys(PERS), looks = Art.makeLooks(players.length), N = this.W * this.H;
+      const looks = Art.makeLooks(players.length), N = this.W * this.H;
       const jitter = (v) => clamp01(v + (rnd() - 0.5) * 0.55);
       this.soldiers = players.map((p, i) => {
-        const pers = cfg.varied ? names[[0, 0, 0, 1, 1, 1, 2, 2][rint(8)]] : 'agresivo';
+        const pers = Personas.choose(p.pers, cfg.varied);
         const P = PERS[pers], pd = WEAPONS.pistol;
-        return {
-          id: i, name: p.name, color: p.color, team: cfg.teamMode ? p.team : -1, teamColor: cfg.teamMode ? TEAMS[p.team].color : null,
+        const o = {
+          id: i, name: p.name, color: p.color, iq: clamp(p.iq == null ? 1 : p.iq, 0, 3), team: cfg.teamMode ? p.team : -1, teamColor: cfg.teamMode ? TEAMS[p.team].color : null,
           ap: looks[i], x: places[i][0], y: places[i][1], r: 0.3, angle: rnd() * 6.283, look: 0, moveAng: 0, headOff: 0, phase: rnd() * 6, gait: 0, recoil: 0, lastStep: 0,
           hp: cfg.lives * HPL, maxHp: cfg.lives * HPL, alive: true, deathT: 0, kills: 0,
           pers, P, sk: { peek: jitter(P.base.peek), door: jitter(P.base.door), blind: jitter(P.base.blind), listen: 0.75 + jitter(P.base.listen) * 0.5, ambush: jitter(P.base.ambush) },
@@ -326,6 +330,8 @@
           know: {}, explored: new Float32Array(N).fill(-60), act: null, closeIdx: null, peekFor: -1, huntStamp: -1,
           talkCd: 2 + rnd() * 4, burstCd: 3 + rnd() * 4, radioCd: 0, alertT: -99, bubble: null, icon: null, sneak: false,
         };
+        this.initBrain(o);
+        return o;
       });
       this.soldiers.forEach((s) => { s.lx = s.x; s.ly = s.y; s.look = s.angle; s.moveAng = s.angle; });
     }
@@ -347,27 +353,11 @@
         s.dryTold = true; this.say(s, pickLine('dry'));
       }
     }
-    chooseWeapon(s) {
-      const has = (w) => w && ammoOf(w) > 0;
-      const d = s.target ? s.td : null;
-      const sc = {};
-      for (const key of ['pistol', 'primary']) {
-        const w = key === 'pistol' ? s.inv.pistol : s.inv.primary;
-        if (!has(w)) { sc[key] = -1; continue; }
-        const def = WEAPONS[w.type], load = w.mag > 0 ? 1 : 0.55;
-        sc[key] = d == null ? def.tier * load + (key === 'primary' ? 2 : 0) : def.tier * fitRange(def, d) * load;
-      }
-      sc.knife = d != null && d < 1.5 ? 2.0 : 0.1;
-      let best = 'knife', bs = -9;
-      for (const k of ['primary', 'pistol', 'knife']) if (sc[k] > bs) { bs = sc[k]; best = k; }
-      const cs = sc[s.cur] == null ? -1 : sc[s.cur];
-      if (best !== s.cur && (cs < 0 || bs > cs * 1.3 + 0.3)) this.switchTo(s, best);
-    }
     startReload(s) {
       const w = this.weaponOf(s); if (!w) return false;
       const def = WEAPONS[w.type];
       if (w.res <= 0 || w.mag >= def.mag) return false;
-      s.reloadT = s.reloadTot = def.reload;
+      s.reloadT = s.reloadTot = def.reload; s.stats.reloads++;
       this.emitSound(s.x, s.y, 4.5, 'reload', s);
       return true;
     }
@@ -376,37 +366,20 @@
       const def = WEAPONS[w.type], take = Math.min(def.mag - w.mag, w.res);
       w.mag += take; w.res -= take;
     }
-    manageWeapon(s, dt) {
-      if (s.reloadT > 0) { s.reloadT -= dt; if (s.reloadT <= 0) { s.reloadT = 0; this.finishReload(s); } }
-      if (s.swapT > 0) s.swapT -= dt;
-      if (s.meleeT > 0) s.meleeT -= dt;
-      s.bloom = Math.max(0, s.bloom - dt * 1.2);
-      const pr = s.inv.primary;
-      if (pr && ammoOf(pr) <= 0) { s.inv.primary = null; if (s.cur === 'primary') { s.cur = 'pistol'; s.reloadT = 0; this.chooseWeapon(s); } }
-      s.wT -= dt;
-      if (s.wT <= 0) { s.wT = 0.25; this.chooseWeapon(s); }
-      s.wtype = s.cur === 'knife' ? 'knife' : (this.weaponOf(s) || s.inv.pistol).type;
-      // recarga
-      const w = this.weaponOf(s);
-      if (w && s.reloadT <= 0 && s.swapT <= 0 && w.res > 0) {
-        const def = WEAPONS[w.type];
-        if (w.mag <= 0 || (!s.target && s.mode !== 'attack' && w.mag < def.mag * 0.4)) this.startReload(s);
-      }
-    }
-
     fire(s, extra = 0) {
       const w = this.weaponOf(s);
       if (!w || w.mag <= 0 || s.reloadT > 0 || s.swapT > 0) return false;
       const def = WEAPONS[w.type], P = s.P;
       w.mag--; s.recoil = 1; s.lastShot = this.time;
-      s.cd = def.cd * (0.92 + rnd() * 0.16);
+      s.stats.shots++; s.stats.rounds += def.pellets;
+      s.cd = def.cd * (0.92 + rnd() * 0.16) * (1 - s.mood.fury * 0.15);
       if (def.auto) {                      // ráfagas: dispara varias veces y hace una pausa
         if (s.burstLeft <= 0) s.burstLeft = P.burst[0] + rint(P.burst[1] + 1);
         if (--s.burstLeft <= 0) s.cd += 0.5 + rnd() * 0.9;
         s.bloom = Math.min(def.spread * 1.3, s.bloom + def.spread * 0.14);
       }
       const move = s.gait > 0.5 ? 1.3 : s.sneak ? 0.8 : 1;
-      const spread = def.spread * P.accMul * move + s.bloom + extra;
+      const spread = def.spread * this.aimMul(s) * move + s.bloom + extra;
       const life = def.range / def.bspeed + 0.15;
       for (let i = 0; i < def.pellets; i++) {
         const a = s.angle + (rnd() - 0.5) * 2 * spread * (def.pellets > 1 ? 1.15 : 1);
@@ -417,8 +390,14 @@
           owner: s, color: s.color, life, dmg: def.dmg, w: w.type,
         });
       }
+      // humito del caño
+      for (let k = 0; k < (def.pellets > 1 ? 3 : 2); k++) {
+        const ca = Math.cos(s.angle), sa = Math.sin(s.angle);
+        this.parts.push({ x: s.x + ca * 0.95, y: s.y + sa * 0.95, vx: ca * (0.5 + rnd()) + (rnd() - 0.5) * 0.7, vy: sa * (0.5 + rnd()) + (rnd() - 0.5) * 0.7, life: 0.35 + rnd() * 0.3, max: 0.65, color: '#cfd3dc', size: 0.06 + rnd() * 0.06 });
+      }
       if (!def.auto || this.time - s.lastNoise > 0.3) { s.lastNoise = this.time; this.emitSound(s.x, s.y, def.noise, 'shot', s); }
-      if (this.audible()) sfx.shot(w.type);
+      if (this.audible()) sfx.shot(w.type, this.camDist(s));
+      this.onShot(s, w);
       return true;
     }
     melee(s, tgt) {
@@ -430,27 +409,31 @@
       if (this.audible()) sfx.hit();
       this.damage(tgt, s, KNIFE.dmg * (behind ? 1.8 : 1), false);
     }
+    /** Distancia (en casilleros) entre un soldado y lo que está mirando la cámara: el sonido baja con la distancia. */
+    camDist(s) { return Math.hypot(s.x - this.camX, s.y - this.camY); }
     audible() { return this.speed === 1 || (this.speed === 2 && ((this._sfxN = (this._sfxN || 0) + 1) % 2 === 0)); }
 
     /* ---------- botín en el piso ---------- */
     addItem(kind, type, x, y, mag = 0, res = 0) {
-      const it = { id: this.itemId++, kind, type, x, y, mag, res, ang: rnd() * 6.283, t: 0, gone: false };
+      const it = { id: this.itemId++, kind, type, x, y, mag, res, ang: (this.lootRnd || rnd)() * 6.283, t: 0, gone: false };
       this.items.push(it); return it;
     }
     pickWeaponType() {
-      let r = rnd() * LOOT_WEIGHTS.reduce((a, b) => a + b[1], 0);
+      const R = this.lootRnd || rnd;
+      let r = R() * LOOT_WEIGHTS.reduce((a, b) => a + b[1], 0);
       for (const [t, w] of LOOT_WEIGHTS) { r -= w; if (r <= 0) return t; }
       return 'lmg';
     }
     spawnLootAt(i, forced) {
+      const R = this.lootRnd || rnd, RI = (n) => Math.floor(R() * n);
       const x = (i % this.W) + 0.5, y = ((i / this.W) | 0) + 0.5;
-      const roll = rnd();
+      const roll = R();
       if ((forced === 'weapon' || roll < 0.6) && this.cfg.loot !== false) {
         const t = this.pickWeaponType(), d = WEAPONS[t];
-        return this.addItem('weapon', t, x, y, d.mag, Math.round(d.res * (0.5 + rnd() * 0.5)));
+        return this.addItem('weapon', t, x, y, d.mag, Math.round(d.res * (0.5 + R() * 0.5)));
       }
       if (roll < 0.85 || forced === 'ammo') return this.addItem('ammo', 'ammo', x, y);
-      if (this.cfg.powerups) return this.addItem('power', ['shield', 'speed', 'heal'][rint(3)], x, y);
+      if (this.cfg.powerups) return this.addItem('power', ['shield', 'speed', 'heal'][RI(3)], x, y);
       return this.addItem('ammo', 'ammo', x, y);
     }
     initLoot() {
@@ -458,9 +441,10 @@
       const total = Math.max(4, Math.round(n * 1.4)) + 3;
       const used = this.spawnPoints.slice();
       for (let k = 0; k < total; k++) {
-        let best = this.floor[rint(this.floor.length)], bd = -1;
+        const RI = (n) => Math.floor(this.lootRnd() * n);
+        let best = this.floor[RI(this.floor.length)], bd = -1;
         for (let t = 0; t < 14; t++) {                      // reparte el botín por todo el mapa
-          const i = this.floor[rint(this.floor.length)], x = (i % this.W) + 0.5, y = ((i / this.W) | 0) + 0.5;
+          const i = this.floor[RI(this.floor.length)], x = (i % this.W) + 0.5, y = ((i / this.W) | 0) + 0.5;
           let md = 1e9; for (const u of used) md = Math.min(md, Math.hypot(u[0] - x, u[1] - y));
           if (md > bd) { bd = md; best = i; }
         }
@@ -544,6 +528,7 @@
       this.spark(s.x, s.y, it.kind === 'power' ? PU_COLOR[it.type] : '#a3e635', 10);
       this.emitSound(s.x, s.y, 3, 'step', s);
       if (this.speed <= 2) sfx.pickup();
+      s.stats.pickups++;
       this.hooks.onPickup(s, label);
       return true;
     }
@@ -573,10 +558,13 @@
         const err = (kind === 'step' ? 1.3 : 0.6) + eff * 0.12, a = rnd() * 6.283, m = rnd() * err;
         s.know[src.id] = { id: src.id, x: x + Math.cos(a) * m, y: y + Math.sin(a) * m, t: this.time, exact: false, kind };
         if (!s.target) { s.alertT = this.time; s.thinkT = Math.min(s.thinkT, 0.05); s.icon = { ch: '?', t: 1.2 }; }
+        this.heard(s, src, kind, x, y);
       }
     }
 
     say(s, text, dur = 2.3) {
+      if (this.cfg.talk === false || !text) return;
+      s.stats.talk++;
       s.bubble = { text, t: dur };
       this.emitSound(s.x, s.y, 11, 'shout', s);
     }
@@ -624,324 +612,6 @@
 
     /* ---------- percepción ---------- */
     sightOf(s) { const d = this.defOf(s); return s.P.sight + (d.scope || 0); }
-    sense(s) {
-      let tgt = null, td = 1e9;
-      const sight = this.sightOf(s);
-      for (const e of this.enemiesOf(s)) {
-        const dx = e.x - s.x, dy = e.y - s.y, d = Math.hypot(dx, dy);
-        if (d > sight) continue;
-        if (d > 2.2 && Math.abs(angDiff(s.look, Math.atan2(dy, dx))) > FOV / 2) continue; // fuera del campo de visión
-        if (!this.los(s.x, s.y, e.x, e.y)) continue;
-        s.know[e.id] = { id: e.id, x: e.x, y: e.y, t: this.time, exact: true, kind: 'seen' };
-        if (d < td) { td = d; tgt = e; }
-      }
-      if (tgt && !s.target) s.icon = { ch: '!', t: 1.0 };
-      s.target = tgt; s.td = td;
-      // aviso por radio a los compañeros cercanos
-      if (tgt && s.team >= 0 && s.radioCd <= 0) {
-        s.radioCd = 0.7;
-        for (const m of this.soldiers) {
-          if (m.alive && m !== s && m.team === s.team && Math.hypot(m.x - s.x, m.y - s.y) < 12) {
-            const o = m.know[tgt.id];
-            if (!o || o.t < this.time - 1) m.know[tgt.id] = { id: tgt.id, x: tgt.x, y: tgt.y, t: this.time - 0.3, exact: false, kind: 'radio' };
-          }
-        }
-      }
-    }
-    bestKnowledge(s) {
-      let best = null;
-      for (const id in s.know) { const k = s.know[id]; if (!best || k.t > best.t) best = k; }
-      return best;
-    }
-    /** Distancia preferida de combate según el arma que tiene en la mano. */
-    prefRange(s) {
-      const def = this.defOf(s), k = this.time > 130 ? 0.55 : 1;
-      if (s.cur === 'knife') return [0, 0.9];
-      return [def.pref[0] * s.P.distMul * k, def.pref[1] * s.P.distMul * k];
-    }
-
-    /* ---------- cerebro ---------- */
-    think(s) {
-      const W = this.W, tx = Math.floor(s.x), ty = Math.floor(s.y), now = this.time;
-      const enemies = this.enemiesOf(s);
-      if (!enemies.length) return;
-      // memoria de lugares ya recorridos / vistos
-      for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
-        const nx = tx + dx, ny = ty + dy;
-        if (nx >= 0 && ny >= 0 && nx < W && ny < this.H) s.explored[ny * W + nx] = now;
-      }
-      // objetos que ve (con línea de visión) o que tiene muy cerca
-      for (const it of this.items) {
-        const d = Math.hypot(it.x - s.x, it.y - s.y);
-        if (d < 3 || (d < 11 && this.los(s.x, s.y, it.x, it.y))) s.seenItems.set(it.id, it);
-      }
-      const prevMode = s.mode;
-      let path = null;
-
-      // 1) zona roja
-      if (this.zone && this.outsideZone(s.x, s.y, 1.2)) {
-        s.mode = 'zone';
-        path = this.bfs(tx, ty, (i) => !this.outsideZone((i % W) + 0.5, ((i / W) | 0) + 0.5, 1.6));
-      }
-      // 2) enemigo a la vista
-      if (!path && s.target) {
-        const lowHp = s.hp <= s.maxHp * 0.34;
-        const closeThreat = s.td < 2.8 && s.cur !== 'knife' && this.defOf(s).pref[0] > 3;
-        if ((s.pers === 'cauteloso' && lowHp && s.maxHp > HPL && now < 120) || (s.pers === 'francotirador' && closeThreat && ammoOf(s.inv.pistol) === 0)) {
-          const n = this.bfs(tx, ty, null, 11, true);
-          let bestI = -1, bs = -1;
-          for (let k = 0; k < n; k++) {
-            const i = this.queue[k], x = (i % W) + 0.5, y = ((i / W) | 0) + 0.5;
-            let md = 1e9; enemies.forEach((e) => { md = Math.min(md, Math.hypot(e.x - x, e.y - y)); });
-            const sc = md - this.dist[i] * 0.15;
-            if (sc > bs) { bs = sc; bestI = i; }
-          }
-          if (bestI >= 0) { path = this.pathTo(bestI); s.mode = 'flee'; }
-        }
-        if (!path) {
-          const goal = Math.floor(s.target.y) * W + Math.floor(s.target.x);
-          path = this.bfs(tx, ty, (i) => i === goal); s.mode = 'attack';
-        }
-      }
-      // 3) lo que sabe por oído / memoria, y botín que le conviene
-      let k = null;
-      if (!path && !s.target) k = this.bestKnowledge(s);
-      if (!path && !s.target) {
-        let bestIt = null, bsc = 0.2;
-        for (const it of s.seenItems.values()) {
-          if (it.gone) { s.seenItems.delete(it.id); continue; }
-          const gain = this.evalItem(s, it);
-          if (gain < 0.2) continue;
-          const sc = gain * 3 - Math.hypot(it.x - s.x, it.y - s.y) * 0.12;
-          if (sc > bsc && (!k || now - k.t > 4 || gain > 0.8)) { bsc = sc; bestIt = it; }
-        }
-        if (bestIt) {
-          const goal = Math.floor(bestIt.y) * W + Math.floor(bestIt.x);
-          const p2 = this.bfs(tx, ty, (i) => i === goal, 26);
-          if (p2) { path = p2; s.mode = 'loot'; }
-        }
-      }
-      if (!path && k) {
-        const age = now - k.t, dist = Math.hypot(k.x - s.x, k.y - s.y);
-        if (dist < 1.4 && !s.target) {                       // llegó y no hay nadie: se olvida
-          delete s.know[k.id]; s.headScan = 1.2; s.thinkT = 0.15; return;
-        }
-        if (s.huntStamp !== k.t) {
-          s.huntStamp = k.t;
-          // emboscada: se queda quieto, callado, escuchando
-          if ((!k.exact || age > 2) && dist > 3 && dist < 13 && rnd() < s.sk.ambush * 0.9) {
-            s.act = { type: 'hold', t: 0, dur: 2.5 + rnd() * 5, face: Math.atan2(k.y - s.y, k.x - s.x) };
-            s.mode = 'hold'; return;
-          }
-          // disparar a ciegas a través de una puerta cerrada
-          const w = this.weaponOf(s);
-          if (w && w.mag > 0 && age < 7 && dist < 9 && s.burstCd <= 0 && rnd() < s.sk.blind * 0.7) {
-            const di = this.doorOnLine(s.x, s.y, k.x, k.y, 9);
-            if (di >= 0) {
-              s.burstCd = 7 + rnd() * 6;
-              s.act = { type: 'burst', t: 0, shots: 2 + rint(3), next: 0.1, face: Math.atan2(k.y - s.y, k.x - s.x) };
-              s.mode = 'burst'; return;
-            }
-          }
-        }
-        const dest = this.floorIdxNear(k.x, k.y);
-        path = this.bfs(tx, ty, (i) => i === dest); s.mode = 'hunt';
-      }
-      // 4) explorar: ir a donde hace más que no mira
-      if (!path) {
-        s.mode = 'search';
-        if (prevMode === 'search' && s.path.length > 2) return;      // sigue con su ruta
-        let bestI = -1, bs = -1e9;
-        for (let n = 0; n < 16; n++) {
-          const i = this.floor[rint(this.floor.length)], x = (i % W) + 0.5, y = ((i / W) | 0) + 0.5, d = Math.hypot(x - s.x, y - s.y);
-          if (d < 4) continue;
-          const sc = (now - s.explored[i]) - d * 0.25 + rnd() * 5;
-          if (sc > bs) { bs = sc; bestI = i; }
-        }
-        if (bestI >= 0) path = this.bfs(tx, ty, (i) => i === bestI);
-      }
-      s.path = path || [];
-    }
-
-    tryMove(s, dx, dy) {
-      let moved = false;
-      if (!this.blocked(s.x + dx, s.y, s.r)) { s.x += dx; moved = true; }
-      if (!this.blocked(s.x, s.y + dy, s.r)) { s.y += dy; moved = true; }
-      return moved;
-    }
-
-    /** Sigue la ruta; abre puertas con la mano y se asoma a las esquinas. Devuelve [vx, vy] o null. */
-    followPath(s, allowPeek) {
-      const W = this.W, p = s.path;
-      while (p.length > 1) {
-        const cx = (p[1] % W) + 0.5, cy = ((p[1] / W) | 0) + 0.5;
-        if (Math.hypot(cx - s.x, cy - s.y) < 0.18) p.shift(); else break;
-      }
-      const wi = p.length > 1 ? p[1] : p[0];
-      if (wi === undefined) return null;
-      const wx = (wi % W) + 0.5, wy = ((wi / W) | 0) + 0.5, d = Math.hypot(wx - s.x, wy - s.y);
-
-      if (this.doorGrid[wi]) {                                   // puerta cerrada adelante: la abre con la mano
-        const dr = this.doors.get(wi);
-        if (doorClosed(dr) && d < 1.1) { s.act = { type: 'open', t: 0, dur: 0.6, idx: wi, ang: Math.atan2(wy - s.y, wx - s.x) }; return null; }
-      }
-      if (allowPeek && p.length >= 3 && s.peekFor !== p[1] && d < 1.5 && d > 0.55) {   // ¿hay una esquina? asomarse
-        const a = p[0], b = p[1], c = p[2];
-        const d1x = Math.sign((b % W) - (a % W)), d1y = Math.sign(((b / W) | 0) - ((a / W) | 0));
-        const d2x = Math.sign((c % W) - (b % W)), d2y = Math.sign(((c / W) | 0) - ((b / W) | 0));
-        if (d1x !== d2x || d1y !== d2y) {
-          s.peekFor = b;
-          if (rnd() < s.sk.peek) {
-            s.act = { type: 'peek', t: 0, dur: 0.75 + rnd() * 0.5, face: Math.atan2(d2y, d2x), px: wx - d1x * 0.42, py: wy - d1y * 0.42 };
-            return null;
-          }
-        }
-      }
-      return d > 0.05 ? [(wx - s.x) / d, (wy - s.y) / d] : null;
-    }
-
-    updateSoldier(s, dt) {
-      s.recoil = Math.max(0, s.recoil - dt * 5); s.flash = Math.max(0, s.flash - dt);
-      if (s.bubble) { s.bubble.t -= dt; if (s.bubble.t <= 0) s.bubble = null; }
-      if (s.icon) { s.icon.t -= dt; if (s.icon.t <= 0) s.icon = null; }
-      if (!s.alive) return;
-      if (this.phase !== 'run') { s.gait *= 0.85; return; }
-      s.cd -= dt; s.burstCd -= dt; s.talkCd -= dt; s.radioCd -= dt;
-      s.shieldT = Math.max(0, s.shieldT - dt); if (s.shieldT <= 0) s.shieldHp = 0;
-      s.speedT = Math.max(0, s.speedT - dt);
-      const P = s.P;
-
-      this.sense(s);
-      this.manageWeapon(s, dt);
-      for (const id in s.know) if (this.time - s.know[id].t > 30) delete s.know[id];
-
-      s.thinkT -= dt;
-      if (s.thinkT <= 0) { s.thinkT = 0.3 + rnd() * 0.2; this.think(s); }
-
-      // zona: daño fuera del área segura
-      if (this.zone && this.outsideZone(s.x, s.y)) {
-        s.zoneT += dt;
-        if (s.zoneT >= 1) { s.zoneT = 0; this.damage(s, null, 14, true); if (!s.alive) return; }
-      } else s.zoneT = 0;
-
-      // insultos de los agresivos (y delatan dónde están)
-      if (P.loud && s.talkCd <= 0) {
-        if (s.target) { this.say(s, pickLine('seen', s.target.name)); s.talkCd = 4 + rnd() * 5; }
-        else if (s.mode === 'hunt' && rnd() < 0.5) {
-          const k = this.bestKnowledge(s), who = k ? this.soldiers[k.id] : null;
-          this.say(s, pickLine('hunt', who ? who.name : 'cobarde')); s.talkCd = 6 + rnd() * 6;
-        } else s.talkCd = 2;
-      }
-
-      // ----- acciones en curso -----
-      let act = s.act;
-      if (act && s.target && (act.type === 'peek' || act.type === 'hold')) { s.act = act = null; }
-      if (act && (act.type === 'open' || act.type === 'close') && s.target && s.td < 3) { s.act = act = null; }
-      let vx = 0, vy = 0, desired = s.angle, speedMul = 1, sneak = P.sneak, scanning = false;
-      if (act) {
-        act.t += dt;
-        if (act.type === 'open' || act.type === 'close') {
-          desired = act.ang;
-          if (!act.done && act.t >= act.dur * 0.5) {
-            act.done = true;
-            if (act.type === 'open') { this.toggleDoor(act.idx, true, s); s.closeIdx = rnd() < s.sk.door * 0.7 ? act.idx : null; }
-            else this.toggleDoor(act.idx, false, s);
-          }
-          if (act.t >= act.dur) s.act = null;
-        } else if (act.type === 'hold') {
-          desired = act.face; sneak = true; scanning = true;
-          if (act.t >= act.dur) s.act = null;
-        } else if (act.type === 'burst') {
-          desired = act.face;
-          if (Math.abs(angDiff(s.angle, desired)) < 0.12 && s.cd <= 0) {
-            act.next -= dt;
-            if (act.next <= 0 && act.shots > 0) { if (this.fire(s, 0.14)) act.shots--; else act.shots = 0; act.next = 0.22; }
-          }
-          if (act.shots <= 0 || act.t > 3) s.act = null;
-        } else if (act.type === 'peek') {
-          desired = act.face; sneak = true; scanning = true;
-          const dx = act.px - s.x, dy = act.py - s.y, d = Math.hypot(dx, dy);
-          if (d > 0.07) { vx = dx / d; vy = dy / d; speedMul = 0.55; }
-          if (act.t >= act.dur) s.act = null;
-        }
-      } else {
-        // ----- comportamiento normal -----
-        const [pmin, pmax] = this.prefRange(s), tgt = s.target, td = s.td;
-        // cerrar la puerta que abrió, para tapar la vista
-        if (s.closeIdx != null && !tgt) {
-          const dr = this.doors.get(s.closeIdx), dd = dr ? Math.hypot(dr.tx + 0.5 - s.x, dr.ty + 0.5 - s.y) : 0;
-          if (!dr || !dr.open) s.closeIdx = null;
-          else if (dd > 1.0 && dd < 2.3 && !s.path.includes(s.closeIdx)) {
-            s.act = { type: 'close', t: 0, dur: 0.6, idx: s.closeIdx, ang: Math.atan2(dr.ty + 0.5 - s.y, dr.tx + 0.5 - s.x) };
-            s.closeIdx = null; vx = vy = 0; desired = s.act.ang;
-          }
-        }
-        if (!s.act) {
-          if (tgt && s.mode !== 'zone' && s.mode !== 'flee') {
-            const dx = tgt.x - s.x, dy = tgt.y - s.y;
-            desired = Math.atan2(dy, dx); sneak = false;
-            if (td < pmin) { vx = -dx / td; vy = -dy / td; }                  // retroceder
-            else if (td <= pmax) {                                             // mantener y moverse de costado
-              if (s.cur !== 'knife') {
-                s.strafeT -= dt;
-                if (s.strafeT <= 0) { s.strafeT = 0.6 + rnd() * 0.9; s.strafeDir = rnd() < 0.5 ? 1 : -1; s.doStrafe = rnd() < (P.sneak ? (s.pers === 'francotirador' ? 0.1 : 0.8) : 0.65); }
-                if (s.doStrafe) { vx = (-dy / td) * s.strafeDir * 0.7; vy = (dx / td) * s.strafeDir * 0.7; }
-              }
-            } else { const v = this.followPath(s, false); if (v) { vx = v[0]; vy = v[1]; } }
-          } else {
-            const v = this.followPath(s, !tgt && s.mode !== 'zone' && s.mode !== 'flee');
-            if (v) { vx = v[0]; vy = v[1]; desired = Math.atan2(vy, vx); }
-            if (s.mode === 'flee' && tgt) desired = Math.atan2(tgt.y - s.y, tgt.x - s.x);
-            if (!tgt) scanning = true;
-            if (!P.sneak || s.mode === 'zone' || s.mode === 'flee' || s.mode === 'loot') sneak = false;
-            if ((s.mode === 'hunt' || s.mode === 'loot') && !P.sneak) speedMul = P.run;
-          }
-        }
-      }
-      s.sneak = sneak && !s.target;
-      if (s.sneak && !act) speedMul *= 0.62;
-
-      // ----- movimiento -----
-      let dm = 0;
-      if (vx || vy) {
-        const sp = P.speed * this.defOf(s).move * (s.speedT > 0 ? 1.6 : 1) * speedMul * dt;
-        const ox = s.x, oy = s.y;
-        const moved = this.tryMove(s, vx * sp, vy * sp);
-        dm = Math.hypot(s.x - ox, s.y - oy);
-        if (!moved) { s.strafeDir *= -1; s.strafeT = 0.2; }
-        if (dm > 0) s.moveAng += angDiff(s.moveAng, Math.atan2(vy, vx)) * Math.min(1, dt * 14);
-      }
-      s.gait += ((dm > 0 ? Math.min(1, dm / dt / (P.speed * 0.8)) : 0) - s.gait) * Math.min(1, dt * 10);
-      s.phase += dm * 3.2;
-      const stepN = Math.floor(s.phase / Math.PI);
-      if (stepN !== s.lastStep) {                                // pasos: suenan según cómo camina
-        s.lastStep = stepN;
-        this.emitSound(s.x, s.y, s.sneak ? 1.8 : (s.mode === 'hunt' || s.mode === 'attack') && !P.sneak ? 6.5 : 4.2, 'step', s);
-      }
-      // si no avanza por un rato, repensar camino
-      s.stuckT += dt;
-      if (s.stuckT > 0.7) {
-        if (Math.hypot(s.x - s.lx, s.y - s.ly) < 0.1 && (vx || vy)) s.thinkT = 0;
-        s.lx = s.x; s.ly = s.y; s.stuckT = 0;
-      }
-
-      // ----- cuerpo y cabeza -----
-      const diff = angDiff(s.angle, desired), turn = 9 * dt;
-      s.angle += Math.abs(diff) < turn ? diff : Math.sign(diff) * turn;
-      const off = scanning || s.headScan > 0 ? Math.sin(this.time * 1.5 + s.id * 1.7) * (0.55 + 0.4 * s.sk.listen) : 0;
-      if (s.headScan > 0) s.headScan -= dt;
-      s.headOff += (off - s.headOff) * Math.min(1, dt * 6);
-      const lookTarget = s.angle + s.headOff;
-      s.look += angDiff(s.look, lookTarget) * Math.min(1, dt * 10);
-
-      // ----- atacar -----
-      if (s.target && !act && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0) {
-        const bearing = Math.atan2(s.target.y - s.y, s.target.x - s.x);
-        if (s.cur === 'knife') { if (s.td <= KNIFE.range + 0.2 && Math.abs(angDiff(s.angle, bearing)) < 0.6) this.melee(s, s.target); }
-        else if (s.td <= this.defOf(s).range && Math.abs(angDiff(s.angle, bearing)) < 0.14) this.fire(s, 0);
-      }
-    }
-
     damage(s, by, dmg, zone) {
       if (!s.alive || (this.phase === 'ending' && !zone)) return;
       if (!zone && s.shieldHp > 0) {
@@ -949,6 +619,8 @@
         this.spark(s.x, s.y, '#38bdf8', 4);
         if (dmg <= 0) return;
       }
+      if (!zone && s.mood) dmg *= (1 - s.mood.fury * Math.min(1, s.P.rage) * 0.3) * (s.P.tough || 1);   // la furia y el aguante propio reducen el daño
+      const dealt = Math.min(dmg, s.hp);
       s.hp -= dmg; s.flash = 0.18;
       this.spark(s.x, s.y, s.color, 5);
       if (this.speed <= 2 && (!by || by.cur !== 'knife')) sfx.hit();
@@ -956,8 +628,8 @@
         const a = rnd() * 6.283, m = rnd() * 1.6;
         s.know[by.id] = { id: by.id, x: by.x + Math.cos(a) * m, y: by.y + Math.sin(a) * m, t: this.time, exact: false, kind: 'hit' };
         s.thinkT = Math.min(s.thinkT, 0.1);
-        if (s.P.loud && s.hp > 0 && s.talkCd < 2.5 && rnd() < 0.5) { this.say(s, pickLine('hurt')); s.talkCd = 5; }
       }
+      this.onDamaged(s, by, dealt, zone);
       if (s.hp <= 0) this.kill(s, by, zone);
     }
     kill(s, by, zone) {
@@ -971,10 +643,8 @@
       this.parts.push({ x: s.x, y: s.y, vx: 0, vy: 0, life: 0.45, max: 0.45, color: '#fff', size: 0.9, ring: true });
       sfx.boom(); vibrate(40);
       this.emitSound(s.x, s.y, 12, 'boom', null);
-      if (by && by !== s) {
-        by.kills++;
-        if (by.alive && by.P.loud) this.say(by, pickLine('kill', s.name));
-      }
+      if (by && by !== s && !(by.team >= 0 && by.team === s.team)) by.kills++;
+      this.onKilled(s, by, zone);
       this.hooks.onKill(s, by, zone);
     }
     spark(x, y, color, n) {
@@ -998,6 +668,7 @@
       this.items.forEach((it) => { it.t += dt; });
       if (this.phase === 'run') this.collectItems();
       for (const d of this.doors.values()) d.anim = Math.max(0, Math.min(1, d.anim + (d.open ? 1 : -1) * dt * 3.2));
+      this.teamTick(dt);
       for (const s of this.soldiers) this.updateSoldier(s, dt);
 
       // balas (atraviesan las puertas de madera, no las paredes). Las rápidas se avanzan en tramos cortos.
@@ -1011,8 +682,8 @@
           if (this.isWall(bx, by)) { gone = true; this.spark(b.x - b.vx * sd, b.y - b.vy * sd, '#ffe08a', 3); break; }
           if (!b.door && this.doorGrid[by * this.W + bx]) { b.door = true; this.spark(b.x, b.y, '#c9955a', 5); }
           for (const s of this.soldiers) {
-            if (!s.alive || s === b.owner || (b.owner.team >= 0 && s.team === b.owner.team)) continue;
-            if (Math.hypot(s.x - b.x, s.y - b.y) < s.r + 0.1) { gone = true; this.damage(s, b.owner, b.dmg, false); break; }
+            if (!s.alive || s === b.owner || (b.owner.team >= 0 && s.team === b.owner.team && !this.cfg.friendly)) continue;
+            if (Math.hypot(s.x - b.x, s.y - b.y) < s.r + 0.1) { gone = true; b.owner.stats.hits++; this.damage(s, b.owner, b.dmg, false); break; }
           }
         }
         b.life -= dt;
@@ -1042,7 +713,7 @@
         if (a.alive) return b.kills - a.kills;
         return (b.deathT - a.deathT) || (b.kills - a.kills);
       });
-      return { ranking: order, winners: this.winners, teamMode: this.cfg.teamMode, time: this.time };
+      return { ranking: order, winners: this.winners, teamMode: this.cfg.teamMode, time: this.time, seed: this.seed };
     }
 
     /* ---------- cámara ---------- */
@@ -1177,6 +848,8 @@
       const right = left + this.cw / ts, bottom = top + this.ch / ts;
       const l = Math.max(0, left), t = Math.max(0, top), r = Math.min(W, right), b = Math.min(H, bottom);
       if (r > l && b > t) x.drawImage(this.static, l * ts * sd, t * ts * sd, (r - l) * ts * sd, (b - t) * ts * sd, (l - left) * ts, (t - top) * ts, (r - l) * ts, (b - t) * ts);
+      const povS = this.povSoldier();
+      const vis = (o) => !povS || o === povS || (povS.team >= 0 && o.team === povS.team) || this.canSeeFrom(povS, o);
       x.save(); x.translate(-left * ts, -top * ts);
 
       for (const d of this.doors.values()) Art.drawDoor(x, d, ts);
@@ -1185,14 +858,17 @@
       if (this.zone) this.drawZone(x);
       // ondas de sonido (disparos, gritos, puertas)
       for (const rg of this.rings) {
+        if (povS && Math.hypot(rg.x - povS.x, rg.y - povS.y) > rg.r * 1.6) continue;      // en POV solo se ve lo que se oye
         const k = rg.t / 0.7;
         x.strokeStyle = RING_COLOR[rg.kind]; x.globalAlpha = (1 - k) * 0.4; x.lineWidth = 2;
         x.beginPath(); x.arc(rg.x * ts, rg.y * ts, ts * rg.r * (0.2 + 0.8 * k), 0, 6.2832); x.stroke();
       }
       x.globalAlpha = 1;
       const alive = this.soldiers.filter((s) => s.alive).sort((a, b2) => a.y - b2.y);
-      for (const s of alive) Art.drawSoldier(x, s, ts, this.time);
+      if (this.cfg.laser) this.drawLasers(x, alive.filter(vis));
+      for (const s of alive) if (vis(s)) Art.drawSoldier(x, s, ts, this.time);
       for (const bu of this.bullets) {
+        if (povS && !this.canSeePoint(povS, bu.x, bu.y)) continue;
         const sp = Math.hypot(bu.vx, bu.vy), tx = bu.vx / sp, ty = bu.vy / sp;
         const len = bu.w === 'sniper' ? 1.4 : bu.w === 'shotgun' || bu.w === 'ashotgun' ? 0.25 : 0.55;
         x.strokeStyle = bu.w === 'sniper' ? '#bae6fd' : bu.w === 'shotgun' || bu.w === 'ashotgun' ? '#fdba74' : lighten(bu.color, 0.5);
@@ -1207,8 +883,9 @@
         else { x.fillStyle = p.color; x.beginPath(); x.arc(p.x * ts, p.y * ts, Math.max(1, p.size * ts), 0, 6.283); x.fill(); }
       }
       x.globalAlpha = 1;
-      for (const s of alive) this.drawLabel(x, s);
+      for (const s of alive) if (vis(s)) this.drawLabel(x, s);
       x.restore();
+      if (povS) this.drawFog(x, povS, left, top);
 
       if (!this.isFull) this.drawMini(x);
 
@@ -1226,6 +903,69 @@
         x.globalAlpha = alpha; x.fillStyle = '#ffd24a'; x.strokeStyle = '#000'; x.lineWidth = 6;
         x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = `900 ${size}px system-ui, sans-serif`;
         x.strokeText(txt, this.cw / 2, this.ch / 2); x.fillText(txt, this.cw / 2, this.ch / 2); x.globalAlpha = 1;
+      }
+    }
+
+    /* ---------- vista desde los ojos de un soldado (POV) ---------- */
+    povSoldier() {
+      if (!this.pov || this.followId == null) return null;
+      const s = this.soldiers[this.followId];
+      return s && s.alive ? s : null;
+    }
+    canSeePoint(a, px, py) {
+      const dx = px - a.x, dy = py - a.y, d = Math.hypot(dx, dy);
+      if (d > this.sightOf(a)) return false;
+      if (d > 2.2 && Math.abs(angDiff(a.look, Math.atan2(dy, dx))) > FOV / 2) return false;
+      return this.los(a.x, a.y, px, py);
+    }
+    canSeeFrom(a, b) { return this.canSeePoint(a, b.x, b.y); }
+    /** Oscurece todo menos lo que el soldado ve (cono de visión) y recuerda (lo ya recorrido, más tenue). */
+    drawFog(x, a, left, top) {
+      const ts = this.ts, dpr = this.dpr, cw = this.cw, ch = this.ch, W = this.W, H = this.H;
+      if (!this.fog || this.fog.width !== this.cv.width || this.fog.height !== this.cv.height) {
+        this.fog = document.createElement('canvas'); this.fog.width = this.cv.width; this.fog.height = this.cv.height; this.fogCtx = this.fog.getContext('2d');
+      }
+      const f = this.fogCtx;
+      f.setTransform(dpr, 0, 0, dpr, 0, 0); f.globalCompositeOperation = 'source-over';
+      f.clearRect(0, 0, cw, ch); f.fillStyle = 'rgba(3,5,12,0.94)'; f.fillRect(0, 0, cw, ch);
+      f.globalCompositeOperation = 'destination-out';
+      f.fillStyle = 'rgba(0,0,0,0.42)';                                   // lo que ya recorrió, tenue
+      const x0 = Math.max(0, Math.floor(left)), y0 = Math.max(0, Math.floor(top)), x1 = Math.min(W - 1, Math.ceil(left + cw / ts)), y1 = Math.min(H - 1, Math.ceil(top + ch / ts));
+      for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+        if (a.explored[ty * W + tx] > -50) f.fillRect((tx - left) * ts, (ty - top) * ts, ts + 0.6, ts + 0.6);
+      }
+      f.fillStyle = '#000'; f.beginPath();                                // lo que ve ahora
+      const N = 120, sight = this.sightOf(a);
+      for (let i = 0; i <= N; i++) {
+        const ang = -Math.PI + (i / N) * Math.PI * 2;
+        const R = Math.abs(angDiff(a.look, ang)) <= FOV / 2 ? sight : 2.4;
+        let d = 0.3;
+        while (d < R && !this.isSolid(Math.floor(a.x + Math.cos(ang) * d), Math.floor(a.y + Math.sin(ang) * d))) d += 0.14;
+        const px = (a.x + Math.cos(ang) * Math.min(d, R) - left) * ts, py = (a.y + Math.sin(ang) * Math.min(d, R) - top) * ts;
+        if (i === 0) f.moveTo(px, py); else f.lineTo(px, py);
+      }
+      f.closePath(); f.fill();
+      f.globalCompositeOperation = 'source-over';
+      x.drawImage(this.fog, 0, 0, cw, ch);
+    }
+    /** Punto láser opcional: muestra hacia dónde apunta cada soldado y cuánto se le abre la puntería. */
+    drawLasers(x, list) {
+      const ts = this.ts;
+      for (const s of list) {
+        if (!s.target || s.cur === 'knife') continue;
+        const def = this.defOf(s), ca = Math.cos(s.angle), sa = Math.sin(s.angle);
+        let d = 0.5;
+        while (d < def.range && !this.isSolid(Math.floor(s.x + ca * d), Math.floor(s.y + sa * d))) d += 0.2;
+        const ex = (s.x + ca * d) * ts, ey = (s.y + sa * d) * ts;
+        x.strokeStyle = 'rgba(255,60,60,.5)'; x.lineWidth = Math.max(1, ts * 0.05);
+        x.beginPath(); x.moveTo((s.x + ca * 0.6) * ts, (s.y + sa * 0.6) * ts); x.lineTo(ex, ey); x.stroke();
+        x.fillStyle = 'rgba(255,70,70,.9)'; x.beginPath(); x.arc(ex, ey, Math.max(1.5, ts * 0.09), 0, 6.283); x.fill();
+        const sp = def.spread * this.aimMul(s) + s.bloom;                        // la dispersión actual, como un abanico
+        x.strokeStyle = 'rgba(255,200,80,.22)';
+        for (const sg of [-1, 1]) {
+          const a2 = s.angle + sg * sp, len = Math.min(d, 7);
+          x.beginPath(); x.moveTo((s.x + ca * 0.6) * ts, (s.y + sa * 0.6) * ts); x.lineTo((s.x + Math.cos(a2) * len) * ts, (s.y + Math.sin(a2) * len) * ts); x.stroke();
+        }
       }
     }
 
@@ -1311,6 +1051,8 @@
   }
 
   /* ================= interfaz ================= */
+  const IQ = Personas.IQ;
+  const openRows = new Set();                                 // soldados con el panel de detalles abierto
   let game = null;
   let wakeLock = null;
   const hud = $('#hudPlayers');
@@ -1334,14 +1076,32 @@
       if (tm) {
         const t = Math.min(p.team || 0, B.teamCount - 1);
         p.team = t;
-        const b = el('button', {
+        row.append(el('button', {
           class: 'team-btn', style: `background:${TEAMS[t].color}`, 'aria-label': 'Cambiar de equipo',
           onclick: () => { p.team = ((p.team || 0) + 1) % B.teamCount; save(); renderRoster(); },
-        }, TEAMS[t].name.slice(0, 3));
-        row.append(b);
+        }, TEAMS[t].name.slice(0, 3)));
       }
+      const pe = p.pers && p.pers !== 'auto' && PERS[p.pers] ? PERS[p.pers].emoji : '⚙️';
+      row.append(el('button', {
+        class: 'gear-btn' + (openRows.has(p.id) ? ' on' : ''), 'aria-label': 'Personalidad e inteligencia', title: 'Personalidad e inteligencia',
+        onclick: () => { if (openRows.has(p.id)) openRows.delete(p.id); else openRows.add(p.id); renderRoster(); },
+      }, `${pe}${IQ[p.iq == null ? 1 : p.iq].emoji}`));
       row.append(el('button', { class: 'rm', 'aria-label': 'Quitar', onclick: () => { if (state.players.length > 2) { state.players.splice(i, 1); save(); renderRoster(); } } }, '✕'));
-      box.append(row);
+      const wrapRow = el('div', { class: 'srowwrap' }, row);
+      if (openRows.has(p.id)) {
+        const desc = el('p', { class: 'hint' });
+        const paintDesc = () => { desc.textContent = (p.pers && p.pers !== 'auto' && PERS[p.pers] ? PERS[p.pers].desc + ' · ' : 'Se sortea al empezar. · ') + 'Inteligencia: ' + IQ[p.iq == null ? 1 : p.iq].label + '.'; };
+        const select = el('select', { 'aria-label': 'Personalidad', onchange: (e) => { p.pers = e.target.value; save(); renderRoster(); } },
+          el('option', { value: 'auto' }, '🎲 Al azar'),
+          Object.entries(PERS).map(([k, v]) => el('option', Object.assign({ value: k }, p.pers === k ? { selected: true } : {}), `${v.emoji} ${v.label}`)));
+        const seg = el('div', { class: 'seg small' }, IQ.map((q, qi) => el('button', {
+          class: (p.iq == null ? 1 : p.iq) === qi ? 'on' : '', title: q.label, 'aria-label': q.label,
+          onclick: () => { p.iq = qi; save(); renderRoster(); },
+        }, `${q.emoji} ${q.label}`)));
+        paintDesc();
+        wrapRow.append(el('div', { class: 'sdet' }, el('label', { class: 'sel' }, 'Personalidad', select), el('div', {}, el('div', { class: 'sel' }, 'Inteligencia'), seg), desc));
+      }
+      box.append(wrapRow);
     });
     $('#soldierCount').textContent = `${state.players.length}/${App.MAX_PLAYERS}`;
     $('#btnAddSoldier').disabled = state.players.length >= App.MAX_PLAYERS;
@@ -1375,8 +1135,10 @@
   /* ----- juego ----- */
   function buildConfig() {
     const tm = B.teamMode === 'teams';
-    const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: Math.min(p.team || 0, B.teamCount - 1) }));
-    return { players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false };
+    const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: Math.min(p.team || 0, B.teamCount - 1), pers: p.pers || 'auto', iq: p.iq == null ? 1 : p.iq }));
+    const seed = ($('#seedInput').value || '').trim();
+    return { players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
+      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, seed: seed || null };
   }
 
   async function startGame() {
@@ -1385,6 +1147,8 @@
       alert('Para jugar por equipos tiene que haber soldados en al menos 2 equipos distintos.'); return;
     }
     App.ctx();
+    applyAudio();
+    Personas.setCustom(B.customLines);
     document.body.classList.add('in-game');
     $('#battleSetup').hidden = true; $('#battleGame').hidden = false;
     $('#resultOverlay').hidden = true; $('#pauseOverlay').hidden = true;
@@ -1392,6 +1156,8 @@
     if (game) game.destroy();
     game = new Game($('#battleCanvas'), cfg, { onKill, onPickup, onEnd, onFrame });
     App.game = game;
+    $('#pauseSeed').textContent = `Semilla del mapa: ${game.seed}`;
+    document.body.classList.remove('pov-on');
     buildHud(game);
     paintCam();
     game.start();
@@ -1403,6 +1169,7 @@
     if (!g.cfg.varied) return;
     addFeed(g.soldiers.map((s) => `${PERS[s.pers].emoji} ${s.name}`).join('  ·  '), 5000);
   }
+  function applyAudio() { App.setVol((B.volMaster == null ? 100 : B.volMaster) / 100, (B.volShots == null ? 100 : B.volShots) / 100); }
 
   function leaveGame(toSetup = true) {
     if (game) { game.destroy(); game = null; App.game = null; }
@@ -1418,7 +1185,7 @@
     chips = g.soldiers.map((s) => {
       const hp = el('span', { class: 'hp' }), wp = el('span', { class: 'wp' });
       const chip = el('div', {
-        class: 'chip', style: s.team >= 0 ? `border-color:${TEAMS[s.team].color}` : '', title: `${s.name} (${PERS[s.pers].label}) · tocá para seguirlo`,
+        class: 'chip', style: s.team >= 0 ? `border-color:${TEAMS[s.team].color}` : '', title: `${s.name} (${PERS[s.pers].label}, ${IQ[s.iq].label}) · tocá para seguirlo`,
         onclick: () => { if (!game) return; game.followId = game.followId === s.id ? null : s.id; game.camMode = 'auto'; game.setScale(); paintCam(); },
       }, el('span', { class: 'dot', style: `background:${s.color}` }),
       el('span', { class: 'nm' }, (g.cfg.varied ? PERS[s.pers].emoji + ' ' : '') + s.name), hp, wp);
@@ -1431,6 +1198,8 @@
     const b = $('#btnCam'); if (!game) return;
     b.textContent = game.camMode === 'full' ? '🗺️ Todo' : game.followId != null ? '👁️ Siguiendo' : '🎥 Auto';
     chips.forEach((c, i) => c.chip.classList.toggle('follow', game.followId === i));
+    $('#btnPov').classList.toggle('primary', game.pov);
+    document.body.classList.toggle('pov-on', !!game.pov);
   }
 
   function addFeed(text, ms = 3800) {
@@ -1476,6 +1245,27 @@
     showResult(res);
   }
 
+  /** Premios graciosos según lo que hizo cada uno durante la partida. */
+  function computeAwards(rk) {
+    const out = [];
+    const best = (fn, min = 0) => {
+      let b = null, bv = -1;
+      rk.forEach((s) => { const v = fn(s); if (v > bv) { bv = v; b = s; } });
+      return bv > min ? [b, bv] : null;
+    };
+    let r;
+    if ((r = best((s) => s.kills * 100 + s.stats.dmgDealt + (s.alive ? 60 : 0)))) out.push(['🏅', 'MVP', r[0], `${r[0].kills} bajas, ${Math.round(r[0].stats.dmgDealt)} de daño`]);
+    if ((r = best((s) => s.stats.dmgDealt, 50))) out.push(['💥', 'El que más daño hizo', r[0], `${Math.round(r[1])} puntos`]);
+    if ((r = best((s) => s.stats.rounds >= 12 ? (s.stats.hits / s.stats.rounds) * 100 : 0, 15))) out.push(['🎯', 'El más preciso', r[0], `${Math.round(r[1])}% de las balas`]);
+    if ((r = best((s) => s.stats.longKill, 8))) out.push(['🔭', 'El disparo más lejano', r[0], `${r[1].toFixed(0)} casilleros`]);
+    if ((r = best((s) => s.stats.knifeKills, 0))) out.push(['🔪', 'Rey del cuchillo', r[0], `${r[1]} bajas a puñaladas`]);
+    if ((r = best((s) => s.stats.fled + s.stats.hidden * 0.5, 12))) out.push(['🐔', 'El más cobarde', r[0], `${Math.round(r[0].stats.hidden + r[0].stats.fled)}s escondido o huyendo`]);
+    if ((r = best((s) => s.stats.talk, 3))) out.push(['🗣️', 'El más bocón', r[0], `${r[1]} insultos`]);
+    if ((r = best((s) => s.stats.dist, 20))) out.push(['🏃', 'El que más caminó', r[0], `${Math.round(r[1])} casilleros`]);
+    if ((r = best((s) => s.stats.shared, 0))) out.push(['🤝', 'El más generoso', r[0], `${r[1]} balas pasadas`]);
+    return out.slice(0, 7);
+  }
+
   function showResult(res) {
     const ov = $('#resultOverlay');
     const win = res.winners, tm = res.teamMode;
@@ -1497,13 +1287,29 @@
     });
 
     const list = el('div', { class: 'rank-list' });
-    rk.forEach((s, i) => list.append(el('div', {},
-      el('span', {}, `${i + 1}.`), el('span', { class: 'dot', style: `background:${s.color}` }), el('span', {}, `${PERS[s.pers].emoji} ${s.name}`),
-      el('span', { class: 'k' }, `${s.kills} 💥${s.alive ? ' · ganó' : ''}`))));
+    rk.forEach((s, i) => {
+      const acc = s.stats.rounds ? Math.round((s.stats.hits / s.stats.rounds) * 100) : 0;
+      list.append(el('div', {},
+        el('span', {}, `${i + 1}.`), el('span', { class: 'dot', style: `background:${s.color}` }),
+        el('span', {}, `${PERS[s.pers].emoji}${IQ[s.iq].emoji} ${s.name}`),
+        el('span', { class: 'k' }, `${s.kills}💥 · ${Math.round(s.stats.dmgDealt)}❤ · ${acc}%${s.alive ? ' · ganó' : ''}`)));
+    });
+
+    const awards = computeAwards(rk);
+    const awardBox = el('div', { class: 'awards' }, awards.map(([ico, name, who, detail]) =>
+      el('div', {}, `${ico} ${name}: `, el('b', {}, who.name), ` (${detail})`)));
+
+    const seedBtn = el('button', {
+      class: 'seed-btn', title: 'Copiar la semilla',
+      onclick: (e) => { try { navigator.clipboard.writeText(String(res.seed)); e.target.textContent = '✅ Copiada'; } catch (err) { e.target.textContent = String(res.seed); } },
+    }, `🌱 Semilla ${res.seed} · tocá para copiar`);
 
     ov.innerHTML = '';
     ov.append(el('div', { class: 'overlay-box' },
-      el('h2', { class: 'win-title' }, title), el('p', { class: 'win-sub' }, sub), podium, list,
+      el('h2', { class: 'win-title' }, title), el('p', { class: 'win-sub' }, sub), podium,
+      el('div', { class: 'sect-title' }, 'Premios'), awardBox,
+      el('div', { class: 'sect-title' }, 'Posiciones (bajas · daño · puntería)'), list,
+      seedBtn,
       el('div', { class: 'res-btns' },
         el('button', { class: 'btn primary wide', onclick: () => startGame() }, '🔁 Revancha'),
         el('button', { class: 'btn', onclick: () => leaveGame(true) }, '⚙️ Cambiar'),
@@ -1526,6 +1332,16 @@
     if (game.camMode === 'full') { game.camMode = 'auto'; game.followId = null; } else if (game.followId != null) game.followId = null; else game.camMode = 'full';
     game.setScale(); paintCam();
   });
+  $('#btnPov').addEventListener('click', () => {
+    if (!game) return;
+    if (game.pov) game.pov = false;
+    else {                                                     // ver por los ojos del soldado seguido (o del que muestra la cámara)
+      if (game.followId == null) { const f = game.focus && game.focus.alive ? game.focus : game.soldiers.find((q) => q.alive); game.followId = f ? f.id : null; }
+      if (game.followId == null) return;
+      game.camMode = 'auto'; game.pov = true; game.setScale();
+    }
+    paintCam();
+  });
   document.addEventListener('visibilitychange', () => { if (document.hidden && game && game.phase === 'run') setPause(true); });
 
   bindSeg('segSpeed', () => B.speed, (v) => { B.speed = +v; if (game) game.speed = +v; });
@@ -1540,6 +1356,22 @@
     const input = $('#' + id); input.checked = key === 'loot' ? B.loot !== false : !!B[key];
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });
+
+  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false]].forEach(([id, key, def]) => {
+    const input = $('#' + id); input.checked = B[key] == null ? def : !!B[key];
+    input.addEventListener('change', () => { B[key] = input.checked; save(); });
+  });
+  [['volMaster', 100], ['volShots', 100]].forEach(([id, def]) => {
+    const input = $('#' + id); input.value = B[id] == null ? def : B[id];
+    input.addEventListener('input', () => { B[id] = +input.value; applyAudio(); save(); });
+    input.addEventListener('change', () => { App.sfx.shot('pistol'); });         // para escuchar cómo quedó
+  });
+  const custom = $('#customLines'); custom.value = B.customLines || '';
+  custom.addEventListener('input', () => { B.customLines = custom.value; Personas.setCustom(custom.value); save(); });
+  Personas.setCustom(B.customLines);
+  applyAudio();
+  $('#btnSeedRnd').addEventListener('click', () => { $('#seedInput').value = String(1000 + Math.floor(Math.random() * 9000)); });
+  $('#seedInput').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/[^0-9]/g, ''); });
 
   $('#btnAddSoldier').addEventListener('click', () => {
     if (state.players.length >= App.MAX_PLAYERS) return;
@@ -1559,5 +1391,5 @@
     enter() { renderRoster(); renderWins(); },
     leave() { if (game) leaveGame(false); },
   });
-  App.battle = { genMap, Game, PERS, WEAPONS, KNIFE };
+  App.battle = { genMap, Game, PERS, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, cap };
 })();

@@ -1,12 +1,14 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.1.** Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.2 ✅ terminada** (la lista de abajo está hecha). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
 ---
 
-## 0.2 — "Cerebros" (la gran lista: IA, comportamiento y mejoras)
+## 0.2 — "Cerebros" (la gran lista: IA, comportamiento y mejoras) ✅
+
+> **Hecho.** Notas: en el punto 19 los compañeros se avisan por radio y acuden a ayudar, pero todavía no "escoltan" a un herido (queda para pulir en 0.9.1). El balance fino entre personalidades se revisa de nuevo en 0.9.1 con más partidas simuladas.
 
 ### A. IA de combate
 1. **Cobertura:** se pegan a esquinas y paredes, asoman, disparan y vuelven a esconderse. Recargan escondidos.

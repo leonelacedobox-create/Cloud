@@ -40,6 +40,7 @@
       <span class="menu-ico">🔫</span>
       <span><b>Batalla en el laberinto</b><small>Hasta 10 soldados peleando solos. El último en pie gana.</small></span>
     </button>
+    <p class="hint center">Versión 0.2 · “Cerebros”</p>
     <p class="hint center" id="installHint">Tip: en el menú del navegador elegí “Agregar a pantalla de inicio” y queda como una app.</p>
   </section>
 
@@ -151,10 +152,28 @@
         <div class="seg" id="segSize">
           <button data-v="s">Chico</button><button data-v="m">Medio</button><button data-v="l">Grande</button>
         </div>
+        <div class="label">Semilla del mapa (vacío = al azar)</div>
+        <div class="seedrow">
+          <input id="seedInput" type="text" inputmode="numeric" maxlength="8" placeholder="al azar" autocomplete="off" aria-label="Semilla del mapa">
+          <button class="btn small" id="btnSeedRnd" aria-label="Número al azar">🎲</button>
+        </div>
         <label class="switch"><input type="checkbox" id="optLoot"><span>Armas en el piso (sniper, ametralladoras, escopetas…) y munición</span></label>
         <label class="switch"><input type="checkbox" id="optPowerups"><span>Power-ups (escudo, velocidad, vida extra)</span></label>
         <label class="switch"><input type="checkbox" id="optZone"><span>Zona que se achica (evita partidas eternas)</span></label>
-        <label class="switch"><input type="checkbox" id="optVaried"><span>Personalidades variadas (agresivo, cauteloso, francotirador)</span></label>
+        <label class="switch"><input type="checkbox" id="optVaried"><span>Personalidades variadas (8 tipos al azar; apagado: todos agresivos). Cada soldado se puede ajustar con ⚙️</span></label>
+      </div>
+
+      <div class="card" id="settingsCard">
+        <div class="label">Ajustes</div>
+        <label class="switch"><input type="checkbox" id="optTalk"><span>Insultos y frases (los agresivos delatan dónde están)</span></label>
+        <label class="switch"><input type="checkbox" id="optLaser"><span>Punto láser y abanico de dispersión</span></label>
+        <label class="switch"><input type="checkbox" id="optFriendly"><span>Fuego amigo (en equipos las balas también pegan a los compañeros)</span></label>
+        <div class="label">Volumen general</div>
+        <input type="range" id="volMaster" min="0" max="100" aria-label="Volumen general">
+        <div class="label">Volumen de disparos</div>
+        <input type="range" id="volShots" min="0" max="100" aria-label="Volumen de disparos">
+        <div class="label">Mis insultos (uno por línea; {n} = nombre del rival)</div>
+        <textarea id="customLines" rows="3" maxlength="400" placeholder="¡{n}, sos un tomate!"></textarea>
       </div>
 
       <button class="btn primary big" id="btnFight">⚔️ ¡A PELEAR!</button>
@@ -179,6 +198,7 @@
         <div class="zone-info" id="zoneInfo"></div>
         <div class="overlay" id="pauseOverlay" hidden>
           <div class="overlay-box"><h2>⏸ Pausa</h2>
+            <p class="win-sub" id="pauseSeed"></p>
             <button class="btn primary" id="btnResume">Seguir</button>
             <button class="btn" id="btnQuit">Salir de la partida</button>
           </div>
@@ -188,6 +208,7 @@
       <div class="controls">
         <button class="btn small" id="btnPause">⏸</button>
         <button class="btn small" id="btnCam">🎥 Auto</button>
+        <button class="btn small" id="btnPov" title="Ver por los ojos de un soldado">👁 POV</button>
         <div class="seg small" id="segSpeed">
           <button data-v="1">1×</button><button data-v="2">2×</button><button data-v="4">4×</button>
         </div>
@@ -201,7 +222,9 @@
 <script src="js/common.js"></script>
 <script src="js/coin.js"></script>
 <script src="js/art.js"></script>
+<script src="js/personas.js"></script>
 <script src="js/battle.js"></script>
+<script src="js/ai.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
