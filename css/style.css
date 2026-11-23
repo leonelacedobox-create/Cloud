@@ -397,3 +397,5 @@ textarea.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace
   .pad-btns button.fire { grid-column: auto; width: 56px; height: 56px; font-size: 26px; }
   .narrator { top: 8%; font-size: 15px; }
 }
+.toast { position: fixed; left: 50%; bottom: calc(16px + var(--safe-b, 0px)); transform: translate(-50%, 30px); max-width: 92%; background: rgba(15,20,35,.95); color: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 14px; z-index: 80; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }

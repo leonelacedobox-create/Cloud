@@ -33,31 +33,88 @@ const App = (() => {
     return { id: nextId++, name: '', color: PALETTE[i % PALETTE.length], team: i % 2, pick: null, hits: 0, pers: 'auto', iq: 1 };
   }
 
+  /* ---------- datos guardados: versión, migración y limpieza ---------- */
+  const SAVE_V = 4;                                         // 0.9.1
+  const ONE = (v, list, d) => (list.includes(v) ? v : d);
+  const NUM = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
+  const STR = (v, max, d = '') => (typeof v === 'string' ? v.slice(0, max) : d);
+  const COLOR = (v, d) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : d);
+  const PERS_K = ['auto', 'agresivo', 'cauteloso', 'francotirador', 'asesino', 'tactico', 'oportunista', 'berserker', 'cobarde'];
+  const MAPS_K = ['maze', 'rooms', 'arena', 'base', 'oficina', 'carcel', 'deposito', 'custom'];
+  const MODES_K = ['classic', 'tdm', 'ctf', 'koth', 'bomb', 'waves', 'loot', 'knives'];
+  /** Revisa todo lo guardado (de cualquier versión vieja) y arregla lo que esté roto o falte. */
+  function migrate(s, d) {
+    const out = d;
+    out.sound = s.sound !== false; out.theme = ONE(s.theme, ['auto', 'light', 'dark'], 'auto');
+    out.ui = Object.assign(d.ui, s.ui && typeof s.ui === 'object' ? s.ui : {});
+    out.ui.text = ONE(out.ui.text, ['normal', 'grande', 'enorme'], 'normal'); out.ui.quality = ONE(out.ui.quality, ['auto', 'alta', 'ahorro'], 'auto');
+    const c = Object.assign(d.coin, s.coin && typeof s.coin === 'object' ? s.coin : {});
+    c.mode = ONE(c.mode, ['libre', 'apuesta', 'temprano'], 'libre'); c.style = ONE(c.style, ['clasica', 'alta', 'trompo', 'loca'], 'clasica');
+    c.best = ONE(+c.best, [1, 3, 5, 7], 1); c.leaver = ONE(c.leaver, ['winner', 'loser'], 'winner');
+    c.totals = { milei: NUM(c.totals && c.totals.milei, 0, 1e9, 0), cristina: NUM(c.totals && c.totals.cristina, 0, 1e9, 0) };
+    c.history = Array.isArray(c.history) ? c.history.filter((h) => h === 'milei' || h === 'cristina').slice(-40) : [];
+    out.coin = c;
+    const b = Object.assign(d.battle, s.battle && typeof s.battle === 'object' ? s.battle : {});
+    b.teamMode = ONE(b.teamMode, ['ffa', 'teams'], 'ffa'); b.teamCount = ONE(+b.teamCount, [2, 3, 4], 2); b.lives = ONE(+b.lives, [1, 2, 3], 3);
+    b.map = ONE(b.map, MAPS_K, 'maze'); b.size = ONE(b.size, ['s', 'm', 'l'], 'm'); b.mode = ONE(b.mode, MODES_K, 'classic'); b.speed = ONE(+b.speed, [1, 2, 4], 1);
+    b.winRange = ONE(b.winRange, ['week', 'all'], 'week');
+    ['volMaster', 'volShots', 'volMusic'].forEach((k) => { if (b[k] != null) b[k] = NUM(+b[k], 0, 100, 100); });
+    b.customLines = STR(b.customLines, 400); b.customMap = STR(b.customMap, 6000);
+    b.wins = Array.isArray(b.wins) ? b.wins.filter((w) => w && typeof w.t === 'number' && Array.isArray(w.names)).map((w) => ({ t: w.t, names: w.names.filter((n) => typeof n === 'string').slice(0, 10) })).slice(-1000) : [];
+    b.betLog = Array.isArray(b.betLog) ? b.betLog.filter((x) => x && typeof x.t === 'number' && typeof x.name === 'string').slice(-500) : [];
+    out.battle = b;
+    out.hist = s.hist && s.hist.players && typeof s.hist.players === 'object' ? { players: s.hist.players, log: Array.isArray(s.hist.log) ? s.hist.log.slice(0, 80) : [] } : null;
+    out.tourn = s.tourn && Array.isArray(s.tourn.parts) && Array.isArray(s.tourn.rounds) && s.tourn.rounds.every(Array.isArray) ? s.tourn : null;
+    if (Array.isArray(s.players) && s.players.filter((p) => p && typeof p === 'object').length >= 2) {
+      const used = new Set();
+      out.players = s.players.filter((p) => p && typeof p === 'object').slice(0, MAX_PLAYERS).map((p, i) => {
+        const q = newPlayer(i);
+        let id = typeof p.id === 'number' && p.id > 0 && !used.has(p.id) ? p.id : 0;
+        if (!id) { id = 1; while (used.has(id)) id++; }
+        used.add(id);
+        return Object.assign(q, {
+          id, name: STR(p.name, 14), color: COLOR(p.color, q.color), team: NUM(+p.team, 0, 3, i % 2) | 0, pick: ONE(p.pick, ['milei', 'cristina'], null),
+          hits: NUM(+p.hits, 0, 1e6, 0) | 0, pers: ONE(p.pers, PERS_K, 'auto'), iq: NUM(+p.iq, 0, 3, 1) | 0,
+          role: ONE(p.role, ['none', 'asalto', 'medico', 'tirador', 'tanque'], 'none'), hat: typeof p.hat === 'string' ? p.hat : 'none',
+          photo: typeof p.photo === 'string' && p.photo.startsWith('data:image/') && p.photo.length < 80000 ? p.photo : null,
+          phrases: STR(p.phrases, 300), manual: !!p.manual, bet: typeof p.bet === 'number' ? p.bet : null,
+        });
+      });
+      const ids = new Set(out.players.map((p) => p.id));
+      out.players.forEach((p) => { if (p.bet != null && !ids.has(p.bet)) p.bet = null; });
+      if (out.players.filter((p) => p.manual).length > 1) out.players.forEach((p, i) => { p.manual = p.manual && i === out.players.findIndex((q) => q.manual); });
+    }
+    nextId = Math.max(nextId, ...out.players.map((p) => p.id + 1));
+    out.v = SAVE_V;
+    return out;
+  }
+  let loadProblem = null;
   function load() {
     const d = defaults();
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (!raw) return d;
-      const s = JSON.parse(raw);
-      const out = Object.assign(d, { sound: s.sound !== false, theme: s.theme || 'auto' });
-      out.ui = Object.assign(d.ui, s.ui || {});
-      out.coin = Object.assign(d.coin, s.coin || {});
-      out.battle = Object.assign(d.battle, s.battle || {});
-      out.hist = s.hist && s.hist.players ? s.hist : null;
-      out.tourn = s.tourn || null;
-      if (Array.isArray(s.players) && s.players.length >= 2) {
-        out.players = s.players.slice(0, MAX_PLAYERS).map((p, i) => Object.assign(newPlayer(i), p, { id: nextId++ }));
-      }
-      return out;
-    } catch (e) { return d; }
+    let raw = null;
+    try { raw = localStorage.getItem(KEY); } catch (e) { loadProblem = 'storage'; return d; }
+    if (!raw) { d.v = SAVE_V; return d; }
+    try { return migrate(JSON.parse(raw), d); } catch (e) {
+      loadProblem = 'roto';                                  // datos rotos: se guarda una copia por las dudas y se arranca de cero
+      try { localStorage.setItem(KEY + '.roto', raw); } catch (e2) { /* sin lugar */ }
+      const d2 = defaults(); d2.v = SAVE_V; return d2;
+    }
   }
 
   const state = load();
-  let saveTimer = 0;
+  let saveTimer = 0, saveWarned = false;
+  /** Aviso chiquito abajo de la pantalla. */
+  function toast(text, ms = 5000) {
+    let t = document.getElementById('toast');
+    if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; document.body.appendChild(t); }
+    t.textContent = text; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), ms);
+  }
   function save() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* modo privado */ }
+      try { localStorage.setItem(KEY, JSON.stringify(state)); saveWarned = false; } catch (e) {
+        if (!saveWarned) { saveWarned = true; toast(/quota/i.test(e.name + e.message) ? '⚠️ No hay más lugar para guardar en este celular. Probá sacar algunas fotos de los soldados o borrar el historial.' : '⚠️ No se pudo guardar (¿navegación privada?). Lo que hagas ahora se pierde al cerrar.'); }
+      }
     }, 120);
   }
 
@@ -219,6 +276,6 @@ const App = (() => {
 
   const HATS = { none: 'Sin gorro', cowboy: '🤠 Sombrero vaquero', crown: '👑 Corona', party: '🎉 Gorro de fiesta', tophat: '🎩 Galera', beret: '🎨 Boina', santa: '🎅 Gorro de Papá Noel' };
   const audio = { tone, noise, ctx, get master() { return masterVol; } };
-  return { applyA11y, textK, audio, HATS, state, save, $, $$, el, rnd, rint, shuffle, pname, esc, bindSeg, sfx, vibrate, go, register, newPlayer, ctx, setVol,
+  return { toast, get loadProblem() { return loadProblem; }, SAVE_V, applyA11y, textK, audio, HATS, state, save, $, $$, el, rnd, rint, shuffle, pname, esc, bindSeg, sfx, vibrate, go, register, newPlayer, ctx, setVol,
     PALETTE, TEAMS, MAX_PLAYERS, get current() { return current; } };
 })();

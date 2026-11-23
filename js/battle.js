@@ -815,6 +815,10 @@
       }
       this.lootTimer -= dt;
       if (this.lootTimer <= 0) { this.lootTimer = 12 + rnd() * 8; this.spawnMoreLoot(); }
+      if (this.items.length > 80) {                           // partidas largas con reaparición: los objetos más viejos desaparecen
+        const old = this.items.slice().sort((p, q) => q.t - p.t).slice(0, this.items.length - 65);
+        old.forEach((it) => { it.gone = true; }); this.items = this.items.filter((it) => !it.gone);
+      }
       this.items.forEach((it) => { it.t += dt; });
       if (this.phase === 'run') this.collectItems();
       for (const d of this.doors.values()) d.anim = Math.max(0, Math.min(1, d.anim + (d.open ? 1 : -1) * dt * 3.2));

@@ -49,6 +49,8 @@
   });
   App.applyA11y();
 
+  if (App.loadProblem === 'roto') setTimeout(() => App.toast('⚠️ Los datos guardados estaban dañados: se empezó de cero (quedó una copia por las dudas).', 7000), 600);
+
   // ya instalada: ocultar el consejo
   if (matchMedia('(display-mode: standalone)').matches || navigator.standalone) $('#installHint').hidden = true;
 
