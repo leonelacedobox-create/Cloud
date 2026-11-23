@@ -3,7 +3,7 @@
 'use strict';
 
 (() => {
-  const { rnd, rint } = App;
+  const { rnd, rint, sfx } = App;
   const { Game, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, magOf, MED } = App.battle;
   const FUSE = { frag: 2.4, smoke: 1.1, flash: 1.7 };
   const { PERS, IQ, pickLine } = Personas;
@@ -933,6 +933,10 @@
     const stepN = Math.floor(s.phase / Math.PI);
     if (stepN !== s.lastStep) {                                              // pasos: suenan según cómo camina
       s.lastStep = stepN;
+      if (this.speed === 1 && !this.dead && this.time - (this._stepT || 0) > 0.09 && this.camDist(s) < 7) {         // se oyen los pasos cerca de la cámara
+        this._stepT = this.time;
+        sfx.step(this.floorT ? this.floorT[Math.floor(s.y) * this.W + Math.floor(s.x)] || 0 : 0, (s.sneak ? 0.35 : 1) * (1 - this.camDist(s) / 8), this.camPan(s.x));
+      }
       this.emitSound(s.x, s.y, (s.sneak ? 1.8 : (s.mode === 'hunt' || s.mode === 'attack') && !P.sneak ? 6.5 : 4.2) * this.stepMul(s.x, s.y), 'step', s);   // la alfombra amortigua, el metal y la grava hacen ruido
     }
     this.checkStuck(s, dt, vx || vy);

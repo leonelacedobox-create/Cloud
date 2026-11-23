@@ -435,7 +435,8 @@
         this.parts.push({ x: s.x + ca * 0.95, y: s.y + sa * 0.95, vx: ca * (0.5 + rnd()) + (rnd() - 0.5) * 0.7, vy: sa * (0.5 + rnd()) + (rnd() - 0.5) * 0.7, life: 0.35 + rnd() * 0.3, max: 0.65, color: '#cfd3dc', size: 0.06 + rnd() * 0.06 });
       }
       if (!def.auto || this.time - s.lastNoise > 0.3) { s.lastNoise = this.time; this.emitSound(s.x, s.y, def.noise * (w.sup ? 0.25 : 1), 'shot', s); }
-      if (this.audible()) sfx.shot(w.type, this.camDist(s) + (w.sup || w.type === 'crossbow' ? 16 : 0));
+      if (this.audible()) sfx.shot(w.type, this.camDist(s) + (w.sup || w.type === 'crossbow' ? 16 : 0), this.camPan(s.x));
+      this.heat = Math.min(1.5, (this.heat || 0) + (this.camDist(s) < 12 ? 0.12 : 0.04));
       this.onShot(s, w);
       return true;
     }
@@ -445,11 +446,14 @@
       const behind = Math.abs(angDiff(tgt.look, Math.atan2(s.y - tgt.y, s.x - tgt.x))) > 2.1;
       this.spark(tgt.x, tgt.y, '#ffffff', 4);
       this.emitSound(s.x, s.y, KNIFE.noise, 'step', s);
-      if (this.audible()) sfx.hit();
+      if (this.audible()) sfx.hit(this.camPan(tgt.x), this.camVol(tgt.x, tgt.y));
       this.damage(tgt, s, KNIFE.dmg * (behind ? 1.8 : 1), false);
     }
     /** Distancia (en casilleros) entre un soldado y lo que está mirando la cámara: el sonido baja con la distancia. */
     camDist(s) { return Math.hypot(s.x - this.camX, s.y - this.camY); }
+    /** Paneo estéreo según dónde está algo respecto al centro de la cámara (-1 izquierda, 1 derecha). */
+    camPan(x) { const half = Math.max(4, (this.cw || 300) / (this.ts || 20) / 2); return clamp((x - this.camX) / half, -1, 1) * 0.8; }
+    camVol(x, y) { const d = Math.hypot(x - this.camX, y - this.camY); return d < 8 ? 1 : Math.max(0.12, 1 - (d - 8) / 26); }
     audible() { return this.speed === 1 || (this.speed === 2 && ((this._sfxN = (this._sfxN || 0) + 1) % 2 === 0)); }
 
     /* ---------- botín en el piso ---------- */
@@ -661,6 +665,7 @@
 
     say(s, text, dur = 2.3) {
       if (this.cfg.talk === false || !text) return;
+      if (this.cfg.voice !== false && App.Voice && this.audible() && this.camDist(s) < 9 && !this.dead) setTimeout(() => App.Voice.say(text, { pitch: 0.65 + (s.id % 5) * 0.2, rate: s.P.loud ? 1.15 : 1 }), 0);
       if (s.phrases && rnd() < 0.55) text = s.phrases[rint(s.phrases.length)].replace(/\{n\}/g, s.target ? s.target.name : 'cobarde');   // frases propias
       s.stats.talk++;
       s.bubble = { text, t: dur };
@@ -727,7 +732,7 @@
       const dealt = Math.min(dmg, s.hp);
       s.hp -= dmg; s.flash = 0.18;
       this.spark(s.x, s.y, s.color, 5);
-      if (this.speed <= 2 && (!by || by.cur !== 'knife')) sfx.hit();
+      if (this.speed <= 2 && (!by || by.cur !== 'knife')) sfx.hit(this.camPan(s.x), this.camVol(s.x, s.y));
       if (by && by !== s) {      // sabe de dónde le dispararon (más o menos)
         const a = rnd() * 6.283, m = rnd() * 1.6;
         s.know[by.id] = { id: by.id, x: by.x + Math.cos(a) * m, y: by.y + Math.sin(a) * m, t: this.time, exact: false, kind: 'hit' };
@@ -745,7 +750,7 @@
         this.parts.push({ x: s.x, y: s.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.5 + rnd() * 0.7, max: 1.2, color: i % 3 === 0 ? '#ffb347' : s.color, size: 0.08 + rnd() * 0.12 });
       }
       this.parts.push({ x: s.x, y: s.y, vx: 0, vy: 0, life: 0.45, max: 0.45, color: '#fff', size: 0.9, ring: true });
-      sfx.boom(); vibrate(40);
+      sfx.boom(this.camPan(s.x), this.camVol(s.x, s.y)); if (this.camDist(s) < 10) vibrate(40);
       this.emitSound(s.x, s.y, 12, 'boom', null);
       s.deaths++;
       this.recKill(s, by, zone);
@@ -766,6 +771,7 @@
     /* ---------- simulación ---------- */
     step(dt) {
       this.time += dt;
+      this.heat = (this.heat || 0) * Math.exp(-dt * 0.45);
       if (this.cfg.zone) {
         const t = Math.min(1, Math.max(0, (this.time - this.zoneDelay) / this.zoneTime));
         const [cx, cy] = this.center, W = this.W, H = this.H;
@@ -1329,7 +1335,7 @@
       phrases: String(p.phrases || '').split('\n').map((t) => t.trim()).filter(Boolean).slice(0, 8) }));
     const seed = ($('#seedInput').value || '').trim();
     return { mode: M.key, players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
-      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, seed: seed || null,
+      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, voice: !!B.voice, seed: seed || null,
       gear: B.gear !== false, props: B.props !== false, events: B.events !== false, customMap: B.customMap || Maps.SAMPLE };
   }
 
@@ -1356,6 +1362,7 @@
     if (mine) { game.followId = mine.id; game.padOn = true; }
     paintCam(); paintPad();
     game.start();
+    if (App.Music) App.Music.start();
     try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { wakeLock = null; }
     announce(game);
   }
@@ -1368,6 +1375,7 @@
 
   function leaveGame(toSetup = true) {
     onMatchEnd = null;
+    if (App.Music) App.Music.stop(); if (App.Voice) App.Voice.stop();
     if (game) { game.destroy(); game = null; App.game = null; }
     try { if (wakeLock) wakeLock.release(); } catch (e) { /* nada */ }
     wakeLock = null;
@@ -1418,6 +1426,16 @@
   }
   function onPickup(s, label) { addFeed(`✨ ${s.name} agarró ${label}`, 2500); }
 
+  /** Tensión para la música: tiros cerca de la cámara, pocos en pie, zona, muerte súbita y objetivos del modo. */
+  function tension(g) {
+    const pl = g.soldiers.filter((s) => !s.bot), alive = pl.filter((s) => s.alive).length;
+    let t = 0.18 + Math.min(1, g.heat || 0) * 0.55;
+    if (alive <= 2) t += 0.25; else if (alive / Math.max(1, pl.length) < 0.4) t += 0.12;
+    if (g.zone) t += 0.08;
+    if (g.overtime) t += 0.25;
+    if (g.M && g.M.tension) t += g.M.tension(g);
+    return t;
+  }
   /** Equipo que lleva: granadas, chaleco, casco, botiquines, mochila. */
   function gearLine(s) {
     if (!s.alive) return '';
@@ -1433,6 +1451,7 @@
   }
 
   function onFrame(g) {
+    if (App.Music && App.Music.on) App.Music.set(g.paused || g.phase !== 'run' ? 0.12 : tension(g));
     const mine = g.soldiers.find((q) => q.manual && q.alive);
     if (!!mine !== g.padOn) { g.padOn = !!mine; paintPad(); }
     g.soldiers.forEach((s, i) => {
@@ -1455,6 +1474,7 @@
   }
 
   function onEnd(res) {
+    if (App.Music) App.Music.stop(1.2);
     sfx.fanfare(); vibrate([60, 60, 120]);
     const tourn = onMatchEnd; onMatchEnd = null;
     if (tourn) { res.tourn = true; try { tourn(res); } catch (e) { /* el torneo no debe romper el final */ } }
@@ -1709,11 +1729,11 @@
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });
 
-  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true]].forEach(([id, key, def]) => {
+  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true], ['optMusic', 'music', true], ['optVoice', 'voice', false]].forEach(([id, key, def]) => {
     const input = $('#' + id); input.checked = B[key] == null ? def : !!B[key];
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });
-  [['volMaster', 100], ['volShots', 100]].forEach(([id, def]) => {
+  [['volMaster', 100], ['volShots', 100], ['volMusic', 60]].forEach(([id, def]) => {
     const input = $('#' + id); input.value = B[id] == null ? def : B[id];
     input.addEventListener('input', () => { B[id] = +input.value; applyAudio(); save(); });
     input.addEventListener('change', () => { App.sfx.shot('pistol'); });         // para escuchar cómo quedó

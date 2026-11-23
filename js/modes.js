@@ -263,6 +263,7 @@
     text(g) { const c = g.mst.caps; return `🚩 ${TEAMS[0].name} ${c[0] || 0} – ${c[1] || 0} ${TEAMS[1].name} · a ${g.mst.target} · ${clock(g)}`; },
     scores(g) { return g.mst.flags.map((f) => ({ name: `Equipo ${TEAMS[f.team].name}`, color: TEAMS[f.team].color, value: `${g.mst.caps[f.team] || 0} capturas` })); },
     rank: (s) => s.score * 100 + s.kills * 10 - s.deaths,
+    tension: (g) => (g.mst.flags.some((f) => f.carrier) ? 0.18 : 0),
     drawUnder(g, x, ts) {
       for (const f of g.mst.flags) {
         const col = TEAMS[f.team].color;
@@ -315,6 +316,7 @@
     text(g) { const m = g.mst; return `👑 Meta ${m.target} · ${m.contested ? '⚔️ en disputa' : m.holder ? '🔒 la tiene ' + tag(groupOf(g, m.holder) || {}) : 'libre'} · ${clock(g)}\n${scoreLine(g, hillScore(g))}`; },
     scores(g) { return scoreRows(g, hillScore(g), 'pts'); },
     rank: (s) => s.score + s.kills * 3,
+    tension: (g) => (g.mst.contested ? 0.15 : 0),
     drawUnder(g, x, ts) {
       const h = g.mst.hill, col = g.mst.contested ? '#f87171' : g.mst.holder ? (groupOf(g, g.mst.holder) || {}).color || '#fde047' : '#fde047';
       const pulse = 1 + Math.sin(g.time * 4) * 0.03;
@@ -406,6 +408,7 @@
       return `💣 ${b.carrier ? 'La lleva ' + b.carrier.name : 'bomba en el piso'}${b.plantT > 0 ? ' · plantando ' + Math.round(b.plantT / 4 * 100) + '%' : ''} · ${clock(g)}`;
     },
     scores() { return null; },
+    tension: (g) => (g.mst.bomb.planted && !g.mst.bomb.defused ? 0.35 + (g.mst.bomb.timer < 10 ? 0.3 : 0) : g.mst.bomb.plantT > 0 ? 0.2 : 0),
     drawUnder(g, x, ts) {
       const m = g.mst, s = m.site, b = m.bomb, pulse = 1 + Math.sin(g.time * 5) * 0.05;
       const col = b.planted ? '#ef4444' : '#fbbf24';
@@ -492,6 +495,7 @@
     text(g) { const m = g.mst; return m.state === 'prep' ? `🌊 Oleada ${m.wave + 1}/${m.total} en ${Math.max(0, Math.ceil(m.t))}s` : `🌊 Oleada ${m.wave}/${m.total} · quedan ${m.left == null ? '?' : m.left}`; },
     scores(g) { return players(g).map((s) => ({ name: s.name, color: s.color, value: `${s.kills} bots` })); },
     rank: (s) => s.kills * 10 - s.deaths,
+    tension: (g) => (g.mst.state === 'fight' ? 0.12 + (g.mst.wave === g.mst.total ? 0.2 : 0) : -0.1),
   });
 
   /* ----- carrera de botín ----- */

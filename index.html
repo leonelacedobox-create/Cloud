@@ -40,7 +40,7 @@
       <span class="menu-ico">🔫</span>
       <span><b>Batalla en el laberinto</b><small>Hasta 10 soldados peleando solos. El último en pie gana.</small></span>
     </button>
-    <p class="hint center">Versión 0.7 · “Modos de juego y diversión”</p>
+    <p class="hint center">Versión 0.9 · “Pulido y sentidos”</p>
     <p class="hint center" id="installHint">Tip: en el menú del navegador elegí “Agregar a pantalla de inicio” y queda como una app.</p>
   </section>
 
@@ -201,10 +201,14 @@
         <label class="switch"><input type="checkbox" id="optLaser"><span>Punto láser y abanico de dispersión</span></label>
         <label class="switch"><input type="checkbox" id="optSlowmo"><span>Cámara lenta al terminar la partida (y repeticiones al final)</span></label>
         <label class="switch"><input type="checkbox" id="optFriendly"><span>Fuego amigo (en equipos las balas también pegan a los compañeros)</span></label>
+        <label class="switch"><input type="checkbox" id="optMusic"><span>🎵 Música que sube con la tensión</span></label>
+        <label class="switch"><input type="checkbox" id="optVoice"><span>🗣️ Voz para los insultos y el relator (usa la voz del celular)</span></label>
         <div class="label">Volumen general</div>
         <input type="range" id="volMaster" min="0" max="100" aria-label="Volumen general">
         <div class="label">Volumen de disparos</div>
         <input type="range" id="volShots" min="0" max="100" aria-label="Volumen de disparos">
+        <div class="label">Volumen de la música</div>
+        <input type="range" id="volMusic" min="0" max="100" aria-label="Volumen de la música">
         <div class="label">Mis insultos (uno por línea; {n} = nombre del rival)</div>
         <textarea id="customLines" rows="3" maxlength="400" placeholder="¡{n}, sos un tomate!"></textarea>
       </div>
@@ -269,6 +273,7 @@
 </main>
 
 <script src="js/common.js"></script>
+<script src="js/audio.js"></script>
 <script src="js/coin.js"></script>
 <script src="js/art.js"></script>
 <script src="js/personas.js"></script>

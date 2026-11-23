@@ -99,7 +99,7 @@
     this.glass[i] = 2; this.stats.glass++;
     const x = (i % this.W) + 0.5, y = ((i / this.W) | 0) + 0.5;
     for (let k = 0; k < 9; k++) { const a = rnd() * 6.283, v = 1 + rnd() * 3; this.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.4 + rnd() * 0.4, max: 0.8, color: '#cdeaff', size: 0.05 + rnd() * 0.05 }); }
-    if (this.speed <= 2) sfx.glass();
+    if (this.speed <= 2) sfx.glass(this.camPan(x), this.camVol(x, y));
     this.emitSound(x, y, 9, 'door', by && by.alive ? by : null);                           // el estruendo delata el tiroteo
   };
   G.damageProp = function (i, dmg, by) {
@@ -132,7 +132,7 @@
     for (let i = 0; i < 26; i++) { const a = rnd() * 6.283, v = 2 + rnd() * 6; this.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.4 + rnd() * 0.6, max: 1, color: i % 3 ? '#ffb347' : '#6b7280', size: 0.1 + rnd() * 0.15 }); }
     this.parts.push({ x, y, vx: 0, vy: 0, life: 0.5, max: 0.5, color: '#ffd9a0', size: 1, ring: true });
     this.emitSound(x, y, 20, 'boom', owner && owner.alive ? owner : null);
-    if (this.speed <= 2) sfx.boom();
+    if (this.speed <= 2) sfx.boom(this.camPan(x), this.camVol(x, y));
     if (this.cfg.camShake !== false) this.shake = Math.max(this.shake || 0, 0.5);
     for (const s of this.soldiers) {
       if (!s.alive) continue;
@@ -182,7 +182,7 @@
   G.flashBang = function (x, y, owner) {
     this.flashes.push({ x, y, t: 0 });
     this.emitSound(x, y, 14, 'boom', owner && owner.alive ? owner : null);
-    if (this.speed <= 2) sfx.boom();
+    if (this.speed <= 2) sfx.boom(this.camPan(x), this.camVol(x, y));
     for (const s of this.soldiers) {
       if (!s.alive) continue;
       const d = Math.hypot(s.x - x, s.y - y);

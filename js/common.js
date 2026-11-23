@@ -126,23 +126,28 @@ const App = (() => {
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     return b;
   }
-  function tone(freq, dur, { type = 'sine', vol = 0.15, slide = 0, delay = 0 } = {}) {
+  /** Salida con paneo estéreo (-1 izquierda, 1 derecha): los sonidos se ubican según la cámara. */
+  function out(a, pan) {
+    if (!pan || !a.createStereoPanner) return a.destination;
+    const p = a.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); p.connect(a.destination); return p;
+  }
+  function tone(freq, dur, { type = 'sine', vol = 0.15, slide = 0, delay = 0, pan = 0 } = {}) {
     const a = ctx(); if (!a) return;
     const t = a.currentTime + delay;
     const o = a.createOscillator(), g = a.createGain();
     o.type = type; o.frequency.setValueAtTime(freq, t);
     if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
     g.gain.setValueAtTime(Math.max(0.0002, vol * masterVol), t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+    o.connect(g).connect(out(a, pan)); o.start(t); o.stop(t + dur + 0.02);
   }
-  function noise(dur, { vol = 0.2, freq = 1200, q = 1, type = 'bandpass', sweepTo = 0, delay = 0 } = {}) {
+  function noise(dur, { vol = 0.2, freq = 1200, q = 1, type = 'bandpass', sweepTo = 0, delay = 0, pan = 0 } = {}) {
     const a = ctx(); if (!a) return;
     const t = a.currentTime + delay;
     const s = a.createBufferSource(); s.buffer = noiseBuf(a, dur);
     const f = a.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
     if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + dur);
     const g = a.createGain(); g.gain.setValueAtTime(Math.max(0.0002, vol * masterVol), t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(f).connect(g).connect(a.destination); s.start(t); s.stop(t + dur + 0.02);
+    s.connect(f).connect(g).connect(out(a, pan)); s.start(t); s.stop(t + dur + 0.02);
   }
   const sfx = {
     // el campanilleo metálico de una moneda al caer
@@ -155,22 +160,29 @@ const App = (() => {
     tick(k = 0) { tone(1500 + k * 260, 0.035, { type: 'square', vol: 0.035 }); },
     pop() { tone(300, 0.08, { type: 'triangle', vol: 0.08 }); tone(620, 0.06, { type: 'triangle', vol: 0.06, delay: 0.04 }); },
     // cada arma suena distinto; si está lejos de la cámara suena más bajo y más sordo
-    shot(kind, dist = 0) {
+    shot(kind, dist = 0, pan = 0) {
       const far = dist > 12, m = shotVol * (dist < 8 ? 1 : Math.max(0.12, 1 - (dist - 8) / 26));
       if (m <= 0.01) return;
-      const lp = far ? { type: 'lowpass', freq: 900 } : {};
+      const lp = far ? { type: 'lowpass' } : {};
       switch (kind) {
-        case 'sniper': noise(0.35, { vol: 0.2 * m, freq: far ? 900 : 3200, q: 0.6, sweepTo: 300, ...(far ? { type: 'lowpass' } : {}) }); tone(140, 0.3, { type: 'sawtooth', vol: 0.09 * m, slide: -90 }); break;
-        case 'shotgun': case 'ashotgun': noise(0.22, { vol: 0.2 * m, freq: 1200, q: 0.5, type: 'lowpass', sweepTo: 150 }); tone(110, 0.18, { type: 'square', vol: 0.07 * m, slide: -60 }); break;
-        case 'lmg': case 'hmg': noise(0.06, { vol: 0.09 * m, freq: far ? 700 : 1800, q: 0.8, sweepTo: 400, ...(far ? { type: 'lowpass' } : {}) }); tone(kind === 'hmg' ? 140 : 220, 0.06, { type: 'square', vol: 0.05 * m, slide: -80 }); break;
-        default: noise(0.09, { vol: 0.07 * m, freq: far ? 800 : 2200, q: 0.9, sweepTo: 500, ...(far ? { type: 'lowpass' } : {}) }); tone(520, 0.08, { type: 'square', vol: 0.03 * m, slide: -300 });
+        case 'sniper': noise(0.35, { vol: 0.2 * m, freq: far ? 900 : 3200, q: 0.6, sweepTo: 300, pan, ...lp }); tone(140, 0.3, { type: 'sawtooth', vol: 0.09 * m, slide: -90, pan }); break;
+        case 'shotgun': case 'ashotgun': noise(0.22, { vol: 0.2 * m, freq: 1200, q: 0.5, type: 'lowpass', sweepTo: 150, pan }); tone(110, 0.18, { type: 'square', vol: 0.07 * m, slide: -60, pan }); break;
+        case 'lmg': case 'hmg': noise(0.06, { vol: 0.09 * m, freq: far ? 700 : 1800, q: 0.8, sweepTo: 400, pan, ...lp }); tone(kind === 'hmg' ? 140 : 220, 0.06, { type: 'square', vol: 0.05 * m, slide: -80, pan }); break;
+        default: noise(0.09, { vol: 0.07 * m, freq: far ? 800 : 2200, q: 0.9, sweepTo: 500, pan, ...lp }); tone(520, 0.08, { type: 'square', vol: 0.03 * m, slide: -300, pan });
       }
-      void lp;
     },
-    glass() { [3800, 5200, 6400].forEach((f, i) => tone(f, 0.18, { type: 'triangle', vol: 0.05, delay: i * 0.03 })); noise(0.18, { vol: 0.1, freq: 5000, q: 0.7, type: 'highpass' }); },
+    glass(pan = 0, v = 1) { [3800, 5200, 6400].forEach((f, i) => tone(f, 0.18, { type: 'triangle', vol: 0.05 * v, delay: i * 0.03, pan })); noise(0.18, { vol: 0.1 * v, freq: 5000, q: 0.7, type: 'highpass', pan }); },
+    // pasos: suenan distinto según el piso (0 normal, 1 alfombra, 2 metal, 3 grava)
+    step(floor = 0, v = 1, pan = 0) {
+      v *= 0.8;
+      if (floor === 1) noise(0.05, { vol: 0.012 * v, freq: 220, q: 0.7, type: 'lowpass', pan });
+      else if (floor === 2) { tone(760 + Math.random() * 160, 0.06, { type: 'triangle', vol: 0.03 * v, pan }); noise(0.04, { vol: 0.03 * v, freq: 3000, q: 1, pan }); }
+      else if (floor === 3) noise(0.09, { vol: 0.05 * v, freq: 2300 + Math.random() * 800, q: 0.5, pan });
+      else noise(0.05, { vol: 0.035 * v, freq: 360, q: 0.9, type: 'lowpass', pan });
+    },
     alarm() { for (let i = 0; i < 4; i++) { tone(660, 0.22, { type: 'square', vol: 0.05, delay: i * 0.44 }); tone(880, 0.22, { type: 'square', vol: 0.05, delay: i * 0.44 + 0.22 }); } },
-    hit() { noise(0.12, { vol: 0.14, freq: 900, q: 1.2 }); tone(180, 0.12, { type: 'sawtooth', vol: 0.06, slide: -90 }); },
-    boom() { noise(0.55, { vol: 0.3, freq: 700, q: 0.7, type: 'lowpass', sweepTo: 80 }); tone(90, 0.5, { type: 'sine', vol: 0.2, slide: -60 }); },
+    hit(pan = 0, v = 1) { noise(0.12, { vol: 0.14 * v, freq: 900, q: 1.2, pan }); tone(180, 0.12, { type: 'sawtooth', vol: 0.06 * v, slide: -90, pan }); },
+    boom(pan = 0, v = 1) { noise(0.55, { vol: 0.3 * v, freq: 700, q: 0.7, type: 'lowpass', sweepTo: 80, pan }); tone(90, 0.5, { type: 'sine', vol: 0.2 * v, slide: -60, pan }); },
     pickup() { tone(660, 0.1, { type: 'triangle', vol: 0.1 }); tone(990, 0.16, { type: 'triangle', vol: 0.1, delay: 0.08 }); },
     beep(high) { tone(high ? 880 : 440, high ? 0.35 : 0.15, { type: 'square', vol: 0.07 }); },
     fanfare() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.28, { type: 'triangle', vol: 0.12, delay: i * 0.14 })); tone(1047, 0.7, { type: 'triangle', vol: 0.12, delay: 0.6 }); },
@@ -193,6 +205,7 @@ const App = (() => {
   }
 
   const HATS = { none: 'Sin gorro', cowboy: '🤠 Sombrero vaquero', crown: '👑 Corona', party: '🎉 Gorro de fiesta', tophat: '🎩 Galera', beret: '🎨 Boina', santa: '🎅 Gorro de Papá Noel' };
-  return { HATS, state, save, $, $$, el, rnd, rint, shuffle, pname, esc, bindSeg, sfx, vibrate, go, register, newPlayer, ctx, setVol,
+  const audio = { tone, noise, ctx, get master() { return masterVol; } };
+  return { audio, HATS, state, save, $, $$, el, rnd, rint, shuffle, pname, esc, bindSeg, sfx, vibrate, go, register, newPlayer, ctx, setVol,
     PALETTE, TEAMS, MAX_PLAYERS, get current() { return current; } };
 })();
