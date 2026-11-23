@@ -205,13 +205,20 @@
       <button class="btn primary big" id="btnFight">⚔️ ¡A PELEAR!</button>
 
       <div class="card">
+        <div class="card-head"><b>🏟️ Torneo: ¿quién se va temprano?</b></div>
+        <p class="hint">Cuadro de eliminación directa con los soldados de arriba. Cada cruce es un duelo 1 contra 1: lo podés mirar en vivo o simular. Incluye apuestas al campeón y moneda para desempatar.</p>
+        <div class="row-actions"><button class="btn primary" id="btnTourney">🏟️ Armar torneo</button> <button class="btn" id="btnTourneyOpen">Continuar torneo</button></div>
+      </div>
+
+      <div class="card">
         <div class="card-head">
-          <b>🏆 Tabla de victorias</b><span class="spacer"></span>
+          <b>🏆 Tabla de victorias</b><span class="spacer"></span><button class="btn small" id="btnHist">🏅 Logros</button>
           <div class="seg small" id="segWinRange">
             <button data-v="week">Semana</button><button data-v="all">Total</button>
           </div>
         </div>
         <div id="winTable"></div>
+        <div id="betTable"></div>
         <div class="row-actions"><button class="btn small ghost" id="btnResetWins">Borrar tabla</button></div>
       </div>
     </div>
@@ -263,6 +270,8 @@
 <script src="js/modes.js"></script>
 <script src="js/props.js"></script>
 <script src="js/replay.js"></script>
+<script src="js/hist.js"></script>
+<script src="js/tourney.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/main.js"></script>
 </body>

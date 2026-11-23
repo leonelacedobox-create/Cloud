@@ -41,6 +41,8 @@ const App = (() => {
       const out = Object.assign(d, { sound: s.sound !== false, theme: s.theme || 'auto' });
       out.coin = Object.assign(d.coin, s.coin || {});
       out.battle = Object.assign(d.battle, s.battle || {});
+      out.hist = s.hist && s.hist.players ? s.hist : null;
+      out.tourn = s.tourn || null;
       if (Array.isArray(s.players) && s.players.length >= 2) {
         out.players = s.players.slice(0, MAX_PLAYERS).map((p, i) => Object.assign(newPlayer(i), p, { id: nextId++ }));
       }

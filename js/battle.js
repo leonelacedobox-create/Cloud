@@ -1195,6 +1195,7 @@
   const feed = $('#feed');
   const zoneInfo = $('#zoneInfo');
   let chips = [];
+  let onMatchEnd = null;                                      // el torneo se engancha acá para recibir el resultado
   B.lives = Math.min(3, +B.lives || 3);                       // máximo 3 vidas
 
   /** Recorta la foto al centro, la achica a 96×96 y la guarda como texto (queda en este celular). */
@@ -1265,11 +1266,15 @@
           el('p', { class: 'hint' }, 'Usá la foto solo si esa persona está de acuerdo. Queda guardada en este celular y se ve en las fichas, el podio y sobre el soldado.'));
         const phrasesBox = el('label', { class: 'sel' }, 'Frases propias (una por línea; {n} = nombre del enemigo)',
           el('textarea', { class: 'mono', rows: 3, maxlength: 300, placeholder: 'Ej: ¡Te voy a dejar sin café, {n}!', oninput: (e) => { p.phrases = e.target.value; save(); } }, p.phrases || ''));
+        const betSel = el('label', { class: 'sel' }, '🎯 Apuesto a que gana… (los aciertos suman a tu marcador)',
+          el('select', { 'aria-label': 'Apuesta', onchange: (e) => { p.bet = e.target.value === '' ? null : +e.target.value; save(); } },
+            el('option', { value: '' }, 'Nadie'),
+            state.players.map((q, j) => el('option', Object.assign({ value: q.id }, p.bet === q.id ? { selected: true } : {}), pname(q, j)))));
         const roleSel = el('select', { 'aria-label': 'Rol', onchange: (e) => { p.role = e.target.value; save(); renderRoster(); } },
           Object.entries(App.Modes.ROLES).map(([k, v]) => el('option', Object.assign({ value: k }, (p.role || 'none') === k ? { selected: true } : {}), `${v.emoji} ${v.label}`)));
         wrapRow.append(el('div', { class: 'sdet' }, el('label', { class: 'sel' }, 'Personalidad', select), el('div', {}, el('div', { class: 'sel' }, 'Inteligencia'), seg),
           el('label', { class: 'sel' }, 'Rol', roleSel), el('p', { class: 'hint' }, App.Modes.ROLES[p.role || 'none'].desc),
-          el('label', { class: 'sel' }, 'Gorro', hatSel), photoRow, phrasesBox,
+          el('label', { class: 'sel' }, 'Gorro', hatSel), photoRow, phrasesBox, betSel,
           el('label', { class: 'switch' }, el('input', Object.assign({ type: 'checkbox', onchange: (e) => { state.players.forEach((q) => { q.manual = false; }); p.manual = e.target.checked; save(); renderRoster(); } }, p.manual ? { checked: true } : {})), el('span', {}, '🎮 Lo manejo yo con el joystick (los demás siguen solos)')), desc));
       }
       box.append(wrapRow);
@@ -1286,8 +1291,19 @@
     d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
     return d.getTime();
   }
+  function renderBets() {
+    const box = $('#betTable'); if (!box) return;
+    const since = B.winRange === 'week' ? weekStart() : 0, tally = new Map();
+    (B.betLog || []).filter((b) => b.t >= since).forEach((b) => { const t = tally.get(b.name) || [0, 0]; t[1]++; if (b.ok) t[0]++; tally.set(b.name, t); });
+    box.innerHTML = '';
+    const rows = [...tally.entries()].sort((a, b) => b[1][0] - a[1][0] || a[1][1] - b[1][1]);
+    if (!rows.length) return;
+    box.append(el('div', { class: 'sect-title' }, '🎯 Mejores apostadores'));
+    rows.forEach(([n, [ok, tot]], i) => box.append(el('div', { class: 'wrow' }, el('span', {}, `${i === 0 ? '🔮 ' : ''}${n}`), el('span', { class: 'n' }, `${ok}/${tot} aciertos`))));
+  }
   function renderWins() {
     const box = $('#winTable');
+    renderBets();
     const since = B.winRange === 'week' ? weekStart() : 0;
     const tally = new Map();
     B.wins.filter((w) => w.t >= since).forEach((w) => w.names.forEach((n) => tally.set(n, (tally.get(n) || 0) + 1)));
@@ -1308,7 +1324,7 @@
     const M = App.Modes.defs[B.mode] || App.Modes.defs.classic;
     const tm = B.teamMode === 'teams' || M.team === 'two' || M.team === 'coop';
     const tc = M.team === 'two' ? 2 : B.teamCount;
-    const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: B.teamMode === 'teams' ? Math.min(p.team || 0, tc - 1) : i % tc, pers: p.pers || 'auto', iq: p.iq == null ? 1 : p.iq, role: p.role || 'none', manual: !!p.manual, hat: p.hat || 'none', photo: p.photo || null,
+    const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: B.teamMode === 'teams' ? Math.min(p.team || 0, tc - 1) : i % tc, pers: p.pers || 'auto', iq: p.iq == null ? 1 : p.iq, id: p.id, role: p.role || 'none', manual: !!p.manual, hat: p.hat || 'none', photo: p.photo || null,
       phrases: String(p.phrases || '').split('\n').map((t) => t.trim()).filter(Boolean).slice(0, 8) }));
     const seed = ($('#seedInput').value || '').trim();
     return { mode: M.key, players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
@@ -1316,12 +1332,12 @@
       gear: B.gear !== false, props: B.props !== false, events: B.events !== false, customMap: B.customMap || Maps.SAMPLE };
   }
 
-  async function startGame() {
-    const cfg = buildConfig();
-    if (cfg.teamMode && cfg.mode !== 'waves' && new Set(cfg.players.map((p) => p.team)).size < 2) {
+  async function startGame(cfgOverride) {
+    const cfg = cfgOverride && cfgOverride.players ? cfgOverride : buildConfig();
+    if (!cfgOverride && cfg.teamMode && cfg.mode !== 'waves' && new Set(cfg.players.map((p) => p.team)).size < 2) {
       alert('Para jugar por equipos tiene que haber soldados en al menos 2 equipos distintos.'); return;
     }
-    if (cfg.map === 'custom') { const chk = Maps.parse(cfg.customMap); if (chk.error) { alert('Tu mapa no sirve todavía: ' + chk.error); return; } }
+    if (!cfgOverride && cfg.map === 'custom') { const chk = Maps.parse(cfg.customMap); if (chk.error) { alert('Tu mapa no sirve todavía: ' + chk.error); return; } }
     App.ctx();
     applyAudio();
     Personas.setCustom(B.customLines);
@@ -1350,6 +1366,7 @@
   function applyAudio() { App.setVol((B.volMaster == null ? 100 : B.volMaster) / 100, (B.volShots == null ? 100 : B.volShots) / 100); }
 
   function leaveGame(toSetup = true) {
+    onMatchEnd = null;
     if (game) { game.destroy(); game = null; App.game = null; }
     try { if (wakeLock) wakeLock.release(); } catch (e) { /* nada */ }
     wakeLock = null;
@@ -1438,9 +1455,33 @@
 
   function onEnd(res) {
     sfx.fanfare(); vibrate([60, 60, 120]);
-    const names = res.winners.map((s) => s.name);
-    if (names.length) { B.wins.push({ t: Date.now(), names }); if (B.wins.length > 1000) B.wins.shift(); save(); }
+    const tourn = onMatchEnd; onMatchEnd = null;
+    if (tourn) { res.tourn = true; try { tourn(res); } catch (e) { /* el torneo no debe romper el final */ } }
+    else {
+      const names = res.winners.map((s) => s.name);
+      if (names.length) { B.wins.push({ t: Date.now(), names }); if (B.wins.length > 1000) B.wins.shift(); }
+      res.bets = settleBets(res);
+      save();
+    }
+    try { res.unlocked = App.Hist ? App.Hist.record(res) : []; } catch (e) { res.unlocked = []; }
     showResult(res);
+  }
+
+  /** Apuestas: cada compañero puede apostar a quién gana; los aciertos suman a su marcador. */
+  function settleBets(res) {
+    if (res.mode === 'waves') return [];
+    const out = [];
+    state.players.forEach((p, i) => {
+      if (p.bet == null) return;
+      const target = state.players.find((q) => q.id === p.bet); if (!target) return;
+      const ok = res.winners.some((w) => w.pid === p.bet);
+      if (!res.winners.length) return;
+      p.hits = (p.hits || 0) + (ok ? 1 : 0);
+      (B.betLog = B.betLog || []).push({ t: Date.now(), name: pname(p, i), ok });
+      if (B.betLog.length > 500) B.betLog.shift();
+      out.push({ name: pname(p, i), on: pname(target, state.players.indexOf(target)), ok });
+    });
+    return out;
   }
 
   /** Premios graciosos según lo que hizo cada uno durante la partida. */
@@ -1507,6 +1548,14 @@
       onclick: (e) => { try { navigator.clipboard.writeText(String(res.seed)); e.target.textContent = '✅ Copiada'; } catch (err) { e.target.textContent = String(res.seed); } },
     }, `🌱 Semilla ${res.seed} · tocá para copiar`);
 
+    const unl = res.unlocked && res.unlocked.length ? el('div', { class: 'awards' }, res.unlocked.map((u) => el('div', {}, '🏅 ', el('b', {}, u.name), ': ' + u.items.map((a) => `${a.emoji} ${a.name}`).join(', ')))) : null;
+    const betBox = res.bets && res.bets.length ? el('div', { class: 'awards' }, res.bets.map((b) => el('div', {}, `${b.ok ? '✅' : '❌'} `, el('b', {}, b.name), ` apostó a ${b.on}${b.ok ? ' y acertó (+1)' : ''}`))) : null;
+    const tieIdx = !win.length && !res.tourn ? (res.tied && res.tied.length > 1 ? res.tied : (rk.length > 1 ? [[rk[0]], [rk[1]]] : null)) : null;
+    const tieBtn = tieIdx && App.Tourney ? el('button', { class: 'btn primary wide', onclick: async () => {
+      const w = await App.Tourney.coinBreak(tieIdx);                   // la moneda decide (Milei vs Cristina)
+      res.winners = w; res.title = null; res.sub = `🪙 Lo definió la moneda`; res.coinTie = true;
+      B.wins.push({ t: Date.now(), names: w.map((s) => s.name) }); res.bets = settleBets(res); save(); showResult(res);
+    } }, '🪙 Desempatar con la moneda') : '';
     const rp = res.replay, canRp = rp && rp.last && App.Replay;
     const watch = (clips, title) => { ov.hidden = true; if (!App.Replay.play(game, clips, title, () => { ov.hidden = false; })) ov.hidden = false; };
     const rpBtns = canRp ? el('div', { class: 'res-btns' },
@@ -1516,10 +1565,14 @@
     ov.append(el('div', { class: 'overlay-box' },
       el('h2', { class: 'win-title' }, title), el('p', { class: 'win-sub' }, sub), podium,
       scoreBox ? el('div', { class: 'sect-title' }, 'Marcador') : '', scoreBox || '',
+      betBox ? el('div', { class: 'sect-title' }, '🎯 Apuestas') : '', betBox || '',
+      unl ? el('div', { class: 'sect-title' }, '¡Medallas nuevas!') : '', unl || '',
+      tieBtn,
       el('div', { class: 'sect-title' }, 'Premios'), awardBox,
       el('div', { class: 'sect-title' }, 'Posiciones (bajas · daño · puntería)'), list,
       rpBtns,
       seedBtn,
+      res.tourn ? el('div', { class: 'res-btns' }, el('button', { class: 'btn primary wide', onclick: () => { leaveGame(true); App.Tourney.open(); } }, '➡️ Volver al torneo')) :
       el('div', { class: 'res-btns' },
         el('button', { class: 'btn primary wide', onclick: () => startGame() }, '🔁 Revancha'),
         el('button', { class: 'btn', onclick: () => leaveGame(true) }, '⚙️ Cambiar'),
@@ -1682,11 +1735,12 @@
     save(); renderRoster();
   });
   $('#btnFight').addEventListener('click', startGame);
+  $('#btnHist').addEventListener('click', () => App.Hist.open(state.players.map((p, i) => pname(p, i))));
   $('#btnResetWins').addEventListener('click', () => { if (confirm('¿Borrar la tabla de victorias?')) { B.wins = []; save(); renderWins(); } });
 
   App.register('battle', {
     enter() { renderRoster(); renderWins(); },
     leave() { if (game) leaveGame(false); },
   });
-  App.battle = { initModeUI, genMap, Game, PERS, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, cap, magOf, MED };
+  App.battle = { startGame, leaveGame, setMatchHook: (cb) => { onMatchEnd = cb; }, buildConfig, initModeUI, genMap, Game, PERS, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, cap, magOf, MED };
 })();

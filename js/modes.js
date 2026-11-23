@@ -42,7 +42,7 @@
   function leaderEnd(g, score, unit) {
     const gs = groupsOf(g).map((o) => [o, score(o)]).sort((a, b) => b[1] - a[1]);
     if (!gs.length) return { winners: [], title: '🤝 ¡Empate!' };
-    if (gs.length > 1 && gs[0][1] === gs[1][1]) return { winners: [], title: '🤝 ¡Empate!', sub: `${gs[0][1]} ${unit} cada uno · se acabó el tiempo` };
+    if (gs.length > 1 && gs[0][1] === gs[1][1]) return { winners: [], title: '🤝 ¡Empate!', sub: `${gs[0][1]} ${unit} cada uno · se acabó el tiempo`, tied: gs.filter((q) => q[1] === gs[0][1]).map((q) => q[0].members) };
     return endWith(g, gs[0][0].key, null, `${gs[0][1]} ${unit} · se acabó el tiempo`);
   }
   const scoreLine = (g, score) => {
@@ -239,7 +239,7 @@
       for (const f of g.mst.flags) if ((c[f.team] || 0) >= g.mst.target) return endWith(g, 't' + f.team, null, `${c[f.team]} capturas`);
       if (g.time < g.mst.limit) return null;
       const [a, b] = g.mst.flags;
-      if ((c[a.team] || 0) === (c[b.team] || 0)) return { winners: [], title: '🤝 ¡Empate!', sub: `${c[a.team] || 0} capturas cada uno` };
+      if ((c[a.team] || 0) === (c[b.team] || 0)) return { winners: [], title: '🤝 ¡Empate!', sub: `${c[a.team] || 0} capturas cada uno`, tied: [groupOf(g, 't' + a.team).members, groupOf(g, 't' + b.team).members] };
       return endWith(g, 't' + ((c[a.team] || 0) > (c[b.team] || 0) ? a.team : b.team), null, `${Math.max(c[a.team] || 0, c[b.team] || 0)} capturas · se acabó el tiempo`);
     },
     goal(g, s) {
