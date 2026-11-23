@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.9.2 ✅ terminada.** Próximas: 0.9.3 → 0.9.4 → 0.9.5 → 0.9.6 → 0.9.7 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.9.3 ✅ terminada.** Próximas: 0.9.4 → 0.9.5 → 0.9.6 → 0.9.7 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -127,7 +127,9 @@ Antes de publicar, seis versiones grandes de mejoras: cuerpos y animaciones, int
 9. **Animaciones de interacción:** abrir y cerrar puertas con la mano y el hombro, saltar sobre cajones bajos, juntar objetos agachándose, tirar granadas por arriba o rodando.
 10. **Herramienta de prueba:** una pantalla oculta de "pasarela" para ver cada animación por separado y en cámara lenta.
 
-## 0.9.3 — "Cerebros 2.0" (inteligencia individual)
+## 0.9.3 — "Cerebros 2.0" (inteligencia individual) ✅
+
+> **Hecho.** Notas: la decisión por puntajes se usa cuando hay un enemigo a la vista (el resto de las decisiones siguen el orden de prioridades de la 0.2, ahora con peligro, memoria y jugadas propias). La aturdidora antes de entrar a un cuarto queda para 0.9.4 (entrada en equipo).
 1. **Decisión por utilidad:** cada medio segundo el soldado puntúa todas sus opciones (pelear, cubrirse, flanquear, curarse, buscar armas, emboscar, huir, ir al objetivo) según la situación y su personalidad, con "inercia" para no cambiar de idea a cada rato. Se puede ver qué piensa con un modo de depuración.
 2. **Mapa táctico precalculado:** puntos de cobertura (y desde dónde cubren), esquinas para asomarse, pasillos de tiro largos, cuellos de botella y zonas peligrosas. Se arma al empezar cada partida.
 3. **Mapa de peligro vivo:** dónde hubo tiros, muertes y granadas en los últimos segundos; lo evitan o lo atacan según la personalidad.

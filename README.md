@@ -101,6 +101,20 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **Más liviano:** las armas y las cabezas se dibujan una vez y se copian.
 - **🎬 Pasarela de animaciones:** tocá 5 veces el número de versión en el menú (o entrá con `#pasarela`) para ver las 40 animaciones por separado y en cámara lenta.
 
+### Novedades de la 0.9.3 — Cerebros 2.0
+- **Decide por puntajes** (`js/brain2.js`): con un enemigo a la vista cada soldado puntúa atacar, cubrirse, huir, flanquear y acercarse por la espalda según su vida, su miedo y furia, su arma, si lo están tirando, si el rival recarga o está herido, y su personalidad; con "inercia" para no cambiar de idea a cada rato.
+- **Mapa táctico** que se arma al empezar: qué casilleros tapan y de qué lado, pasillos angostos y puertas (cuellos de botella), pasillos de tiro largos y cajones que se pueden saltar.
+- **Mapa de peligro:** tiros, muertes y explosiones marcan zonas calientes que se van enfriando; los prudentes las evitan al explorar y los bravos van hacia el ruido.
+- **Supresión:** las balas que pasan cerca asustan, bajan la puntería y empujan a cubrirse. Los tácticos y las ametralladoras **"aprietan"** con ráfagas donde se escondió el rival.
+- **Mejor oído:** si oyen varias veces al mismo, **triangulan** su posición; reconocen el arma por el sonido, y los atrevidos **aprovechan cuando el rival recarga** (el asesino saca el cuchillo).
+- **Memoria:** recuerdan dónde suele quedarse cada rival y van a revisar ahí.
+- **Puntería humana:** al ver a alguien, el arma tarda en "llegar" y se va corrigiendo (más rápido cuanto más hábil y peor bajo fuego); **adelantan el tiro** a quien corre y los más hábiles controlan mejor el retroceso.
+- **Jugadas propias:** el agresivo corre al que recarga, el cauteloso **apunta al pasillo o la puerta** por donde va a aparecer el rival y se esconde a recargar antes de quedarse seco, el táctico tira **humo y después flanquea**, el cobarde busca **el rincón más tapado** y el berserker siempre va al frente.
+- **🦅 Nivel Leyenda** por encima de Maestro.
+- **La IA también salta cajones** cuando le conviene para acortar camino.
+- **🧠 Modo depuración** (Ajustes): sobre cada soldado se ve qué decidió y las barras de puntaje de cada opción, y en el mapa las zonas de peligro y los cuellos de botella.
+- **Banco de pruebas** con una tabla nueva "Cerebro": tiempo de reacción, tiempo bajo supresión, recargas a la vista del rival, tiempo sin balas en pelea, saltos de cajón y en qué se reparten las decisiones.
+
 ### Banco de pruebas
 ```sh
 node tools/bench.js --runs 12    # simula cientos de partidas sin dibujar y genera un reporte

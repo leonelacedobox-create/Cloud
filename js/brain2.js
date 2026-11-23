@@ -219,5 +219,5 @@
   };
 
   /* ================= nivel Leyenda ================= */
-  if (IQ.length === 4) IQ.push({ key: 'leyenda', label: 'Leyenda', emoji: '🦅', react: 0.16, aim: 0.8, tac: 1.0, dodge: 0.82, think: 0.72, forget: 0 });
+  if (IQ.length === 4) IQ.push({ key: 'leyenda', label: 'Leyenda', emoji: '🦅', react: 0.13, aim: 0.72, tac: 1.0, dodge: 0.92, think: 0.68, forget: 0 });
 })();
