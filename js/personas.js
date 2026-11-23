@@ -8,14 +8,14 @@ const Personas = (() => {
      bravery: cuánto aguanta el miedo · rage: cuánto se enfurece al recibir daño. */
   const PERS = {
     agresivo: {
-      emoji: '🔥', label: 'Agresivo', desc: 'Corre, insulta y delata dónde está.', speed: 3.15, sight: 12, loud: true, sneak: false, run: 1.18, tough: 0.88,
-      distMul: 0.75, accMul: 1.1, burst: [8, 8], bravery: 0.8, rage: 0.5, finisher: 0.5,
+      emoji: '🔥', label: 'Agresivo', desc: 'Corre, insulta y delata dónde está.', speed: 3.15, sight: 12, loud: true, sneak: false, run: 1.18, tough: 0.8,
+      distMul: 0.75, accMul: 1.0, burst: [8, 8], bravery: 0.8, rage: 0.5, finisher: 0.5,
       wpref: { shotgun: 1.2, ashotgun: 1.4, hmg: 0.8 },
       base: { peek: 0.25, door: 0.25, blind: 0.55, listen: 0.95, ambush: 0.12, cover: 0.25, flee: 0.35, flank: 0.25, stalk: 0, scav: 0.1, coord: 0.4, nade: 0.5 },
     },
     cauteloso: {
       emoji: '🛡️', label: 'Cauteloso', desc: 'Silencioso, se asoma y embosca.', speed: 2.8, sight: 12, loud: false, sneak: true, run: 1,
-      tough: 1.08, distMul: 1.3, accMul: 1.0, burst: [3, 3], bravery: 0.35, rage: 0.1, finisher: 0.4,
+      tough: 1.12, distMul: 1.3, accMul: 1.0, burst: [3, 3], bravery: 0.35, rage: 0.1, finisher: 0.4,
       wpref: { lmg: 0.8, sniper: 0.8 },
       base: { peek: 0.9, door: 0.75, blind: 0.35, listen: 1.05, ambush: 0.55, cover: 0.8, flee: 0.7, flank: 0.3, stalk: 0.25, scav: 0.3, coord: 0.6, nade: 0.4 },
     },
@@ -26,8 +26,8 @@ const Personas = (() => {
       base: { peek: 0.75, door: 0.5, blind: 0.2, listen: 1.05, ambush: 0.9, cover: 0.6, flee: 0.55, flank: 0.1, stalk: 0, scav: 0.35, coord: 0.4, nade: 0.2 },
     },
     asesino: {
-      emoji: '🗡️', label: 'Asesino', desc: 'Sigilo y cuchillo: ataca por la espalda.', speed: 3.15, sight: 11, loud: false, sneak: true, run: 1, tough: 1,
-      distMul: 0.8, accMul: 0.9, burst: [4, 3], bravery: 0.8, rage: 0.2, finisher: 0.8,
+      emoji: '🗡️', label: 'Asesino', desc: 'Sigilo y cuchillo: ataca por la espalda.', speed: 3.15, sight: 11, loud: false, sneak: true, run: 1, tough: 0.85,
+      distMul: 0.8, accMul: 0.85, burst: [4, 3], bravery: 0.8, rage: 0.2, finisher: 0.8,
       wpref: { shotgun: 0.6 },
       base: { peek: 0.6, door: 0.7, blind: 0.1, listen: 1.25, ambush: 0.55, cover: 0.3, flee: 0.25, flank: 0.9, stalk: 1, scav: 0.2, coord: 0.2, nade: 0.35 },
     },
@@ -51,7 +51,7 @@ const Personas = (() => {
     },
     cobarde: {
       emoji: '🐔', label: 'Cobarde', desc: 'Huye, se esconde y grita de miedo.', speed: 3.0, sight: 12, loud: false, scream: true, sneak: true, run: 1,
-      tough: 1.1, distMul: 1.7, accMul: 1.25, burst: [2, 2], bravery: 0, rage: 0, finisher: 0.2,
+      tough: 1.2, distMul: 1.7, accMul: 1.35, burst: [2, 2], bravery: 0, rage: 0, finisher: 0.2,
       wpref: {},
       base: { peek: 0.8, door: 0.9, blind: 0.5, listen: 1.3, ambush: 0.6, cover: 1, flee: 1.2, flank: 0, stalk: 0, scav: 0.2, coord: 0.5, nade: 0.6 },
     },

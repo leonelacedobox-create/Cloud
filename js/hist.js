@@ -78,7 +78,7 @@
     const head = el('div', { class: 'card-head' }, el('b', {}, '🏅 Logros e historial'), el('span', { class: 'spacer' }),
       el('button', { class: 'btn small', onclick: () => { box.hidden = true; } }, '✕ Cerrar'));
     const inner = el('div', { class: 'modal-box' }, head);
-    if (!list.length) inner.append(el('p', { class: 'hint' }, 'Todavía no hay partidas guardadas. ¡Jugá una y vuelve!'));
+    if (!list.length) inner.append(el('p', { class: 'hint' }, 'Todavía no hay partidas guardadas. ¡Jugá una y volvé!'));
     else {
       const chips = el('div', { class: 'hchips' }, list.map((n) => el('button', { class: 'btn small' + (n === sel ? ' primary' : ''), onclick: () => { sel = n; open(names); } }, n)));
       inner.append(chips);

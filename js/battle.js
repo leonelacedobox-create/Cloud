@@ -1831,7 +1831,7 @@
     App.go('battle');
     startGame({ mode: 'tutorial', teamMode: false, lives: 3, map: 'arena', size: 's', powerups: false, zone: false, varied: false, loot: false, gear: false, props: true, events: false,
       talk: false, laser: false, friendly: false, slowmo: false, narrator: true, seed: '2024',
-      players: [{ id: -1, name: 'Vos', color: '#22c55e', team: 0, pers: 'cauteloso', iq: 1, role: 'none', manual: true }] });
+      players: [{ id: -1, name: 'Recluta', color: '#22c55e', team: 0, pers: 'cauteloso', iq: 1, role: 'none', manual: true }] });
   }
   const tutHint = $('#tutHint');
   if (tutHint) { tutHint.hidden = !!App.state.ui.tutorialSeen; $('#btnTutStart').addEventListener('click', startTutorial); $('#btnTutSkip').addEventListener('click', () => { App.state.ui.tutorialSeen = true; tutHint.hidden = true; save(); }); }

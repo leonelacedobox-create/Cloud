@@ -202,7 +202,7 @@
 
   /* ----- capturar la bandera ----- */
   add({ key: 'ctf', emoji: '🚩', label: 'Bandera', team: 'two', respawn: 5, noOvertime: true,
-    desc: 'Dos equipos. Robá la bandera enemiga y llevala a tu base (con la tuya en su lugar). Primero a 3 capturas o más capturas a los 5 minutos. Reaparecen en su base.',
+    desc: 'Dos equipos. Robá la bandera enemiga y llevala a tu base (con la tuya en su lugar). Primero a 3 capturas o más capturas a los 5 minutos (si empatan, prórroga y después cuentan las bajas). Reaparecen en su base.',
     pre(cfg) { cfg.zone = false; },
     init(g) {
       g.mst.limit = 300; g.mst.target = 3; computeBases(g);
@@ -213,7 +213,7 @@
       const fl = g.mst.flags;
       for (const f of fl) {
         if (f.carrier) { if (!f.carrier.alive) this.drop(g, f.carrier); else { f.x = f.carrier.x; f.y = f.carrier.y; } }
-        else if (!f.atHome) { f.dropT += dt; if (f.dropT >= 20) { f.atHome = true; f.x = f.home[0]; f.y = f.home[1]; say(g, `🚩 La bandera ${TEAMS[f.team].name.toLowerCase()} volvió a su base`); } }
+        else if (!f.atHome) { f.dropT += dt; if (f.dropT >= 14) { f.atHome = true; f.x = f.home[0]; f.y = f.home[1]; say(g, `🚩 La bandera ${TEAMS[f.team].name.toLowerCase()} volvió a su base`); } }
         if (f.carrier) continue;
         for (const s of g.soldiers) {
           if (!s.alive || s.bot || dist(s, f) > 0.9) continue;
@@ -242,7 +242,11 @@
       if (g.time < g.mst.limit) return null;
       const [a, b] = g.mst.flags;
       if ((c[a.team] || 0) === (c[b.team] || 0) && g.time < g.mst.limit + 90) return null;      // prórroga: gana la próxima captura
-      if ((c[a.team] || 0) === (c[b.team] || 0)) return { winners: [], title: '🤝 ¡Empate!', sub: `${c[a.team] || 0} capturas cada uno`, tied: [groupOf(g, 't' + a.team).members, groupOf(g, 't' + b.team).members] };
+      if ((c[a.team] || 0) === (c[b.team] || 0)) {              // empate en capturas: desempatan las bajas
+        const kills = (t) => players(g).filter((q) => q.team === t).reduce((n, q) => n + q.kills, 0), ka = kills(a.team), kb = kills(b.team);
+        if (ka !== kb) return endWith(g, 't' + (ka > kb ? a.team : b.team), null, `${c[a.team] || 0} a ${c[b.team] || 0} en capturas · ganó por bajas (${Math.max(ka, kb)} a ${Math.min(ka, kb)})`);
+        return { winners: [], title: '🤝 ¡Empate!', sub: `${c[a.team] || 0} capturas cada uno`, tied: [groupOf(g, 't' + a.team).members, groupOf(g, 't' + b.team).members] };
+      }
       return endWith(g, 't' + ((c[a.team] || 0) > (c[b.team] || 0) ? a.team : b.team), null, `${Math.max(c[a.team] || 0, c[b.team] || 0)} capturas · se acabó el tiempo`);
     },
     goal(g, s) {

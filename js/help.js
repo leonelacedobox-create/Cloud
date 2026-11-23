@@ -49,7 +49,8 @@
       m = el('div', { id: 'helpModal', class: 'modal', hidden: true });
       const box = el('div', { class: 'modal-box help' },
         el('div', { class: 'card-head' }, el('b', {}, '❓ Ayuda'), el('span', { class: 'spacer' }), el('button', { class: 'btn small', onclick: () => { m.hidden = true; } }, '✕ Cerrar')),
-        el('button', { class: 'btn primary', onclick: () => { m.hidden = true; App.battle.startTutorial(); } }, '🎓 Empezar la práctica guiada'));
+        el('button', { class: 'btn primary', onclick: () => { m.hidden = true; App.battle.startTutorial(); } }, '🎓 Empezar la práctica guiada'),
+        el('button', { class: 'btn', onclick: () => App.copyInfo() }, '🐞 ¿Algo anda mal? Copiar la información del celular para mandarla'));
       S.forEach(([t, ps], i) => {
         const d = el('details', Object.assign({}, i === 0 ? { open: true } : {}), el('summary', {}, t));
         ps.forEach((p) => { const q = el('p'); q.innerHTML = p; d.append(q); });
