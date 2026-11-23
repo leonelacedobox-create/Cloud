@@ -1538,6 +1538,7 @@
     if (App.Music) App.Music.stop(1.2);
     sfx.fanfare(); vibrate([60, 60, 120]);
     const tourn = onMatchEnd; onMatchEnd = null;
+    if (res.mode === 'tutorial') { App.state.ui.tutorialSeen = true; save(); showResult(res); return; }
     if (tourn) { res.tourn = true; try { tourn(res); } catch (e) { /* el torneo no debe romper el final */ } }
     else {
       const names = res.winners.map((s) => s.name);
@@ -1753,7 +1754,7 @@
   /** Se llama desde modes.js, cuando ya existe la lista de modos. */
   function initModeUI() {
     const modeSeg = $('#segGameMode');
-    App.Modes.LIST.forEach((m) => modeSeg.append(el('button', { 'data-v': m.key, title: m.label }, `${m.emoji} ${m.label}`)));
+    App.Modes.LIST.filter((m) => !m.hidden).forEach((m) => modeSeg.append(el('button', { 'data-v': m.key, title: m.label }, `${m.emoji} ${m.label}`)));
     const modeDesc = () => {
       const M = App.Modes.defs[B.mode] || App.Modes.defs.classic;
       $('#modeDesc').textContent = M.desc + (M.team === 'two' ? ' (Se arman 2 equipos solos si no los elegiste.)' : M.team === 'coop' ? ' (Todos en el mismo equipo.)' : '');
@@ -1817,7 +1818,16 @@
     shuffle(state.players).forEach((p, i) => { p.team = i % B.teamCount; });
     save(); renderRoster();
   });
-  $('#btnFight').addEventListener('click', startGame);
+  $('#btnFight').addEventListener('click', () => startGame());
+  /** Práctica guiada: un soldado tuyo, un mapa chico y pasos de a uno. */
+  function startTutorial() {
+    App.go('battle');
+    startGame({ mode: 'tutorial', teamMode: false, lives: 3, map: 'arena', size: 's', powerups: false, zone: false, varied: false, loot: false, gear: false, props: true, events: false,
+      talk: false, laser: false, friendly: false, slowmo: false, narrator: true, seed: '2024',
+      players: [{ id: -1, name: 'Vos', color: '#22c55e', team: 0, pers: 'cauteloso', iq: 1, role: 'none', manual: true }] });
+  }
+  const tutHint = $('#tutHint');
+  if (tutHint) { tutHint.hidden = !!App.state.ui.tutorialSeen; $('#btnTutStart').addEventListener('click', startTutorial); $('#btnTutSkip').addEventListener('click', () => { App.state.ui.tutorialSeen = true; tutHint.hidden = true; save(); }); }
   $('#btnHist').addEventListener('click', () => App.Hist.open(state.players.map((p, i) => pname(p, i))));
   $('#btnResetWins').addEventListener('click', () => { if (confirm('¿Borrar la tabla de victorias?')) { B.wins = []; save(); renderWins(); } });
 
@@ -1825,5 +1835,5 @@
     enter() { renderRoster(); renderWins(); },
     leave() { if (game) leaveGame(false); },
   });
-  App.battle = { startGame, leaveGame, setMatchHook: (cb) => { onMatchEnd = cb; }, buildConfig, initModeUI, genMap, Game, PERS, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, cap, magOf, MED };
+  App.battle = { startTutorial, startGame, leaveGame, setMatchHook: (cb) => { onMatchEnd = cb; }, buildConfig, initModeUI, genMap, Game, PERS, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, cap, magOf, MED };
 })();

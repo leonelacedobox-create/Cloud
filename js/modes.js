@@ -565,6 +565,51 @@
     loadout(g, s) { s.inv.pistol = { type: 'pistol', mag: 0, res: 0 }; s.inv.primary = null; s.cur = 'knife'; s.wtype = 'knife'; },
   });
 
+  /* ----- práctica guiada (tutorial, 0.9) ----- */
+  const TUT = [
+    { txt: 'Mové el joystick para caminar (o W A S D)', done: (g, p, m) => Math.hypot(p.x - m.sx, p.y - m.sy) > 2.5 },
+    { txt: 'Mantené apretado 🔫 para disparar (o la barra espaciadora)', done: (g, p) => p.stats.shots >= 3 },
+    { txt: 'Tocá 🔄 para recargar (o R)', done: (g, p) => p.stats.reloads >= 1 },
+    { txt: 'Caminá hasta el rifle que brilla y agarralo', done: (g, p) => !!p.inv.primary, enter: (g, p, m) => {
+      let best = null, bd = -1;
+      for (let k = 0; k < 30; k++) { const i = g.floor[rint(g.floor.length)], x = (i % g.W) + 0.5, y = ((i / g.W) | 0) + 0.5, d = Math.hypot(x - p.x, y - p.y); if (d > 3.5 && d < 7 && d > bd) { bd = d; best = [x, y]; } }
+      best = best || [p.x + 1, p.y]; m.mark = best;
+      g.addItem('weapon', 'rifle', best[0], best[1], WEAPONS.rifle.mag, 30, { sup: false, scope: false, ext: false });
+    } },
+    { txt: 'Cambiá de arma con 🔁 hasta tener el cuchillo (o Q)', done: (g, p) => p.cur === 'knife' },
+    { txt: 'Tirá la granada de humo con 💣 (o G)', done: (g, p) => p.stats.thrown >= 1, enter: (g, p) => { p.gren.smoke = 1; } },
+    { txt: 'Te lastimaron: curate con 🩹 (o H)', done: (g, p) => p.stats.healed > 0, enter: (g, p) => { p.hp = p.maxHp - 60; p.meds = ['med']; } },
+    { txt: '¡Última prueba! Eliminá al muñeco de práctica', done: (g, p, m) => m.dummy && !m.dummy.alive, enter: (g, p, m) => {
+      const pos = farFrom(g, [{ x: p.x + 8, y: p.y }], 1);
+      let best = null, bd = 1e9;
+      for (let k = 0; k < 40; k++) { const i = g.floor[rint(g.floor.length)], x = (i % g.W) + 0.5, y = ((i / g.W) | 0) + 0.5, d = Math.abs(Math.hypot(x - p.x, y - p.y) - 6); if (d < bd) { bd = d; best = [x, y]; } }
+      const s = g.makeSoldier({ name: 'Muñeco', color: '#d6c08f', team: -1, pers: 'cauteloso', iq: 0, lives: 1, bot: true }, g.soldiers.length, best || pos, g.looks[1]);
+      s.passive = true; s.ap.hat = 'party'; g.soldiers.push(s); m.dummy = s; m.mark = [s.x, s.y];
+    } },
+  ];
+  add({ key: 'tutorial', emoji: '🎓', label: 'Práctica', team: 'free', respawn: 0, noOvertime: true, hidden: true,
+    desc: 'Práctica guiada para aprender a manejar un soldado.',
+    pre(cfg) { cfg.zone = false; cfg.loot = false; cfg.gear = false; cfg.powerups = false; cfg.events = false; },
+    init(g) { const p = g.soldiers[0]; g.mst.i = -1; g.mst.sx = p.x; g.mst.sy = p.y; g.mst.wait = 1.2; },
+    step(g, dt) {
+      const m = g.mst, p = g.soldiers[0]; if (!p) return;
+      if (!p.alive) { g.respawnSoldier(p); p.manual = true; }
+      if (m.wait > 0) { m.wait -= dt; if (m.wait <= 0) { m.i++; const st = TUT[m.i]; if (st) { m.mark = null; if (st.enter) st.enter(g, p, m); m.sx = p.x; m.sy = p.y; if (g.narrate) g.narrate('say', { text: `Paso ${m.i + 1}: ${st.txt}`, force: true }); sfx.pickup(); } } return; }
+      const st = TUT[m.i];
+      if (st && st.done(g, p, m)) { m.wait = 1.1; pop(g, p.x, p.y, '✔', '#4ade80'); sfx.beep(true); if (m.dummy && m.mark) m.mark = null; }
+      if (m.dummy && m.dummy.alive) m.mark = [m.dummy.x, m.dummy.y];
+    },
+    check(g) { return g.mst.i >= TUT.length ? { winners: [g.soldiers[0]], title: '🎓 ¡Práctica completa!', sub: 'Ya sabés manejar un soldado. ¡A pelear!' } : null; },
+    text(g) { const st = TUT[g.mst.i]; return st ? `🎓 Paso ${g.mst.i + 1}/${TUT.length}\n${st.txt}` : '🎓 ¡Bien!'; },
+    drawOver(g, x, ts) {
+      const mk = g.mst.mark; if (!mk) return;
+      const b = Math.sin(g.time * 6) * ts * 0.15;
+      x.fillStyle = '#facc15'; x.strokeStyle = '#000'; x.lineWidth = 2;
+      x.beginPath(); x.moveTo(mk[0] * ts, mk[1] * ts - ts * 0.7 + b); x.lineTo(mk[0] * ts - ts * 0.35, mk[1] * ts - ts * 1.3 + b); x.lineTo(mk[0] * ts + ts * 0.35, mk[1] * ts - ts * 1.3 + b); x.closePath(); x.fill(); x.stroke();
+      x.strokeStyle = 'rgba(250,204,21,.7)'; x.beginPath(); x.arc(mk[0] * ts, mk[1] * ts, ts * (0.6 + 0.1 * Math.sin(g.time * 6)), 0, 6.283); x.stroke();
+    },
+  });
+
   /* ----- API pública ----- */
   App.Modes = { defs, LIST, ROLES };
   E.initModeUI();

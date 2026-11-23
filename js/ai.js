@@ -872,7 +872,7 @@
     if (m.fear > 0.75 && s.freezeT <= 0 && rnd() < dt * 0.25 * (1 - P.bravery)) s.freezeT = 0.4 + rnd() * 0.5;   // se paraliza
 
     s.thinkT -= dt;
-    if (s.thinkT <= 0) { s.thinkT = (0.3 + rnd() * 0.2) * iq.think; if (!s.manual) this.think(s); }
+    if (s.thinkT <= 0) { s.thinkT = (0.3 + rnd() * 0.2) * iq.think; if (!s.manual && !s.passive) this.think(s); }
     if (s.manual) s.reactT = 0;
 
     // zona: daño fuera del área segura
@@ -896,7 +896,7 @@
 
     // ----- qué quiere hacer -----
     const frozen = s.freezeT > 0 && !s.manual;
-    if (!s.manual && !s.act && !frozen && s.stunT <= 0 && (!s.cover || s.cover.phase !== 'go')) {
+    if (!s.manual && !s.passive && !s.act && !frozen && s.stunT <= 0 && (!s.cover || s.cover.phase !== 'go')) {
       s.gT = (s.gT || 0) - dt;
       if (s.gT <= 0) { s.gT = 0.4; if (!this.tryGrenade(s) && !s.act && this.wantHeal(s)) this.startHeal(s); }
     }
@@ -956,7 +956,7 @@
     // ----- atacar -----
     const ctl = s.manual ? (this.ctl || {}) : null;
     if (s.manual && ctl.fire && !s.target && !s.act && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.cur !== 'knife') this.fire(s, 0);   // dispara hacia adelante
-    if (s.target && !s.act && !frozen && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.reactT <= 0 && (!s.manual || ctl.fire)) {
+    if (s.target && !s.act && !frozen && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.reactT <= 0 && !s.passive && (!s.manual || ctl.fire)) {
       const aim = s.aimPt || s.target, b = Math.atan2(aim.y - s.y, aim.x - s.x), ad = Math.hypot(aim.x - s.x, aim.y - s.y);
       if (s.cur === 'knife') { if (s.td <= KNIFE.range + 0.2 && Math.abs(angDiff(s.angle, b)) < 0.6) this.melee(s, s.target); }
       else if (ad <= this.defOf(s).range && Math.abs(angDiff(s.angle, b)) < 0.14) {

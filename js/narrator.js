@@ -40,7 +40,7 @@
     const now = performance.now(), p = PRIO[kind] || 1;
     this._nar = this._nar || { t: 0, p: 0, used: new Set() };
     const n = this._nar;
-    if (now - n.t < 2300 && p <= n.p) return;
+    if (now - n.t < 2300 && p <= n.p && !data.force) return;
     let line = kind === 'say' ? data.text : pick(LINES[kind] || ['']);
     if (!line) return;
     if (kind !== 'say' && n.used.has(line) && LINES[kind].length > 1) line = pick(LINES[kind].filter((l) => !n.used.has(l))) || line;

@@ -311,6 +311,10 @@ body.lefty .pad .joy { left: auto; right: 14px; }
 body.lefty .pad-btns { right: auto; left: 10px; direction: ltr; }
 body.calm *, body.calm *::before, body.calm *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 .hud .chip .dot.sym { width: 15px; height: 15px; display: grid; place-items: center; font-size: 9px; line-height: 1; color: #fff; text-shadow: 0 0 2px #000; }
+.help details { background: rgba(255,255,255,.05); border-radius: 12px; padding: 8px 10px; }
+.help summary { font-weight: 800; cursor: pointer; }
+.help p { margin: 8px 0 0; font-size: 14px; line-height: 1.4; }
+.tut-hint { border: 1px solid var(--gold2, #c9a227); }
 .fps { position: absolute; left: 6px; bottom: 6px; font: 700 11px ui-monospace, monospace; color: #9ef01a; background: rgba(0,0,0,.55); padding: 1px 6px; border-radius: 6px; pointer-events: none; z-index: 5; }
 .controls { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .overlay { position: absolute; inset: 0; background: rgba(5,8,16,.78); display: flex; align-items: flex-start; justify-content: center; padding: 14px; overflow: auto; }
