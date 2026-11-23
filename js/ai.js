@@ -690,6 +690,44 @@
     s.path = path || [];
   };
 
+  /* ================= control manual (0.7) ================= */
+  /** Movimiento con el joystick: apunta solo al enemigo que ve, abre las puertas al empujarlas. */
+  G.steerManual = function (s, dt) {
+    if (s.act || s.stunT > 0) return this.steer(s, dt);
+    const c = this.ctl || (this.ctl = { mx: 0, my: 0, fire: false, sneak: false });
+    const r = { vx: 0, vy: 0, desired: s.angle, speedMul: 1, sneak: false, scanning: false };
+    const m = Math.hypot(c.mx, c.my);
+    if (m > 0.12) {
+      const k = Math.min(1, m);
+      r.vx = c.mx / m * k; r.vy = c.my / m * k;
+      r.speedMul = c.sneak ? 0.55 : k > 0.85 ? 1.12 : 0.55 + 0.5 * k;
+      r.sneak = !!c.sneak; r.desired = Math.atan2(c.my, c.mx);
+      const ix = Math.floor(s.x + r.vx * 0.8 / Math.max(1, k)), iy = Math.floor(s.y + r.vy * 0.8 / Math.max(1, k)), idx = iy * this.W + ix;
+      if (this.doorGrid[idx] && doorClosed(this.doors.get(idx))) this.toggleDoor(idx, true, s);
+    }
+    if (s.target) r.desired = Math.atan2(s.target.y - s.y, s.target.x - s.x);
+    return r;
+  };
+  /** Botones de la pantalla: recargar, cambiar de arma, tirar granada, curarse. */
+  G.manualAction = function (kind) {
+    const s = this.soldiers.find((q) => q.manual && q.alive);
+    if (!s || s.act || this.phase !== 'run') return false;
+    if (kind === 'reload') return this.startReload(s);
+    if (kind === 'swap') {
+      const order = ['pistol'].concat(s.inv.primary && ammoOf(s.inv.primary) > 0 ? ['primary'] : [], ['knife']);
+      this.switchTo(s, order[(order.indexOf(s.cur) + 1) % order.length]); return true;
+    }
+    if (kind === 'heal') { if (!s.meds.length || s.hp >= s.maxHp) return false; this.startHeal(s); return true; }
+    if (kind === 'nade') {
+      const g = s.gren, type = s.target ? (g.frag > 0 ? 'frag' : g.flash > 0 ? 'flash' : g.smoke > 0 ? 'smoke' : null) : (g.smoke > 0 ? 'smoke' : g.flash > 0 ? 'flash' : g.frag > 0 ? 'frag' : null);
+      if (!type) return false;
+      const ang = s.target ? Math.atan2(s.target.y - s.y, s.target.x - s.x) : s.angle, d = s.target ? s.td : 8;
+      s.act = { type: 'throw', t: 0, dur: 0.5, gtype: type, ang, speed: clamp(d * 1.25, 5, 13), released: false };
+      s.path = []; return true;
+    }
+    return false;
+  };
+
   /* ================= qué hace cada soldado en cada instante ================= */
   /** Calcula hacia dónde moverse, hacia dónde mirar y cómo (sigilo, velocidad). */
   G.steer = function (s, dt) {
@@ -834,7 +872,8 @@
     if (m.fear > 0.75 && s.freezeT <= 0 && rnd() < dt * 0.25 * (1 - P.bravery)) s.freezeT = 0.4 + rnd() * 0.5;   // se paraliza
 
     s.thinkT -= dt;
-    if (s.thinkT <= 0) { s.thinkT = (0.3 + rnd() * 0.2) * iq.think; this.think(s); }
+    if (s.thinkT <= 0) { s.thinkT = (0.3 + rnd() * 0.2) * iq.think; if (!s.manual) this.think(s); }
+    if (s.manual) s.reactT = 0;
 
     // zona: daño fuera del área segura
     if (this.zone && this.outsideZone(s.x, s.y)) {
@@ -856,12 +895,12 @@
     if (s.aimT <= 0) { s.aimT = 0.3; s.aimPt = s.target ? this.barrelTarget(s) : null; }
 
     // ----- qué quiere hacer -----
-    const frozen = s.freezeT > 0;
-    if (!s.act && !frozen && s.stunT <= 0 && (!s.cover || s.cover.phase !== 'go')) {
+    const frozen = s.freezeT > 0 && !s.manual;
+    if (!s.manual && !s.act && !frozen && s.stunT <= 0 && (!s.cover || s.cover.phase !== 'go')) {
       s.gT = (s.gT || 0) - dt;
       if (s.gT <= 0) { s.gT = 0.4; if (!this.tryGrenade(s) && !s.act && this.wantHeal(s)) this.startHeal(s); }
     }
-    const r = frozen ? { vx: 0, vy: 0, desired: s.angle, speedMul: 1, sneak: false, scanning: false } : this.steer(s, dt);
+    const r = frozen ? { vx: 0, vy: 0, desired: s.angle, speedMul: 1, sneak: false, scanning: false } : s.manual ? this.steerManual(s, dt) : this.steer(s, dt);
     let { vx, vy, desired, speedMul, scanning } = r;
     const hidden = s.cover || s.mode === 'hold' || s.mode === 'scav' || s.mode === 'nest' || s.mode === 'recover' || s.mode === 'doorwait';
     if (hidden && s.act && s.act.type === 'hold') st.hidden += dt;
@@ -869,7 +908,7 @@
     if (s.mode === 'flee') st.fled += dt;
 
     // esquivar balas que vienen (los más inteligentes lo hacen mejor)
-    if (!frozen && s.dodgeCd <= 0) {
+    if (!frozen && !s.manual && s.dodgeCd <= 0) {
       s.dodgeCd = 0.12;
       const inc = this.incomingBullet(s);
       if (inc && rnd() < iq.dodge) { s.dodgeT = 0.3; s.dodgeDir = inc; s.dodgeCd = 0.7; }
@@ -907,7 +946,9 @@
     s.look += angDiff(s.look, s.angle + s.headOff) * Math.min(1, dt * 10);
 
     // ----- atacar -----
-    if (s.target && !s.act && !frozen && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.reactT <= 0) {
+    const ctl = s.manual ? (this.ctl || {}) : null;
+    if (s.manual && ctl.fire && !s.target && !s.act && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.cur !== 'knife') this.fire(s, 0);   // dispara hacia adelante
+    if (s.target && !s.act && !frozen && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.reactT <= 0 && (!s.manual || ctl.fire)) {
       const aim = s.aimPt || s.target, b = Math.atan2(aim.y - s.y, aim.x - s.x), ad = Math.hypot(aim.x - s.x, aim.y - s.y);
       if (s.cur === 'knife') { if (s.td <= KNIFE.range + 0.2 && Math.abs(angDiff(s.angle, b)) < 0.6) this.melee(s, s.target); }
       else if (ad <= this.defOf(s).range && Math.abs(angDiff(s.angle, b)) < 0.14) {
@@ -918,6 +959,7 @@
 
   /** Detector de trabas: si un soldado no avanza sin motivo, se le da un destino al azar. */
   G.checkStuck = function (s, dt, wantsMove) {
+    if (s.manual) return;
     const k = s.stuck;
     k.t += dt;
     if (k.t < 1) return;

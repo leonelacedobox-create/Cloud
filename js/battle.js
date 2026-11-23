@@ -181,7 +181,7 @@
       this.bullets = []; this.parts = []; this.items = []; this.corpses = []; this.rings = [];
       this.itemId = 1; this.lootTimer = 14;
       this.endT = 0; this.deaths = 0; this.winners = []; this.zone = null;
-      this.pov = false; this.stuckEvents = 0;
+      this.pov = false; this.stuckEvents = 0; this.ctl = { mx: 0, my: 0, fire: false, sneak: false }; this.padOn = false;
       this.camMode = 'auto'; this.followId = null; this.focus = null; this.focusUntil = 0; this.camX = 0; this.camY = 0;
 
       const wrap = canvas.parentElement;
@@ -226,7 +226,7 @@
       window.addEventListener('resize', this.resize);
     }
 
-    destroy() { cancelAnimationFrame(this.raf); window.removeEventListener('resize', this.resize); this.dead = true; this.static = null; this.mini = null; this.fog = null; this.dk = null; }
+    destroy() { this.rec = null; cancelAnimationFrame(this.raf); window.removeEventListener('resize', this.resize); this.dead = true; this.static = null; this.mini = null; this.fog = null; this.dk = null; }
 
     /* ---------- mundo ---------- */
     /** Pared de verdad (frena vista, balas y sonido). Los cajones, barriles y ventanas no cuentan. */
@@ -366,7 +366,7 @@
         zoneT: 0, stuckT: 0, lx: 0, ly: 0, target: null, td: 0, lastShot: -99, lastNoise: -99,
         know: {}, explored: new Float32Array(N).fill(-60), act: null, closeIdx: null, peekFor: -1, huntStamp: -1,
         talkCd: 2 + rnd() * 4, burstCd: 3 + rnd() * 4, radioCd: 0, alertT: -99, bubble: null, icon: null, sneak: false,
-        role: p.role || 'none', bot: !!p.bot, hat: p.hat || 'none', photo: p.photo || null, phrases: p.phrases || null, pid: p.id, base: place.slice(), spawnT: 0, respawnAt: 0, deaths: 0, score: 0,
+        role: p.role || 'none', manual: !!p.manual, bot: !!p.bot, hat: p.hat || 'none', photo: p.photo || null, phrases: p.phrases || null, pid: p.id, base: place.slice(), spawnT: 0, respawnAt: 0, deaths: 0, score: 0,
       };
       this.initBrain(o);
       o.lx = o.x; o.ly = o.y; o.look = o.angle; o.moveAng = o.angle;
@@ -745,6 +745,7 @@
       sfx.boom(); vibrate(40);
       this.emitSound(s.x, s.y, 12, 'boom', null);
       s.deaths++;
+      this.recKill(s, by, zone);
       const foe = by && by !== s && !(by.team >= 0 && by.team === s.team);
       if (foe) by.kills++;
       if (this.M && this.M.respawn && this.phase === 'run') s.respawnAt = this.time + this.M.respawn;
@@ -802,14 +803,19 @@
       }
       for (let i = this.rings.length - 1; i >= 0; i--) { this.rings[i].t += dt; if (this.rings[i].t > 0.7) this.rings.splice(i, 1); }
 
+      this.recStep(dt);
       // modos de juego (reaparición, objetivos) y ¿terminó?
       if (this.phase === 'run') {
         this.modeStep(dt);
         const end = this.M && this.M.check ? this.M.check(this) : this.defaultCheck();
-        if (end) { this.phase = 'ending'; this.endT = 0; this.bullets.length = 0; this.winners = end.winners || []; this.endInfo = end; }
+        if (end) {
+          this.phase = 'ending'; this.endT = 0; this.bullets.length = 0; this.winners = end.winners || []; this.endInfo = end; this.recFinish();
+          const w = this.winners.find((q) => q.alive) || this.winners[0];
+          if (w && w.alive) { this.focus = w; this.focusUntil = this.time + 9; this.followId = null; }
+        }
       } else if (this.phase === 'ending') {
         this.endT += dt;
-        if (this.endT > 1.7) { this.phase = 'done'; this.hooks.onEnd(this.result()); }
+        if (this.endT > (this.cfg.slowmo !== false ? 0.9 : 1.7)) { this.phase = 'done'; this.hooks.onEnd(this.result()); }
       }
     }
 
@@ -886,7 +892,7 @@
           if (n < this.lastBeep && n >= 0) { this.lastBeep = n; if (n > 0 && n <= 3) sfx.beep(false); else if (n === 0) sfx.beep(true); }
           if (this.cdT <= 0) { this.phase = 'run'; this.cdT = 0; }
         } else if (this.phase !== 'done') {
-          this.acc += dt * this.speed;
+          this.acc += dt * this.speed * (this.phase === 'ending' && this.cfg.slowmo !== false ? 0.35 : 1);
           let n = 0;
           while (this.acc >= STEP && n < 30) { this.step(STEP); this.acc -= STEP; n++; if (this.phase === 'done') break; }
           if (n >= 30) this.acc = 0;
@@ -1093,7 +1099,7 @@
     }
 
     drawMini(x) {
-      const k = this.miniK, mw = this.mini.width, mh = this.mini.height, ox = this.cw - mw - 6, oy = this.ch - mh - 6;
+      const k = this.miniK, mw = this.mini.width, mh = this.mini.height, ox = this.cw - mw - 6, oy = this.padOn ? 70 : this.ch - mh - 6;
       x.globalAlpha = 0.9; x.drawImage(this.mini, ox, oy); x.globalAlpha = 1;
       for (const s of this.soldiers) {
         if (!s.alive) continue;
@@ -1225,7 +1231,8 @@
         const roleSel = el('select', { 'aria-label': 'Rol', onchange: (e) => { p.role = e.target.value; save(); renderRoster(); } },
           Object.entries(App.Modes.ROLES).map(([k, v]) => el('option', Object.assign({ value: k }, (p.role || 'none') === k ? { selected: true } : {}), `${v.emoji} ${v.label}`)));
         wrapRow.append(el('div', { class: 'sdet' }, el('label', { class: 'sel' }, 'Personalidad', select), el('div', {}, el('div', { class: 'sel' }, 'Inteligencia'), seg),
-          el('label', { class: 'sel' }, 'Rol', roleSel), el('p', { class: 'hint' }, App.Modes.ROLES[p.role || 'none'].desc), desc));
+          el('label', { class: 'sel' }, 'Rol', roleSel), el('p', { class: 'hint' }, App.Modes.ROLES[p.role || 'none'].desc),
+          el('label', { class: 'switch' }, el('input', Object.assign({ type: 'checkbox', onchange: (e) => { state.players.forEach((q) => { q.manual = false; }); p.manual = e.target.checked; save(); renderRoster(); } }, p.manual ? { checked: true } : {})), el('span', {}, '🎮 Lo manejo yo con el joystick (los demás siguen solos)')), desc));
       }
       box.append(wrapRow);
     });
@@ -1263,10 +1270,10 @@
     const M = App.Modes.defs[B.mode] || App.Modes.defs.classic;
     const tm = B.teamMode === 'teams' || M.team === 'two' || M.team === 'coop';
     const tc = M.team === 'two' ? 2 : B.teamCount;
-    const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: B.teamMode === 'teams' ? Math.min(p.team || 0, tc - 1) : i % tc, pers: p.pers || 'auto', iq: p.iq == null ? 1 : p.iq, role: p.role || 'none' }));
+    const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: B.teamMode === 'teams' ? Math.min(p.team || 0, tc - 1) : i % tc, pers: p.pers || 'auto', iq: p.iq == null ? 1 : p.iq, role: p.role || 'none', manual: !!p.manual }));
     const seed = ($('#seedInput').value || '').trim();
     return { mode: M.key, players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
-      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, seed: seed || null,
+      talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, seed: seed || null,
       gear: B.gear !== false, props: B.props !== false, events: B.events !== false, customMap: B.customMap || Maps.SAMPLE };
   }
 
@@ -1289,7 +1296,9 @@
     $('#pauseSeed').textContent = `Semilla del mapa: ${game.seed}`;
     document.body.classList.remove('pov-on');
     buildHud(game);
-    paintCam();
+    const mine = game.soldiers.find((q) => q.manual);
+    if (mine) { game.followId = mine.id; game.padOn = true; }
+    paintCam(); paintPad();
     game.start();
     try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { wakeLock = null; }
     announce(game);
@@ -1315,8 +1324,15 @@
     chips = g.soldiers.map((s) => {
       const hp = el('span', { class: 'hp' }), wp = el('span', { class: 'wp' });
       const chip = el('div', {
-        class: 'chip', style: s.team >= 0 ? `border-color:${TEAMS[s.team].color}` : '', title: `${s.name} (${PERS[s.pers].label}, ${IQ[s.iq].label}) · tocá para seguirlo`,
-        onclick: () => { if (!game) return; game.followId = game.followId === s.id ? null : s.id; game.camMode = 'auto'; game.setScale(); paintCam(); },
+        class: 'chip', style: s.team >= 0 ? `border-color:${TEAMS[s.team].color}` : '', title: `${s.name} (${PERS[s.pers].label}, ${IQ[s.iq].label}) · tocá para seguirlo (si cayó: repetición)`,
+        onclick: () => {
+          if (!game) return;
+          if (!s.alive && App.Replay) {                                      // ficha de un caído: repetición de cómo murió
+            const clip = game.deathClip(s.id), was = game.paused;
+            if (clip && App.Replay.play(game, [clip], 'Cómo murió', () => { game.paused = was; })) { game.paused = true; return; }
+          }
+          game.followId = game.followId === s.id ? null : s.id; game.camMode = 'auto'; game.setScale(); paintCam();
+        },
       }, el('span', { class: 'dot', style: `background:${s.color}` }),
       el('span', { class: 'nm' }, (g.cfg.varied ? PERS[s.pers].emoji + ' ' : '') + s.name), hp, wp);
       hud.append(chip);
@@ -1326,7 +1342,7 @@
 
   function paintCam() {
     const b = $('#btnCam'); if (!game) return;
-    b.textContent = game.camMode === 'full' ? '🗺️ Todo' : game.followId != null ? '👁️ Siguiendo' : '🎥 Auto';
+    b.textContent = game.camMode === 'full' ? '🗺️ Todo' : game.followId != null ? '👁️ Sigue' : '🎥 Auto';
     chips.forEach((c, i) => c.chip.classList.toggle('follow', game.followId === i));
     $('#btnPov').classList.toggle('primary', game.pov);
     document.body.classList.toggle('pov-on', !!game.pov);
@@ -1360,6 +1376,8 @@
   }
 
   function onFrame(g) {
+    const mine = g.soldiers.find((q) => q.manual && q.alive);
+    if (!!mine !== g.padOn) { g.padOn = !!mine; paintPad(); }
     g.soldiers.forEach((s, i) => {
       const c = chips[i]; if (!c) return;
       const gear = gearLine(s), key = `${s.alive ? Math.ceil(s.hp / HPL) : -1}|${weaponLine(s)}|${gear}`;
@@ -1450,12 +1468,18 @@
       onclick: (e) => { try { navigator.clipboard.writeText(String(res.seed)); e.target.textContent = '✅ Copiada'; } catch (err) { e.target.textContent = String(res.seed); } },
     }, `🌱 Semilla ${res.seed} · tocá para copiar`);
 
+    const rp = res.replay, canRp = rp && rp.last && App.Replay;
+    const watch = (clips, title) => { ov.hidden = true; if (!App.Replay.play(game, clips, title, () => { ov.hidden = false; })) ov.hidden = false; };
+    const rpBtns = canRp ? el('div', { class: 'res-btns' },
+      el('button', { class: 'btn', onclick: () => watch([rp.last], 'Último tiro') }, '🎬 Último tiro'),
+      rp.best.length > 1 ? el('button', { class: 'btn', onclick: () => watch(rp.best, 'Mejores momentos') }, '⭐ Mejores momentos') : '') : '';
     ov.innerHTML = '';
     ov.append(el('div', { class: 'overlay-box' },
       el('h2', { class: 'win-title' }, title), el('p', { class: 'win-sub' }, sub), podium,
       scoreBox ? el('div', { class: 'sect-title' }, 'Marcador') : '', scoreBox || '',
       el('div', { class: 'sect-title' }, 'Premios'), awardBox,
       el('div', { class: 'sect-title' }, 'Posiciones (bajas · daño · puntería)'), list,
+      rpBtns,
       seedBtn,
       el('div', { class: 'res-btns' },
         el('button', { class: 'btn primary wide', onclick: () => startGame() }, '🔁 Revancha'),
@@ -1489,6 +1513,65 @@
     }
     paintCam();
   });
+  /* ----- control manual: joystick, botones y teclado ----- */
+  const pad = $('#manualPad'), joy = $('#joy'), knob = $('#joyKnob');
+  function paintPad() {
+    const mine = game && game.soldiers.some((q) => q.manual && q.alive);
+    pad.hidden = !mine;
+    $('#btnManual').classList.toggle('primary', !!(game && game.soldiers.some((q) => q.manual)));
+    if (!mine && game) { game.ctl.mx = game.ctl.my = 0; game.ctl.fire = false; knob.style.transform = ''; }
+  }
+  $('#btnManual').addEventListener('click', () => {
+    if (!game || game.phase === 'done') return;
+    const cur = game.soldiers.find((q) => q.manual);
+    game.soldiers.forEach((q) => { q.manual = false; });
+    if (!cur) {
+      let t = game.followId != null ? game.soldiers[game.followId] : null;
+      if (!t || !t.alive || t.bot) t = game.focus && game.focus.alive && !game.focus.bot ? game.focus : game.soldiers.find((q) => q.alive && !q.bot);
+      if (t) { t.manual = true; game.followId = t.id; game.camMode = 'auto'; game.pov = false; game.setScale(); }
+    }
+    game.padOn = game.soldiers.some((q) => q.manual && q.alive);
+    paintCam(); paintPad();
+  });
+  const joyMove = (e) => {
+    if (!game) return;
+    const r = joy.getBoundingClientRect(), R = r.width / 2;
+    let dx = (e.clientX - (r.left + R)) / R, dy = (e.clientY - (r.top + R)) / R;
+    const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
+    game.ctl.mx = dx; game.ctl.my = dy;
+    knob.style.transform = `translate(${dx * R * 0.7}px, ${dy * R * 0.7}px)`;
+  };
+  let joyOn = false;
+  const capture = (el2, e) => { try { el2.setPointerCapture(e.pointerId); } catch (err) { /* sin captura */ } };
+  joy.addEventListener('pointerdown', (e) => { capture(joy, e); joyOn = true; joyMove(e); e.preventDefault(); });
+  joy.addEventListener('pointermove', (e) => { if (joyOn) joyMove(e); });
+  const joyEnd = () => { joyOn = false; if (game) { game.ctl.mx = 0; game.ctl.my = 0; } knob.style.transform = ''; };
+  joy.addEventListener('pointerup', joyEnd); joy.addEventListener('pointercancel', joyEnd);
+  const fireBtn = $('#padFire');
+  fireBtn.addEventListener('pointerdown', (e) => { capture(fireBtn, e); if (game) game.ctl.fire = true; fireBtn.classList.add('hold'); e.preventDefault(); });
+  const fireEnd = () => { if (game) game.ctl.fire = false; fireBtn.classList.remove('hold'); };
+  fireBtn.addEventListener('pointerup', fireEnd); fireBtn.addEventListener('pointercancel', fireEnd);
+  [['padReload', 'reload'], ['padSwap', 'swap'], ['padNade', 'nade'], ['padHeal', 'heal']].forEach(([id, k]) => $('#' + id).addEventListener('click', () => { if (game) game.manualAction(k); }));
+  const keys = new Set();
+  const MOVEK = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
+  const keyCtl = (k) => {
+    if (!game) return;
+    const c = game.ctl;
+    if (MOVEK.includes(k)) {
+      c.mx = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
+      c.my = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
+    } else if (k === ' ' || k === 'f') c.fire = keys.has(' ') || keys.has('f');
+    else if (k === 'shift') c.sneak = keys.has('shift');
+  };
+  const KEYACT = { r: 'reload', q: 'swap', g: 'nade', h: 'heal' };
+  window.addEventListener('keydown', (e) => {
+    if (!game || !game.soldiers.some((q) => q.manual && q.alive) || /INPUT|TEXTAREA|SELECT/.test((e.target || {}).tagName || '')) return;
+    const k = e.key.toLowerCase();
+    if (KEYACT[k]) { game.manualAction(KEYACT[k]); return; }
+    if (MOVEK.concat([' ', 'f', 'shift']).includes(k)) { keys.add(k); keyCtl(k); e.preventDefault(); }
+  });
+  window.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); keys.delete(k); keyCtl(k); });
+
   document.addEventListener('visibilitychange', () => { if (document.hidden && game && game.phase === 'run') setPause(true); });
 
   bindSeg('segSpeed', () => B.speed, (v) => { B.speed = +v; if (game) game.speed = +v; });
@@ -1532,7 +1615,7 @@
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });
 
-  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false]].forEach(([id, key, def]) => {
+  [['optTalk', 'talk', true], ['optLaser', 'laser', false], ['optFriendly', 'friendly', false], ['optSlowmo', 'slowmo', true]].forEach(([id, key, def]) => {
     const input = $('#' + id); input.checked = B[key] == null ? def : !!B[key];
     input.addEventListener('change', () => { B[key] = input.checked; save(); });
   });

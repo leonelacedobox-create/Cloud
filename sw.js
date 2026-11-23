@@ -4,7 +4,7 @@ const VERSION = 'v5';
 const CACHE = 'moneda-batalla-' + VERSION;
 const FILES = [
   './', 'index.html', 'css/style.css',
-  'js/common.js', 'js/coin.js', 'js/art.js', 'js/personas.js', 'js/maps.js', 'js/battle.js', 'js/modes.js', 'js/props.js', 'js/ai.js', 'js/main.js',
+  'js/common.js', 'js/coin.js', 'js/art.js', 'js/personas.js', 'js/maps.js', 'js/battle.js', 'js/modes.js', 'js/props.js', 'js/replay.js', 'js/ai.js', 'js/main.js',
   'manifest.webmanifest',
   'assets/coin-milei.png', 'assets/coin-cristina.png',
   'assets/icon-192.png', 'assets/icon-512.png', 'assets/icon-maskable-512.png',

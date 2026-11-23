@@ -192,6 +192,7 @@
         <div class="label">Ajustes</div>
         <label class="switch"><input type="checkbox" id="optTalk"><span>Insultos y frases (los agresivos delatan dónde están)</span></label>
         <label class="switch"><input type="checkbox" id="optLaser"><span>Punto láser y abanico de dispersión</span></label>
+        <label class="switch"><input type="checkbox" id="optSlowmo"><span>Cámara lenta al terminar la partida (y repeticiones al final)</span></label>
         <label class="switch"><input type="checkbox" id="optFriendly"><span>Fuego amigo (en equipos las balas también pegan a los compañeros)</span></label>
         <div class="label">Volumen general</div>
         <input type="range" id="volMaster" min="0" max="100" aria-label="Volumen general">
@@ -221,6 +222,14 @@
         <canvas id="battleCanvas"></canvas>
         <div class="feed" id="feed"></div>
         <div class="zone-info" id="zoneInfo"></div>
+        <div class="pad" id="manualPad" hidden>
+          <div class="joy" id="joy"><div class="knob" id="joyKnob"></div></div>
+          <div class="pad-btns">
+            <button id="padHeal" aria-label="Curarse">🩹</button><button id="padNade" aria-label="Granada">💣</button>
+            <button id="padSwap" aria-label="Cambiar de arma">🔁</button><button id="padReload" aria-label="Recargar">🔄</button>
+            <button id="padFire" class="fire" aria-label="Disparar">🔫</button>
+          </div>
+        </div>
         <div class="overlay" id="pauseOverlay" hidden>
           <div class="overlay-box"><h2>⏸ Pausa</h2>
             <p class="win-sub" id="pauseSeed"></p>
@@ -234,10 +243,11 @@
         <button class="btn small" id="btnPause">⏸</button>
         <button class="btn small" id="btnCam">🎥 Auto</button>
         <button class="btn small" id="btnPov" title="Ver por los ojos de un soldado">👁 POV</button>
+        <button class="btn small" id="btnManual" title="Manejar al soldado seguido con el joystick">🎮</button>
         <div class="seg small" id="segSpeed">
           <button data-v="1">1×</button><button data-v="2">2×</button><button data-v="4">4×</button>
         </div>
-        <button class="btn small ghost" id="btnQuit2">✕ Salir</button>
+        <button class="btn small ghost" id="btnQuit2" aria-label="Salir">✕</button>
       </div>
     </div>
   </section>
@@ -252,6 +262,7 @@
 <script src="js/battle.js"></script>
 <script src="js/modes.js"></script>
 <script src="js/props.js"></script>
+<script src="js/replay.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/main.js"></script>
 </body>
