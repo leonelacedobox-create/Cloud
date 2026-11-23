@@ -199,6 +199,9 @@
         m = genMap(cfg.map, cols, rows, this.srnd);
         Maps.decorate(m, cfg.map, this.srnd);
       } else { m = Maps.themed(cfg.map, cols, rows, this.srnd); m.fixedDoors = true; }
+      this.M = (App.Modes && App.Modes.defs[cfg.mode]) || (App.Modes && App.Modes.defs.classic) || null;
+      this.mst = {};
+      if (this.M && this.M.pre) this.M.pre(cfg);
       if (cfg.props === false) { m.props = []; m.windows = []; }
       this.W = m.W; this.H = m.H; this.g = m.g; this.center = m.center;
       const f = clamp(Math.sqrt((this.W * this.H) / (27 * 39)), 0.8, 1.7);
@@ -215,6 +218,7 @@
       this.lootRnd = this.srnd;
       this.initLoot();
       this.lootRnd = null;
+      this.initMode();
       this.resize = this.resize.bind(this);
       this.frame = this.frame.bind(this);
       this.resize();
@@ -339,29 +343,34 @@
         places = shuffle(chosen);
       }
       this.spawnPoints = places.slice();
-      const looks = Art.makeLooks(players.length), N = this.W * this.H;
+      this.looks = Art.makeLooks(players.length + 14);
+      this.soldiers = players.map((p, i) => this.makeSoldier(p, i, places[i], this.looks[i]));
+    }
+
+    /** Arma un soldado (también sirve para los bots de las oleadas). */
+    makeSoldier(p, i, place, look) {
+      const cfg = this.cfg, rnd = this.srnd, N = this.W * this.H;
       const jitter = (v) => clamp01(v + (rnd() - 0.5) * 0.55);
-      this.soldiers = players.map((p, i) => {
-        const pers = Personas.choose(p.pers, cfg.varied);
-        const P = PERS[pers], pd = WEAPONS.pistol;
-        const o = {
-          id: i, name: p.name, color: p.color, iq: clamp(p.iq == null ? 1 : p.iq, 0, 3), team: cfg.teamMode ? p.team : -1, teamColor: cfg.teamMode ? TEAMS[p.team].color : null,
-          ap: looks[i], x: places[i][0], y: places[i][1], r: 0.3, angle: rnd() * 6.283, look: 0, moveAng: 0, headOff: 0, phase: rnd() * 6, gait: 0, recoil: 0, lastStep: 0,
-          hp: cfg.lives * HPL, maxHp: cfg.lives * HPL, alive: true, deathT: 0, kills: 0,
-          pers, P, sk: { peek: jitter(P.base.peek), door: jitter(P.base.door), blind: jitter(P.base.blind), listen: 0.75 + jitter(P.base.listen) * 0.5, ambush: jitter(P.base.ambush) },
-          // inventario: pistola y cuchillo de fábrica + un espacio para una tercera arma
-          inv: { pistol: { type: 'pistol', mag: pd.mag, res: pd.res }, primary: null }, cur: 'pistol', wtype: 'pistol',
-          reloadT: 0, reloadTot: 1, swapT: 0, meleeT: 0, bloom: 0, burstLeft: 0, wT: rnd() * 0.3, seenItems: new Map(), dryTold: false,
-          cd: 0.8 + rnd() * 1.2, path: [], thinkT: rnd() * 0.3, mode: 'search',
-          shieldHp: 0, shieldT: 0, speedT: 0, flash: 0, strafeDir: rnd() < 0.5 ? 1 : -1, strafeT: 0,
-          zoneT: 0, stuckT: 0, lx: 0, ly: 0, target: null, td: 0, lastShot: -99, lastNoise: -99,
-          know: {}, explored: new Float32Array(N).fill(-60), act: null, closeIdx: null, peekFor: -1, huntStamp: -1,
-          talkCd: 2 + rnd() * 4, burstCd: 3 + rnd() * 4, radioCd: 0, alertT: -99, bubble: null, icon: null, sneak: false,
-        };
-        this.initBrain(o);
-        return o;
-      });
-      this.soldiers.forEach((s) => { s.lx = s.x; s.ly = s.y; s.look = s.angle; s.moveAng = s.angle; });
+      const pers = Personas.choose(p.pers, cfg.varied);
+      const P = PERS[pers], pd = WEAPONS.pistol;
+      const o = {
+        id: i, name: p.name, color: p.color, iq: clamp(p.iq == null ? 1 : p.iq, 0, 3), team: p.team == null || p.team < 0 || !cfg.teamMode ? -1 : p.team, teamColor: cfg.teamMode && p.team >= 0 ? TEAMS[p.team].color : null,
+        ap: Object.assign({}, look), x: place[0], y: place[1], r: 0.3, angle: rnd() * 6.283, look: 0, moveAng: 0, headOff: 0, phase: rnd() * 6, gait: 0, recoil: 0, lastStep: 0,
+        hp: (p.lives || cfg.lives) * HPL, maxHp: (p.lives || cfg.lives) * HPL, alive: true, deathT: 0, kills: 0,
+        pers, P, sk: { peek: jitter(P.base.peek), door: jitter(P.base.door), blind: jitter(P.base.blind), listen: 0.75 + jitter(P.base.listen) * 0.5, ambush: jitter(P.base.ambush) },
+        // inventario: pistola y cuchillo de fábrica + un espacio para una tercera arma
+        inv: { pistol: { type: 'pistol', mag: pd.mag, res: pd.res }, primary: null }, cur: 'pistol', wtype: 'pistol',
+        reloadT: 0, reloadTot: 1, swapT: 0, meleeT: 0, bloom: 0, burstLeft: 0, wT: rnd() * 0.3, seenItems: new Map(), dryTold: false,
+        cd: 0.8 + rnd() * 1.2, path: [], thinkT: rnd() * 0.3, mode: 'search',
+        shieldHp: 0, shieldT: 0, speedT: 0, flash: 0, strafeDir: rnd() < 0.5 ? 1 : -1, strafeT: 0,
+        zoneT: 0, stuckT: 0, lx: 0, ly: 0, target: null, td: 0, lastShot: -99, lastNoise: -99,
+        know: {}, explored: new Float32Array(N).fill(-60), act: null, closeIdx: null, peekFor: -1, huntStamp: -1,
+        talkCd: 2 + rnd() * 4, burstCd: 3 + rnd() * 4, radioCd: 0, alertT: -99, bubble: null, icon: null, sneak: false,
+        role: p.role || 'none', bot: !!p.bot, hat: p.hat || 'none', photo: p.photo || null, phrases: p.phrases || null, pid: p.id, base: place.slice(), spawnT: 0, respawnAt: 0, deaths: 0, score: 0,
+      };
+      this.initBrain(o);
+      o.lx = o.x; o.ly = o.y; o.look = o.angle; o.moveAng = o.angle;
+      return o;
     }
 
     enemiesOf(s) { return this.soldiers.filter((o) => o.alive && o !== s && (s.team < 0 || o.team !== s.team)); }
@@ -700,6 +709,7 @@
     sightOf(s) { const d = this.defOf(s), w = this.weaponOf(s); return (s.P.sight + (d.scope || 0) + (w && w.scope ? 4 : 0)) * (this.fogMul || 1); }
     damage(s, by, dmg, zone) {
       if (!s.alive || (this.phase === 'ending' && !zone)) return;
+      if (!zone && s.spawnT > 0) return;                       // protección al reaparecer
       if (!zone && s.shieldHp > 0) {
         const ab = Math.min(s.shieldHp, dmg); s.shieldHp -= ab; dmg -= ab;
         this.spark(s.x, s.y, '#38bdf8', 4);
@@ -734,8 +744,12 @@
       this.parts.push({ x: s.x, y: s.y, vx: 0, vy: 0, life: 0.45, max: 0.45, color: '#fff', size: 0.9, ring: true });
       sfx.boom(); vibrate(40);
       this.emitSound(s.x, s.y, 12, 'boom', null);
-      if (by && by !== s && !(by.team >= 0 && by.team === s.team)) by.kills++;
+      s.deaths++;
+      const foe = by && by !== s && !(by.team >= 0 && by.team === s.team);
+      if (foe) by.kills++;
+      if (this.M && this.M.respawn && this.phase === 'run') s.respawnAt = this.time + this.M.respawn;
       this.onKilled(s, by, zone);
+      if (this.M && this.M.onKill) this.M.onKill(this, s, by, zone);
       this.hooks.onKill(s, by, zone);
     }
     spark(x, y, color, n) {
@@ -788,24 +802,33 @@
       }
       for (let i = this.rings.length - 1; i >= 0; i--) { this.rings[i].t += dt; if (this.rings[i].t > 0.7) this.rings.splice(i, 1); }
 
-      // ¿terminó?
+      // modos de juego (reaparición, objetivos) y ¿terminó?
       if (this.phase === 'run') {
-        const alive = this.soldiers.filter((s) => s.alive);
-        const groups = new Set(alive.map((s) => (s.team < 0 ? 'p' + s.id : 't' + s.team)));
-        if (groups.size <= 1) { this.phase = 'ending'; this.endT = 0; this.bullets.length = 0; this.winners = alive; }
+        this.modeStep(dt);
+        const end = this.M && this.M.check ? this.M.check(this) : this.defaultCheck();
+        if (end) { this.phase = 'ending'; this.endT = 0; this.bullets.length = 0; this.winners = end.winners || []; this.endInfo = end; }
       } else if (this.phase === 'ending') {
         this.endT += dt;
         if (this.endT > 1.7) { this.phase = 'done'; this.hooks.onEnd(this.result()); }
       }
     }
 
+    defaultCheck() {
+      const alive = this.soldiers.filter((s) => s.alive);
+      const groups = new Set(alive.map((s) => (s.team < 0 ? 'p' + s.id : 't' + s.team)));
+      return groups.size <= 1 ? { winners: alive } : null;
+    }
     result() {
-      const order = this.soldiers.slice().sort((a, b) => {
+      const pl = this.soldiers.filter((s) => !s.bot);
+      const by = this.M && this.M.rank ? this.M.rank : null;
+      const order = pl.sort((a, b) => {
+        if (by) { const d = by(b, this) - by(a, this); if (d) return d; }
         if (a.alive !== b.alive) return a.alive ? -1 : 1;
         if (a.alive) return b.kills - a.kills;
         return (b.deathT - a.deathT) || (b.kills - a.kills);
       });
-      return { ranking: order, winners: this.winners, teamMode: this.cfg.teamMode, time: this.time, seed: this.seed };
+      const info = this.endInfo || {};
+      return { ranking: order, winners: this.winners, teamMode: this.cfg.teamMode, time: this.time, seed: this.seed, mode: this.cfg.mode || 'classic', title: info.title || null, sub: info.sub || null, scores: this.M && this.M.scores ? this.M.scores(this) : null, replay: this.replayClip ? this.replayClip() : null };
     }
 
     /* ---------- cámara ---------- */
@@ -950,6 +973,7 @@
       this.drawWorld(x, ts, left, top, this.cw / ts, this.ch / ts);
       for (const c of this.corpses) Art.drawCorpse(x, c, ts);
       for (const it of this.items) { if (it.kind === 'power') this.drawPowerup(x, it); else Art.drawItem(x, it, ts, this.time); }
+      this.drawModeUnder(x, ts);
       if (this.zone) this.drawZone(x);
       // ondas de sonido (disparos, gritos, puertas)
       for (const rg of this.rings) {
@@ -980,6 +1004,7 @@
       x.globalAlpha = 1;
       this.drawSmoke(x, ts);
       for (const s of alive) if (vis(s)) this.drawLabel(x, s);
+      this.drawModeOver(x, ts);
       x.restore();
       if (this.hasDarkness()) this.drawDarkness(x, left, top);
       if (this.fogMul < 1) { x.fillStyle = 'rgba(205,215,230,0.24)'; x.fillRect(0, 0, this.cw, this.ch); }
@@ -1197,7 +1222,10 @@
           onclick: () => { p.iq = qi; save(); renderRoster(); },
         }, `${q.emoji} ${q.label}`)));
         paintDesc();
-        wrapRow.append(el('div', { class: 'sdet' }, el('label', { class: 'sel' }, 'Personalidad', select), el('div', {}, el('div', { class: 'sel' }, 'Inteligencia'), seg), desc));
+        const roleSel = el('select', { 'aria-label': 'Rol', onchange: (e) => { p.role = e.target.value; save(); renderRoster(); } },
+          Object.entries(App.Modes.ROLES).map(([k, v]) => el('option', Object.assign({ value: k }, (p.role || 'none') === k ? { selected: true } : {}), `${v.emoji} ${v.label}`)));
+        wrapRow.append(el('div', { class: 'sdet' }, el('label', { class: 'sel' }, 'Personalidad', select), el('div', {}, el('div', { class: 'sel' }, 'Inteligencia'), seg),
+          el('label', { class: 'sel' }, 'Rol', roleSel), el('p', { class: 'hint' }, App.Modes.ROLES[p.role || 'none'].desc), desc));
       }
       box.append(wrapRow);
     });
@@ -1232,17 +1260,19 @@
 
   /* ----- juego ----- */
   function buildConfig() {
-    const tm = B.teamMode === 'teams';
-    const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: Math.min(p.team || 0, B.teamCount - 1), pers: p.pers || 'auto', iq: p.iq == null ? 1 : p.iq }));
+    const M = App.Modes.defs[B.mode] || App.Modes.defs.classic;
+    const tm = B.teamMode === 'teams' || M.team === 'two' || M.team === 'coop';
+    const tc = M.team === 'two' ? 2 : B.teamCount;
+    const players = state.players.map((p, i) => ({ name: pname(p, i), color: p.color, team: B.teamMode === 'teams' ? Math.min(p.team || 0, tc - 1) : i % tc, pers: p.pers || 'auto', iq: p.iq == null ? 1 : p.iq, role: p.role || 'none' }));
     const seed = ($('#seedInput').value || '').trim();
-    return { players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
+    return { mode: M.key, players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
       talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, seed: seed || null,
       gear: B.gear !== false, props: B.props !== false, events: B.events !== false, customMap: B.customMap || Maps.SAMPLE };
   }
 
   async function startGame() {
     const cfg = buildConfig();
-    if (cfg.teamMode && new Set(cfg.players.map((p) => p.team)).size < 2) {
+    if (cfg.teamMode && cfg.mode !== 'waves' && new Set(cfg.players.map((p) => p.team)).size < 2) {
       alert('Para jugar por equipos tiene que haber soldados en al menos 2 equipos distintos.'); return;
     }
     if (cfg.map === 'custom') { const chk = Maps.parse(cfg.customMap); if (chk.error) { alert('Tu mapa no sirve todavía: ' + chk.error); return; } }
@@ -1309,7 +1339,8 @@
     setTimeout(() => d.remove(), Math.min(ms, 3200));
   }
   function onKill(s, by, zone) {
-    if (zone || !by) addFeed(`🔥 ${s.name} cayó fuera de la zona`);
+    if (zone) addFeed(`🔥 ${s.name} cayó fuera de la zona`);
+    else if (!by) addFeed(`💥 ${s.name} murió en una explosión`);
     else addFeed(`💥 ${by.name} eliminó a ${s.name}`);
   }
   function onPickup(s, label) { addFeed(`✨ ${s.name} agarró ${label}`, 2500); }
@@ -1342,6 +1373,7 @@
     if (g.phase === 'run') {
       const left = Math.ceil(g.zoneDelay - g.time), bits = [];
       if (g.eventText) bits.push(g.eventText);
+      const mt = g.modeText(); if (mt) bits.push(mt);
       if (g.cfg.zone) bits.push(left > 0 ? `⚠️ Zona en ${left}s` : g.time < g.zoneDelay + g.zoneTime ? '🔴 Zona achicándose' : '🔴 Zona final');
       zoneInfo.textContent = bits.join('\n');
     } else zoneInfo.textContent = '';
@@ -1385,7 +1417,8 @@
     const mins = Math.floor(res.time / 60), secs = Math.round(res.time % 60);
     const dur = mins ? `${mins}m ${secs}s` : `${secs}s`;
     let title, sub;
-    if (!win.length) { title = '🤝 ¡Empate!'; sub = 'Nadie quedó en pie.'; }
+    if (res.title) { title = res.title; sub = res.sub || ''; }
+    else if (!win.length) { title = '🤝 ¡Empate!'; sub = 'Nadie quedó en pie.'; }
     else if (tm) { title = `🏆 ¡Gana el equipo ${TEAMS[win[0].team].name}!`; sub = win.map((s) => s.name).join(', '); }
     else { title = `🏆 ¡Gana ${win[0].name}!`; sub = `${win[0].kills} eliminaciones · ${dur} de batalla`; }
 
@@ -1407,6 +1440,7 @@
         el('span', { class: 'k' }, `${s.kills}💥 · ${Math.round(s.stats.dmgDealt)}❤ · ${acc}%${s.alive ? ' · ganó' : ''}`)));
     });
 
+    const scoreBox = res.scores && res.scores.length ? el('div', { class: 'awards' }, res.scores.map((r) => el('div', {}, el('span', { class: 'dot', style: `background:${r.color}` }), ` ${r.name}: `, el('b', {}, r.value)))) : null;
     const awards = computeAwards(rk);
     const awardBox = el('div', { class: 'awards' }, awards.map(([ico, name, who, detail]) =>
       el('div', {}, `${ico} ${name}: `, el('b', {}, who.name), ` (${detail})`)));
@@ -1419,6 +1453,7 @@
     ov.innerHTML = '';
     ov.append(el('div', { class: 'overlay-box' },
       el('h2', { class: 'win-title' }, title), el('p', { class: 'win-sub' }, sub), podium,
+      scoreBox ? el('div', { class: 'sect-title' }, 'Marcador') : '', scoreBox || '',
       el('div', { class: 'sect-title' }, 'Premios'), awardBox,
       el('div', { class: 'sect-title' }, 'Posiciones (bajas · daño · puntería)'), list,
       seedBtn,
@@ -1457,6 +1492,19 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden && game && game.phase === 'run') setPause(true); });
 
   bindSeg('segSpeed', () => B.speed, (v) => { B.speed = +v; if (game) game.speed = +v; });
+  /** Se llama desde modes.js, cuando ya existe la lista de modos. */
+  function initModeUI() {
+    const modeSeg = $('#segGameMode');
+    App.Modes.LIST.forEach((m) => modeSeg.append(el('button', { 'data-v': m.key, title: m.label }, `${m.emoji} ${m.label}`)));
+    const modeDesc = () => {
+      const M = App.Modes.defs[B.mode] || App.Modes.defs.classic;
+      $('#modeDesc').textContent = M.desc + (M.team === 'two' ? ' (Se arman 2 equipos solos si no los elegiste.)' : M.team === 'coop' ? ' (Todos en el mismo equipo.)' : '');
+      $('#segTeamMode').closest('.card').hidden = M.team === 'coop' || M.team === 'two';
+      renderRoster();
+    };
+    bindSeg('segGameMode', () => B.mode || 'classic', (v) => { B.mode = v; modeDesc(); });
+    modeDesc();
+  }
   bindSeg('segTeamMode', () => B.teamMode, (v) => { B.teamMode = v; renderRoster(); });
   bindSeg('segTeamCount', () => B.teamCount, (v) => { B.teamCount = +v; renderRoster(); });
   bindSeg('segLives', () => B.lives, (v) => { B.lives = +v; });
@@ -1518,5 +1566,5 @@
     enter() { renderRoster(); renderWins(); },
     leave() { if (game) leaveGame(false); },
   });
-  App.battle = { genMap, Game, PERS, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, cap, magOf, MED };
+  App.battle = { initModeUI, genMap, Game, PERS, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, cap, magOf, MED };
 })();

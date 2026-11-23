@@ -23,7 +23,7 @@ const App = (() => {
       teamMode: 'ffa', teamCount: 2, lives: 3, map: 'maze', size: 'm',
       powerups: true, zone: true, varied: true, loot: true, speed: 1,
       talk: true, laser: false, friendly: false, volMaster: 100, volShots: 100, customLines: '',
-      gear: true, props: true, events: true, customMap: '',
+      gear: true, props: true, events: true, customMap: '', mode: 'classic',
       wins: [], winRange: 'week',
     },
   });

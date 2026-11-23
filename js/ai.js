@@ -515,6 +515,15 @@
       s.cover = null; s.mode = 'zone';
       path = this.bfs(tx, ty, (i) => !this.outsideZone((i % W) + 0.5, ((i / W) | 0) + 0.5, 1.6));
     }
+    // 1b) lleva la bandera o la bomba: corre al objetivo aunque haya enemigos a la vista
+    if (!path && s.carry && this.M && this.M.goal) {
+      const gl = this.M.goal(this, s);
+      if (gl && Math.hypot(gl.x - s.x, gl.y - s.y) > gl.r) {
+        const dest = this.floorIdxNear(gl.x, gl.y);
+        path = this.bfs(tx, ty, (i) => i === dest);
+        if (path) { s.cover = null; s.mode = 'carry'; }
+      } else if (gl && gl.hold) { s.act = { type: 'hold', t: 0, dur: 1, face: s.angle }; s.mode = 'hold'; s.path = []; return; }
+    }
     if (!path && s.cover) return;                                          // en cobertura: lo maneja steerCover
 
     // 2) enemigo a la vista
@@ -545,6 +554,20 @@
     if (!path && !s.target) k = this.bestKnowledge(s);
     // 3-0) curarse con un botiquín cuando no hay peligro cerca
     if (!path && !s.target && this.wantHeal(s)) { this.startHeal(s); return; }
+    // 3-m) objetivo del modo de juego (bandera, colina, bomba, oleadas, botín)
+    if (!path && !s.target && this.M && this.M.goal && s.rushT <= 0) {
+      const gl = this.M.goal(this, s);
+      if (gl) {
+        const gd = Math.hypot(gl.x - s.x, gl.y - s.y);
+        if (gd <= gl.r) {
+          if (gl.hold) { s.act = { type: 'hold', t: 0, dur: 1.2 + rnd() * 1.6, face: gl.face != null ? gl.face : s.angle + (rnd() - 0.5) * 2.4 }; s.mode = 'hold'; s.path = []; return; }
+        } else {
+          const dest = this.floorIdxNear(gl.x, gl.y);
+          path = this.bfs(tx, ty, (i) => i === dest);
+          if (path) s.mode = 'obj';
+        }
+      }
+    }
     // 3a) recuperarse después de huir: se queda escondido (o busca vida)
     if (!path && !s.target && now - s.fleeT < 14 && hpF < 0.6 && sk.flee > 0.3 && s.rushT <= 0 && !this.bestHeal(s)) {
       s.act = { type: 'hold', t: 0, dur: 3 + rnd() * 4, face: k ? Math.atan2(k.y - s.y, k.x - s.x) : rnd() * 6.28 };
@@ -751,7 +774,7 @@
         s.closeIdx = null; r.desired = s.act.ang; return r;
       }
     }
-    const pathMode = s.mode === 'zone' || s.mode === 'flee' || s.mode === 'stalk' || s.mode === 'flank';
+    const pathMode = s.mode === 'zone' || s.mode === 'flee' || s.mode === 'stalk' || s.mode === 'flank' || s.mode === 'carry';
     if (tgt && !pathMode) {
       const dx = tgt.x - s.x, dy = tgt.y - s.y;
       r.desired = s.aimPt ? Math.atan2(s.aimPt.y - s.y, s.aimPt.x - s.x) : Math.atan2(dy, dx); r.sneak = false;
@@ -773,11 +796,11 @@
     } else {
       const v = this.followPath(s, !tgt && s.mode !== 'zone' && s.mode !== 'flee');
       if (v) { r.vx = v[0]; r.vy = v[1]; r.desired = Math.atan2(v[1], v[0]); }
-      if ((s.mode === 'flee' || s.mode === 'stalk' || s.mode === 'flank') && tgt) r.desired = bearing(s, tgt);
+      if ((s.mode === 'flee' || s.mode === 'stalk' || s.mode === 'flank' || s.mode === 'carry') && tgt) r.desired = bearing(s, tgt);
       if (!tgt) r.scanning = true;
       if (s.mode === 'stalk') r.sneak = true;
-      else if (!P.sneak || s.mode === 'zone' || s.mode === 'flee' || s.mode === 'loot' || s.mode === 'flank') r.sneak = false;
-      if ((s.mode === 'hunt' || s.mode === 'loot') && !P.sneak) r.speedMul = P.run * (s.rushT > 0 ? 1.1 : 1);
+      else if (!P.sneak || s.mode === 'zone' || s.mode === 'flee' || s.mode === 'loot' || s.mode === 'flank' || s.mode === 'carry' || s.mode === 'obj') r.sneak = false;
+      if ((s.mode === 'hunt' || s.mode === 'loot' || s.mode === 'obj' || s.mode === 'carry') && !P.sneak) r.speedMul = P.run * (s.rushT > 0 ? 1.1 : 1);
       if (s.mode === 'flee') r.speedMul = 1.08;
     }
     return r;

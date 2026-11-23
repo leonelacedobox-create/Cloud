@@ -294,7 +294,7 @@
     for (const c of this.scorch) c.t += dt;
     this.scorch = this.scorch.filter((c) => c.t < 40);
     this.alarmT = Math.max(0, this.alarmT - dt);
-    this.overtimeAt = this.cfg.zone ? this.zoneDelay + this.zoneTime + 45 : 420;
+    this.overtimeAt = this.M && this.M.noOvertime ? 1e9 : this.cfg.zone ? this.zoneDelay + this.zoneTime + 45 : 420;
     this.overtime = this.time > this.overtimeAt;
     this.shake = Math.max(0, (this.shake || 0) - dt * 2.2);
     if (this.phase !== 'run') return;
