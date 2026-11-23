@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.9.1 ✅ terminada** (0.2, 0.5, 0.7, 0.9 y 0.9.1 están hechas). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.9.1 ✅ terminada.** Próximas: 0.9.2 → 0.9.3 → 0.9.4 → 0.9.5 → 0.9.6 → 0.9.7 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -105,20 +105,88 @@
 - Pruebas de datos guardados (que las versiones viejas no se rompan) y de límites (10 soldados, partidas largas).
 - Revisión de textos y ortografía.
 
-## 0.9.2 — "Listo para compartir"
-- Publicación en una dirección web fija (GitHub Pages u otra), instalable como app y con funcionamiento sin conexión.
-- Nombre e ícono finales, licencia y créditos.
-- Versión de archivo único actualizada para mandar por WhatsApp.
+## Plan nuevo hasta la 1.0 (pedido después de la 0.9.1)
+
+Antes de publicar, seis versiones grandes de mejoras: cuerpos y animaciones, inteligencia, estrategia en equipo, un mundo con más herramientas, sonido y presentación de verdad (con material descargado de licencia libre) y un afinado final. La publicación queda para la 1.0.
+
+**Sobre las descargas:** desde este entorno puedo bajar de **GitHub** (repositorios públicos) y de los registros de paquetes (npm, PyPI). Los sitios de material directos (Kenney, OpenGameArt, Freesound) están bloqueados acá, pero muchos de sus paquetes **CC0** (uso libre, sin pedir permiso) están copiados en GitHub. Solo uso material **CC0 o CC-BY** (este último con crédito en la app), reviso la licencia de cada archivo y lo anoto en `CREDITOS.md`. Si algo que vale la pena solo está en un sitio bloqueado, te pido permiso para abrir ese sitio en la configuración.
 
 ---
 
-## 1.0 — "Lanzamiento"
-Versión estable, publicada, instalable, con tutorial, tabla de victorias del grupo y documentación.
+## 0.9.2 — "Cuerpos de verdad" (animaciones y física de los cuerpos)
+1. **Esqueleto 2D por soldado:** cadera, torso que gira por separado de las piernas, hombros, codos y manos que se calculan solas (cinemática inversa) para agarrar cada arma con una o dos manos, cabeza que mira hacia donde escucha.
+2. **Caminar, correr, agacharse y caminar en sigilo** con ciclos distintos (pasos más largos al correr, cuerpo bajo y lento en sigilo), y frenadas y arranques con inercia.
+3. **Asomarse de verdad:** inclinación del cuerpo al asomarse por una esquina y al volver a cubrirse.
+4. **Recargas coreografiadas por arma:** sacar y meter el cargador, escopeta cartucho por cartucho, revólver con cargador rápido, ballesta tensada, sniper con cerrojo; y cambio de arma (enfundar y desenfundar).
+5. **Cuchillo:** varios golpes (estocada, corte, apuñalada por la espalda) y esquive.
+6. **Reacciones al daño:** sacudón según de dónde viene el tiro, tambaleo, retroceso por escopetazo, aturdido por explosión con estrellitas, cubrirse la cara con la aturdidora.
+7. **Muertes con física (muñeco de trapo liviano):** el cuerpo cae según la fuerza y la dirección del golpe, choca con paredes y cajones, brazos y piernas que quedan sueltos; vuelos por explosiones.
+8. **Detalles:** pelo y mochila que se balancean, mangas, sombra que acompaña, fogonazo con forma por arma, trazadoras, agujeros de bala en paredes y puertas, manchas y pisadas en charcos y barro, chispas en metal, astillas en madera.
+9. **Animaciones de interacción:** abrir y cerrar puertas con la mano y el hombro, saltar sobre cajones bajos, juntar objetos agachándose, tirar granadas por arriba o rodando.
+10. **Herramienta de prueba:** una pantalla oculta de "pasarela" para ver cada animación por separado y en cámara lenta.
+
+## 0.9.3 — "Cerebros 2.0" (inteligencia individual)
+1. **Decisión por utilidad:** cada medio segundo el soldado puntúa todas sus opciones (pelear, cubrirse, flanquear, curarse, buscar armas, emboscar, huir, ir al objetivo) según la situación y su personalidad, con "inercia" para no cambiar de idea a cada rato. Se puede ver qué piensa con un modo de depuración.
+2. **Mapa táctico precalculado:** puntos de cobertura (y desde dónde cubren), esquinas para asomarse, pasillos de tiro largos, cuellos de botella y zonas peligrosas. Se arma al empezar cada partida.
+3. **Mapa de peligro vivo:** dónde hubo tiros, muertes y granadas en los últimos segundos; lo evitan o lo atacan según la personalidad.
+4. **Supresión:** el fuego cercano baja la puntería y empuja a cubrirse; las ametralladoras sirven para "apretar" al rival mientras otro avanza.
+5. **Mejor oído:** triangular de dónde vienen los disparos oyendo varias veces, distinguir el arma por el sonido y saber si un rival está recargando para atacar en ese momento.
+6. **Memoria y aprendizaje dentro de la partida:** recordar dónde suele esconderse cada rival, por dónde llegó la última vez y dónde quedó el botín; cebos (hacer ruido de un lado y atacar del otro).
+7. **Puntería más humana:** el arma va "llegando" al blanco, se corrige tiro a tiro, controla el retroceso según la inteligencia y dispara a donde el rival va a estar.
+8. **Uso de todo el equipo:** granadas para sacar a alguien de una cobertura, humo para cruzar, aturdidora antes de entrar a un cuarto, botiquines en el momento justo, cambiar de arma según la distancia.
+9. **Personalidades más marcadas** (cada una con 2 o 3 jugadas propias) y **nivel Leyenda** por encima de Maestro.
+10. **Banco de pruebas nuevo** que mide decisiones, tiempos de reacción, supresión, uso de cobertura y "errores tontos" (pararse a la vista, quedarse sin balas en el peor momento).
+
+## 0.9.4 — "Escuadras" (estrategia en equipo)
+1. **Fuego y movimiento:** uno cubre disparando mientras el compañero avanza, y se van turnando.
+2. **Entrar a un cuarto en equipo:** se juntan a los lados de la puerta, uno tira la aturdidora, entran y cada uno revisa un lado.
+3. **Fuego cruzado y emboscadas en equipo:** se reparten esquinas para que el rival quede entre dos.
+4. **Roles con habilidades:** el médico cura a los compañeros, el tanque va adelante y aguanta, el tirador cubre desde atrás, el de asalto entra primero; además **explorador** (más rápido y marca enemigos) e **ingeniero** (pone minas y trampas).
+5. **Derribados y reanimación** (opcional en equipos): con poca vida quedan en el piso arrastrándose y un compañero los puede levantar mientras otros lo cubren.
+6. **Líder y órdenes:** el táctico decide el plan del equipo (atacar, defender, flanquear por la izquierda, esperar) y se ve en pantalla.
+7. **Comunicación:** marcan enemigos para todo el equipo, avisan "recargando", "granada" o "me cubro", y se cuidan las espaldas.
+8. **En modo manual, das órdenes** a tus compañeros bots con botones (seguime, cubrí esta zona, atacá, agrupense).
+9. **Planes por modo:** en Bandera escoltan al que la lleva y van a buscarla; en Bomba los defensores rotan entre sitios; en Colina se reparten las entradas.
+10. **Nuevo mapa por equipos** pensado para esto (dos sitios de bomba, edificios con varias entradas) y **Bomba con 2 sitios**.
+
+## 0.9.5 — "Mundo vivo y herramientas"
+1. **Paredes finas y puertas que se rompen** con explosivos o a tiros; agujeros por los que se puede ver y disparar.
+2. **Herramientas nuevas:** carga explosiva para abrir paredes, minas, trampas de alambre con alarma, sensor de movimiento, escudo portátil y binoculares. La IA las usa con criterio.
+3. **Coberturas que se mueven:** mesas que se dan vuelta para cubrirse, cajones que se empujan.
+4. **Luz y oscuridad de verdad:** sombras que proyectan las paredes, linternas con cono de luz, fogonazos que iluminan, partidas de noche y lámparas que se pueden romper.
+5. **Clima:** lluvia (tapa los sonidos y hace barro con pisadas), niebla más densa, tormenta con relámpagos que iluminan todo un instante.
+6. **Mapas nuevos:** estación de tren, supermercado, estacionamiento, fábrica con cintas transportadoras, y la oficina en versión "fin de semana" a oscuras.
+7. **Editor de mapas visual** (dibujar con el dedo paredes, puertas y objetos) en lugar del de texto.
+8. **Eventos nuevos:** apagón con generador para volver a prender, inundación de un sector, helicóptero que ilumina y alarma de humo.
+
+## 0.9.6 — "Sonido y presentación a lo grande"
+1. **Sonidos reales descargados** (licencia libre): cada arma con disparo cercano y lejano, recargas, casquillos cayendo según el piso, pasos por superficie, impactos en carne, metal, madera y vidrio, explosiones con eco, puertas, vidrios.
+2. **Ambiente por mapa** (oficina con aire acondicionado y teléfonos, cárcel con ecos, depósito con viento y chapas, base militar con radio) y **eco según el lugar** (pasillos y cuartos grandes).
+3. **Música mejor:** temas de licencia libre o compuestos para el juego, que cambian de intensidad sin cortes.
+4. **Voces:** gritos, quejidos y frases grabadas o sintetizadas mejor, y el relator con más frases y emoción.
+5. **Efectos visuales:** luz de los disparos, humo de verdad, explosiones con onda de choque, partículas mejores, sacudón y "golpe" de cámara al recibir daño.
+6. **Cámara de cine:** cámara de la muerte (desde los ojos del que te eliminó), presentación de los soldados al empezar (cartas con foto, personalidad y arma) y final con resumen animado.
+7. **Pantallas rediseñadas:** menú, armado de partida y resultado más lindos, con iconos e ilustraciones (descargados de licencia libre o dibujados) y tipografía propia.
+8. **La moneda** con sonidos reales de moneda y una mesa donde cae.
+
+## 0.9.7 — "Afinado final"
+1. **Ajuste automático por evolución:** el banco de pruebas prueba miles de combinaciones de parámetros y se queda con las que dejan parejas a las personalidades, a los equipos y a los modos.
+2. **Miles de partidas** por mapa y modo: duración, trabas, empates y ventajas.
+3. **Rendimiento con todo lo nuevo:** que siga andando fluido en celulares viejos (dibujar a caché, menos cálculos de IA por cuadro, calidad automática afinada).
+4. **Pruebas en tu celular:** me mandás lo que copia el botón 🐞 y lo arreglo.
+5. **Revisión de textos, ayuda y práctica guiada** actualizadas con todo lo nuevo.
+
+---
+
+## 1.0 — "Lanzamiento" (lo que estaba planeado)
+- Publicación en una dirección web fija (GitHub Pages u otra), instalable como app y con funcionamiento sin conexión.
+- Nombre e ícono finales, licencia y **créditos** (incluye el material descargado).
+- Versión de archivo único actualizada para mandar por WhatsApp.
+- Versión estable con tutorial, tabla de victorias del grupo y documentación.
 
 ## Más adelante (1.x, ideas)
 - **Multijugador en el mismo wifi:** cada uno desde su celular, y uno hace de pantalla.
 - Controlar a tu soldado en tiempo real contra los de tus compañeros.
-- Editor de mapas visual.
 - Modo campaña.
 - Armas y personalidades editables.
 - Estadísticas del grupo a lo largo de los meses.
