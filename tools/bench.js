@@ -53,6 +53,9 @@ const CONFIGS = [
   { name: 'Oleadas, 8', mode: 'waves', map: 'maze', n: 8 },
   { name: 'Botín, 6', mode: 'loot', map: 'deposito', n: 6 },
   { name: 'Solo cuchillos, 6', mode: 'knives', map: 'arena', n: 6 },
+  // escuadras (0.9.4)
+  { name: 'Complejo, equipos 8 con roles y derribados', map: 'complejo', n: 8, teams: true, roles: true, downed: true },
+  { name: 'Bomba en el complejo, 8 con roles', mode: 'bomb', map: 'complejo', n: 8, roles: true, downed: true },
 ];
 
 (async () => {
@@ -74,11 +77,11 @@ const CONFIGS = [
     window.__play = function (c) {
       const players = NAMES.slice(0, c.n).map((n, i) => ({
         name: n, color: '#ff0000', team: c.teams ? i % 2 : 0,
-        pers: c.pers ? c.pers[i % c.pers.length] : 'auto', iq: c.iq ? c.iq[i % c.iq.length] : 1,
+        pers: c.pers ? c.pers[i % c.pers.length] : 'auto', iq: c.iq ? c.iq[i % c.iq.length] : 1, role: c.roles ? ['asalto', 'medico', 'tirador', 'tanque', 'explorador', 'ingeniero'][(i >> 1) % 6] : 'none',
       }));
       const M = App.Modes.defs[c.mode || 'classic'], two = M.team === 'two' || M.team === 'coop';
       if (two && !c.teams) players.forEach((p, i) => { p.team = i % 2; });
-      const cfg = { mode: c.mode || 'classic', noRec: true, players, teamMode: !!c.teams || two, lives: c.lives || 3, map: c.map, size: c.size || 'm', powerups: true, zone: c.zone !== false, varied: true, loot: c.loot !== false, gear: c.gear !== false, props: c.props !== false, events: c.events !== false, friendly: !!c.friendly, talk: true, seed: c.seed, customMap: Maps.SAMPLE };
+      const cfg = { mode: c.mode || 'classic', noRec: true, players, teamMode: !!c.teams || two, lives: c.lives || 3, map: c.map, size: c.size || 'm', powerups: true, zone: c.zone !== false, varied: true, loot: c.loot !== false, gear: c.gear !== false, props: c.props !== false, events: c.events !== false, friendly: !!c.friendly, talk: true, seed: c.seed, customMap: Maps.SAMPLE, downed: !!c.downed };
       const g = new App.battle.Game(cv, cfg, noop);
       g.phase = 'run'; g.paused = false;
       const modeEntries = {}, actEntries = {}, lastMode = g.soldiers.map(() => ''), seenActs = new WeakSet();
@@ -98,8 +101,8 @@ const CONFIGS = [
         t: g.time, timeout: g.phase === 'run', draw: g.phase !== 'run' && winners.length === 0,
         winners: winners.map((s) => ({ pers: s.pers, iq: s.iq })),
         soldiers: g.soldiers.map((s) => ({ pers: s.pers, iq: s.iq, deathT: s.alive ? g.time : s.deathT, kills: s.kills, dmg: s.stats.dmgDealt, shots: s.stats.shots, hits: s.stats.hits, rounds: s.stats.rounds, hidden: s.stats.hidden, fled: s.stats.fled, talk: s.stats.talk, killsBy: s.stats.killsBy })),
-        brain: (() => { const b = { intents: {}, react: 0, reactN: 0, vaults: 0, exposed: 0, dry: 0, suppT: 0, life: 0 };
-          g.soldiers.forEach((s) => { const t = s.stats; for (const k in (t.intents || {})) b.intents[k] = (b.intents[k] || 0) + t.intents[k]; b.react += t.react || 0; b.reactN += t.reactN || 0; b.vaults += t.vaults || 0; b.exposed += t.exposed || 0; b.dry += t.dry || 0; b.suppT += t.suppT || 0; b.life += s.alive ? g.time : s.deathT; });
+        brain: (() => { const b = { intents: {}, react: 0, reactN: 0, vaults: 0, exposed: 0, dry: 0, suppT: 0, life: 0, revives: 0, downs: 0 };
+          g.soldiers.forEach((s) => { const t = s.stats; for (const k in (t.intents || {})) b.intents[k] = (b.intents[k] || 0) + t.intents[k]; b.react += t.react || 0; b.reactN += t.reactN || 0; b.vaults += t.vaults || 0; b.exposed += t.exposed || 0; b.dry += t.dry || 0; b.suppT += t.suppT || 0; b.life += s.alive ? g.time : s.deathT; b.revives += t.revives || 0; b.downs += s.downCount || 0; });
           return b; })(),
         stuck: g.stuckEvents, modeEntries, actEntries, ms: performance.now() - t0, overtime: !!g.overtime,
         world: Object.assign({}, g.stats, { thrown: sum((s) => s.stats.thrown), healed: sum((s) => s.stats.healed), absorbed: sum((s) => s.stats.absorbed) }),
@@ -135,8 +138,8 @@ const CONFIGS = [
     });
     const ts = res.map((x) => x.t);
     const tc = {}; res.forEach((x) => { tc[x.title] = (tc[x.title] || 0) + 1; });
-    const brain = { intents: {}, react: 0, reactN: 0, vaults: 0, exposed: 0, dry: 0, suppT: 0, life: 0 };
-    res.forEach((x) => { const b = x.brain; for (const k in b.intents) brain.intents[k] = (brain.intents[k] || 0) + b.intents[k] / res.length; ['react', 'reactN', 'vaults', 'exposed', 'dry', 'suppT', 'life'].forEach((k) => { brain[k] += b[k] / res.length; }); });
+    const brain = { intents: {}, react: 0, reactN: 0, vaults: 0, exposed: 0, dry: 0, suppT: 0, life: 0, revives: 0, downs: 0 };
+    res.forEach((x) => { const b = x.brain; for (const k in b.intents) brain.intents[k] = (brain.intents[k] || 0) + b.intents[k] / res.length; ['react', 'reactN', 'vaults', 'exposed', 'dry', 'suppT', 'life', 'revives', 'downs'].forEach((k) => { brain[k] += b[k] / res.length; }); });
     rows.push({ name: c.name, brain, titles: tc, med: med(ts), min: Math.min(...ts), max: Math.max(...ts), timeouts: res.filter((x) => x.timeout).length, draws: res.filter((x) => x.draw).length, overtime: res.filter((x) => x.overtime).length,
       stuck: sum((x) => x.stuck), cpu: sum((x) => x.ms), modes, acts, kb, world,
       acc: res.reduce((a, x) => a + x.soldiers.reduce((b, s) => b + s.hits, 0), 0) / Math.max(1, res.reduce((a, x) => a + x.soldiers.reduce((b, s) => b + s.rounds, 0), 0)) });
@@ -172,9 +175,9 @@ const CONFIGS = [
   rows.forEach((r) => L.push(`| ${r.name} | ${Math.round(r.med)}s | ${Math.round(r.min)}–${Math.round(r.max)}s | ${r.timeouts} | ${r.overtime} | ${f1(r.stuck)} | ${Math.round(r.cpu)}ms | ${Math.round(r.acc * 100)}% |`));
   L.push('', '## Cómo terminan los modos de juego', '', '| Configuración | finales |', '|---|---|');
   rows.filter((r) => r.titles && CONFIGS.find((q) => q.name === r.name && q.mode)).forEach((r) => L.push(`| ${r.name} | ${Object.entries(r.titles).map(([k, v]) => `${k} ×${v}`).join(' · ')} |`));
-  L.push('', '## Cerebro (por partida)', '', '| Configuración | reacción media | supresión | recargas expuestas | sin balas en pelea | saltos de cajón | decisiones en combate |', '|---|---|---|---|---|---|---|');
+  L.push('', '## Cerebro (por partida)', '', '| Configuración | reacción media | supresión | recargas expuestas | sin balas en pelea | saltos de cajón | derribados / levantados | decisiones en combate |', '|---|---|---|---|---|---|---|---|');
   rows.forEach((r) => { const b = r.brain; if (!b) return; const tot = Object.values(b.intents).reduce((a, v) => a + v, 0) || 1;
-    L.push(`| ${r.name} | ${(b.react / Math.max(1, b.reactN)).toFixed(2)}s | ${(b.suppT / Math.max(1, b.life) * 100).toFixed(1)}% del tiempo | ${(b.exposed / Math.max(1, b.life) * 100).toFixed(1)}% | ${b.dry.toFixed(0)}s | ${b.vaults.toFixed(1)} | ${Object.entries(b.intents).sort((p, q) => q[1] - p[1]).map(([k, v]) => `${k} ${Math.round(v / tot * 100)}%`).join(' · ')} |`); });
+    L.push(`| ${r.name} | ${(b.react / Math.max(1, b.reactN)).toFixed(2)}s | ${(b.suppT / Math.max(1, b.life) * 100).toFixed(1)}% del tiempo | ${(b.exposed / Math.max(1, b.life) * 100).toFixed(1)}% | ${b.dry.toFixed(0)}s | ${b.vaults.toFixed(1)} | ${b.downs.toFixed(1)} / ${b.revives.toFixed(1)} | ${Object.entries(b.intents).sort((p, q) => q[1] - p[1]).map(([k, v]) => `${k} ${Math.round(v / tot * 100)}%`).join(' · ')} |`); });
   L.push('', '## Mundo y equipo (por partida)', '', '| Configuración | granadas | barriles | cajones rotos | vidrios | eventos | cargamentos | vida curada | daño frenado |', '|---|---|---|---|---|---|---|---|---|');
   rows.forEach((r) => L.push(`| ${r.name} | ${f1(r.world.thrown || 0)} | ${f1(r.world.exploded || 0)} | ${f1(r.world.crates || 0)} | ${f1(r.world.glass || 0)} | ${f1(r.world.events || 0)} | ${f1(r.world.drops || 0)} | ${Math.round(r.world.healed || 0)} | ${Math.round(r.world.absorbed || 0)} |`));
   L.push('', '## Tácticas usadas (veces por partida, promedio de todas las configuraciones)', '');

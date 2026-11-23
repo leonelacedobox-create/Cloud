@@ -25,6 +25,13 @@
       '<b>Clásico:</b> el último en pie. <b>Duelo:</b> cada baja suma y se reaparece. <b>Bandera:</b> robá la bandera enemiga y llevala a tu base. <b>Colina:</b> quedate solo en la zona marcada para sumar. <b>Bomba:</b> el Rojo planta, el Azul desactiva. <b>Oleadas:</b> todos contra 5 oleadas de bots. <b>Botín:</b> juntá lingotes de oro. <b>Cuchillos:</b> sin armas.',
       'Si un modo con tiempo empata hay prórroga, y si sigue el empate se desempata con la moneda.',
     ]],
+    ['👥 Equipos', [
+      'Cada equipo tiene un <b>líder</b> (★) que elige el plan: buscar, atacar o defender. Se ve arriba a la derecha.',
+      'Al <b>atacar</b> se turnan: uno cubre disparando y el otro avanza. Antes de entrar a un cuarto se juntan a los costados de la puerta, uno la abre y tira una aturdidora. Al <b>defender</b> se reparten esquinas para dejar al rival en un fuego cruzado.',
+      '<b>Roles</b>: 💣 asalto (entra primero), 🩹 médico (cura y levanta más rápido), 🎯 tirador, 🛡️ tanque (aguanta más), 🔭 explorador (más rápido, marca enemigos para todos) y 🔧 ingeniero (pone minas). Si no elegís, se reparten solos.',
+      '<b>Derribados</b>: en vez de morir quedan en el piso arrastrándose unos segundos y un compañero los puede levantar (el médico más rápido).',
+      'Si manejás un soldado de un equipo, con 👣 📍 ⚔️ 🫂 les das órdenes a tus compañeros: síganme, cubran acá, ataquen y agrúpense.',
+    ]],
     ['🎒 Armas y objetos', [
       'Todos arrancan con pistola y cuchillo y pueden llevar un arma más del piso: sniper, ametralladoras, escopetas, subfusil, rifle, revólver o ballesta. Al morir sueltan todo.',
       'Granadas (fragmentación, humo y aturdidora), chaleco, casco, botiquines, mochila y accesorios (silenciador, mira, cargador extendido). Los barriles rojos explotan.',

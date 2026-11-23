@@ -226,6 +226,7 @@
     if (Math.hypot(m.x - s.x, m.y - s.y) > 1.4) return;
     m.downed = null; m.hp = Math.max(m.hp, HPL * (s.role === 'medico' ? 0.7 : 0.45)); m.mode = 'search'; m.spawnT = 1.2;
     s.stats.revives = (s.stats.revives || 0) + 1; this.callout(s, 'revive');
+    if (this.narrate) this.narrate('say', { text: `¡${s.name} levantó a ${m.name}!` });
   };
   G.finishHealMate = function (s, id) {
     const m = this.soldiers[id]; if (!m || !m.alive || Math.hypot(m.x - s.x, m.y - s.y) > 1.5) return;

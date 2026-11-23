@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.9.3 ✅ terminada.** Próximas: 0.9.4 → 0.9.5 → 0.9.6 → 0.9.7 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.9.4 ✅ terminada.** Próximas: 0.9.5 → 0.9.5 → 0.9.6 → 0.9.7 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -141,7 +141,9 @@ Antes de publicar, seis versiones grandes de mejoras: cuerpos y animaciones, int
 9. **Personalidades más marcadas** (cada una con 2 o 3 jugadas propias) y **nivel Leyenda** por encima de Maestro.
 10. **Banco de pruebas nuevo** que mide decisiones, tiempos de reacción, supresión, uso de cobertura y "errores tontos" (pararse a la vista, quedarse sin balas en el peor momento).
 
-## 0.9.4 — "Escuadras" (estrategia en equipo)
+## 0.9.4 — "Escuadras" (estrategia en equipo) ✅
+
+> **Hecho.** Notas: en peleas parejas los derribados a menudo caen antes de que los levanten (en las simulaciones se levanta aproximadamente 1 de cada 9); se ajusta en 0.9.7. La Bandera ya tenía escolta y recuperación desde la 0.7; las minas solo las pone el ingeniero (las trampas y el resto de las herramientas van en 0.9.5).
 1. **Fuego y movimiento:** uno cubre disparando mientras el compañero avanza, y se van turnando.
 2. **Entrar a un cuarto en equipo:** se juntan a los lados de la puerta, uno tira la aturdidora, entran y cada uno revisa un lado.
 3. **Fuego cruzado y emboscadas en equipo:** se reparten esquinas para que el rival quede entre dos.

@@ -115,6 +115,18 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **🧠 Modo depuración** (Ajustes): sobre cada soldado se ve qué decidió y las barras de puntaje de cada opción, y en el mapa las zonas de peligro y los cuellos de botella.
 - **Banco de pruebas** con una tabla nueva "Cerebro": tiempo de reacción, tiempo bajo supresión, recargas a la vista del rival, tiempo sin balas en pelea, saltos de cajón y en qué se reparten las decisiones.
 
+### Novedades de la 0.9.4 — Escuadras
+- **Líder y plan por equipo** (`js/squad.js`): el más táctico manda y elige **buscar** (sin alejarse del grupo), **atacar** o **defender**, según cuántos quedan y cuántos enemigos conocen entre todos. Se ve en pantalla (★ líder y plan).
+- **Fuego y movimiento:** al atacar se turnan cada ~3 s: uno cubre (y aprieta con ráfagas si ve la zona) mientras el otro avanza un tramo.
+- **Entrar a un cuarto en equipo:** si el camino al rival pasa por una puerta cerrada, se juntan a los costados, uno la abre y tira una aturdidora (o una granada) y entran todos.
+- **Fuego cruzado:** al defender eligen un punto por donde va a pasar el rival y se ubican a distintos ángulos, bien tapados.
+- **Avisos por radio** (globos sin ruido): "¡Recargando!", "¡Granada!", "¡Me cubro!", "¡Contacto!", "¡Me dieron!", "¡Te levanto!", "¡Al ataque!"…
+- **Roles con habilidades:** el **médico** cura a los compañeros heridos y levanta más rápido; el **tanque** aguanta un 18% más pero es un poco más lento; nuevos **🔭 explorador** (más rápido, ve más lejos y **marca** a los enemigos para todo su equipo) y **🔧 ingeniero** (pone **minas** en pasillos y puertas). Opción de **roles automáticos** para los que no tienen rol.
+- **Derribados** (opción en equipos): en vez de morir quedan en el piso, se arrastran hacia sus compañeros y tienen 28 s para que alguien los levante (el médico más rápido). Las balas perdidas les pasan por arriba y solo algunos "rematadores" los terminan. Un equipo con todos derribados pierde.
+- **Órdenes en modo manual:** con 👣 📍 ⚔️ 🫂 les decís a tus bots que te sigan, cubran un lugar, ataquen o se agrupen.
+- **Planes por modo:** en **Colina** se reparten alrededor mirando cada uno hacia afuera; en **Bomba** hay **dos sitios (A y B)**: los atacantes sortean a cuál van, los defensores se reparten y **rotan** cuando ven venir al de la bomba.
+- **Mapa nuevo "Complejo":** seis edificios con varias entradas, calles con cobertura y los dos sitios de bomba en el medio.
+
 ### Banco de pruebas
 ```sh
 node tools/bench.js --runs 12    # simula cientos de partidas sin dibujar y genera un reporte
