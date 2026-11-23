@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.7 ✅ terminada** (0.2, 0.5 y 0.7 están hechas). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.9 ✅ terminada** (0.2, 0.5, 0.7 y 0.9 están hechas). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -83,7 +83,9 @@
 
 ---
 
-## 0.9 — "Pulido y sentidos"
+## 0.9 — "Pulido y sentidos" ✅
+
+> **Hecho.** Notas: la música es sintetizada (no hay archivos de audio) y la voz depende de que el celular tenga voces en español. Las armas siguen siendo las redibujadas de la 0.5 (no mandaste modelos para descargar). La calidad automática y el modo ahorro se probaron en la computadora; la medición en celulares viejos de verdad queda para 0.9.1.
 - **Sonido:** música que sube con la tensión, sonido ubicado según la cámara, voz opcional para los insultos y pasos distintos según el piso.
 - **Animaciones:** caminar, correr y recargar más detallados, muertes más expresivas, humo del cañón, casquillos y polvo.
 - **Narrador automático** con frases de relator.

@@ -67,6 +67,17 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **🏅 Logros e historial** (`js/hist.js`): 21 medallas (Ojo de lince, Carnicero, Intocable, Gallina, Ladrón de banderas…) y estadísticas por jugador (partidas, victorias, bajas, puntería, racha, torneos).
 - **🪙 Moneda mejorada:** confeti, sonido de "tic" en cada giro, y 4 estilos de tirada (Clásica, Alta, Trompo y Loca).
 
+### Novedades de la 0.9 — pulido y sentidos
+- **🎵 Música que sube con la tensión** (`js/audio.js`): se arma en el momento con sintetizador (sin archivos). Arranca con un colchón suave y suma bombo, platillos, bajo, redoblante y una melodía nerviosa a medida que hay tiros cerca de la cámara, quedan pocos, se cierra la zona, hay muerte súbita o la bomba está por explotar. Tiene su propio volumen.
+- **🔈 Sonido ubicado:** disparos, golpes, explosiones y vidrios suenan a la izquierda o a la derecha según dónde están en la pantalla, y más bajo si están lejos. **Pasos** distintos según el piso (normal, alfombra, metal, grava) cerca de la cámara.
+- **🗣️ Voz opcional** (usa la voz del celular) para los insultos de los soldados que se ven y para el relator.
+- **🎙️ Relator automático** (`js/narrator.js`): primera sangre, dobles y tripletes, rachas, tiros lejanos, puñaladas, venganzas, batacazos, “¡mano a mano!”, zona, muerte súbita, capturas, bomba y el final, con un cartel grande y sin repetirse.
+- **Animaciones:** los soldados caen empujados por el último tiro y queda un charco; **casquillos** (y cartuchos rojos de escopeta) que saltan y quedan en el piso, el **cargador vacío** cae al recargar, **polvo** al correr y humo del caño.
+- **♿ Accesibilidad** (en el menú): texto grande o enorme, **ayuda para daltonismo** (paleta segura y símbolos ● ▲ ■ ◆ por equipo), vibración on/off, **modo zurdo** (joystick a la derecha) y menos animaciones.
+- **🔋 Rendimiento y batería:** calidad *Automática* (baja sola la resolución y los efectos si el celular no llega a 40 cuadros), *Alta* o *Ahorro* (30 cuadros por segundo, menos partículas, sin casquillos ni polvo, menor resolución). Medidor de cuadros opcional.
+- **🎓 Práctica guiada:** 8 pasos con flechas en el mapa (caminar, disparar, recargar, agarrar un arma, cambiar de arma, tirar una granada, curarse y eliminar al muñeco de práctica). Aparece la primera vez que entrás a la batalla y desde ❓ Ayuda.
+- **❓ Ayuda:** todo explicado por secciones (moneda, batalla, controles, modos, armas, torneo, sonido y consejos).
+
 ### Banco de pruebas
 ```sh
 node tools/bench.js --runs 12    # simula cientos de partidas sin dibujar y genera un reporte
