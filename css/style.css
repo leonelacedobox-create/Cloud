@@ -399,3 +399,5 @@ textarea.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace
 }
 .toast { position: fixed; left: 50%; bottom: calc(16px + var(--safe-b, 0px)); transform: translate(-50%, 30px); max-width: 92%; background: rgba(15,20,35,.95); color: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 14px; z-index: 80; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.rw-canvas { width: 100%; aspect-ratio: 1; border-radius: 12px; display: block; }
+.rw-list { display: flex; flex-wrap: wrap; gap: 5px; max-height: 32vh; overflow: auto; }

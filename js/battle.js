@@ -666,6 +666,7 @@
       this.emitSound(s.x, s.y, 3, 'step', s);
       if (this.speed <= 2) sfx.pickup();
       s.stats.pickups++;
+      if (s.anim) s.anim.pickT = 0.35;
       this.hooks.onPickup(s, label);
       return true;
     }
@@ -774,6 +775,7 @@
         s.know[by.id] = { id: by.id, x: by.x + Math.cos(a) * m, y: by.y + Math.sin(a) * m, t: this.time, exact: false, kind: 'hit' };
         s.thinkT = Math.min(s.thinkT, 0.1);
       }
+      this.rigHit(s, by, dealt, zone);
       this.onDamaged(s, by, dealt, zone);
       if (s.hp <= 0) this.kill(s, by, zone);
     }
@@ -781,7 +783,7 @@
       s.alive = false; s.hp = 0; s.deathT = this.time; s.deathOrder = this.deaths++; s.bubble = null; s.act = null;
       let kx = Math.cos(s.angle + Math.PI), ky = Math.sin(s.angle + Math.PI);            // cae para atrás, empujado por el último golpe
       if (by && by !== s) { const d = Math.hypot(s.x - by.x, s.y - by.y) || 1; kx = (s.x - by.x) / d; ky = (s.y - by.y) / d; }
-      this.corpses.push({ x: s.x, y: s.y, color: s.color, ap: s.ap, ang: Math.atan2(ky, kx) + Math.PI + (rnd() - 0.5) * 0.6, t0: this.time, kx: -kx, ky: -ky });
+      this.corpses.push({ x: s.x, y: s.y, color: s.color, ap: s.ap, ang: Math.atan2(ky, kx) + Math.PI + (rnd() - 0.5) * 0.6, t0: this.time, kx: -kx, ky: -ky, rag: this.cfg.noRec ? null : this.makeRagdoll(s) });
       this.dropWeapons(s);                                   // suelta todo lo que le quedaba
       for (let i = 0; i < 30; i++) {
         const a = rnd() * 6.283, v = 1.5 + rnd() * 5;
@@ -828,6 +830,7 @@
       for (const d of this.doors.values()) d.anim = Math.max(0, Math.min(1, d.anim + (d.open ? 1 : -1) * dt * 3.2));
       this.stepWorld(dt);
       this.teamTick(dt);
+      if (!this.cfg.noRec) { for (const s of this.soldiers) if (s.alive) this.rigUpdate(s, dt); this.stepCorpses(dt); }
       const sl = this.soldiers;                                // el orden se alterna en cada paso: nadie reacciona siempre "después" que su rival
       if ((this._ord = !this._ord)) for (let i = 0; i < sl.length; i++) this.updateSoldier(sl[i], dt);
       else for (let i = sl.length - 1; i >= 0; i--) this.updateSoldier(sl[i], dt);
@@ -841,7 +844,7 @@
           b.x += b.vx * sd; b.y += b.vy * sd; b.d = (b.d || 0) + Math.hypot(b.vx, b.vy) * sd;
           const bx = Math.floor(b.x), by = Math.floor(b.y);
           if (this.bulletTile(b, bx, by)) { gone = true; break; }
-          if (!b.door && this.doorGrid[by * this.W + bx]) { b.door = true; this.spark(b.x, b.y, '#c9955a', 5); }
+          if (!b.door && this.doorGrid[by * this.W + bx]) { b.door = true; this.spark(b.x, b.y, '#c9955a', 5); this.addDecal('hole', b.x, b.y); }
           for (const s of this.soldiers) {
             if (!s.alive || s === b.owner || (b.owner.team >= 0 && s.team === b.owner.team && !this.cfg.friendly)) continue;
             if (Math.hypot(s.x - b.x, s.y - b.y) < s.r + 0.1) { gone = true; b.owner.stats.hits++; this.damage(s, b.owner, b.dmg, false); break; }
@@ -1056,6 +1059,7 @@
       const inV = (px, py, m = 1.5) => px > left - m && px < right + m && py > top - m && py < bottom + m;   // solo se dibuja lo que entra en pantalla
       for (const d of this.doors.values()) if (inV(d.tx, d.ty)) Art.drawDoor(x, d, ts);
       this.drawWorld(x, ts, left, top, this.cw / ts, this.ch / ts);
+      this.drawDecals(x, ts, left, top, right, bottom);
       for (const c of this.corpses) if (inV(c.x, c.y)) Art.drawCorpse(x, c, ts, this.time);
       this.drawShells(x, ts);
       for (const it of this.items) { if (!inV(it.x, it.y)) continue; if (it.kind === 'power') this.drawPowerup(x, it); else Art.drawItem(x, it, ts, this.time); }

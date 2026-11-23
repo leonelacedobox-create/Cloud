@@ -110,7 +110,7 @@
     for (const e of list) {
       const live = this.soldiers[e.id];
       const p = Object.create(live);
-      Object.assign(p, e, { shieldHp: e.sh, armor: { vest: e.av, helm: e.ah }, alive: true });
+      Object.assign(p, e, { shieldHp: e.sh, armor: { vest: e.av, helm: e.ah }, alive: true, anim: null });
       Art.drawSoldier(x, p, ts, fr.t);
     }
     for (const bu of fr.b) {

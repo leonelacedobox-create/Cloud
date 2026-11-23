@@ -84,13 +84,18 @@
   G.bulletTile = function (b, bx, by) {
     if (bx < 0 || by < 0 || bx >= this.W || by >= this.H) return true;
     const i = by * this.W + bx;
-    if (this.wl[i]) { this.spark(b.x - b.vx * 0.016, b.y - b.vy * 0.016, '#ffe08a', 3); return true; }
+    if (this.wl[i]) {
+      const hx = b.x - b.vx * 0.016, hy = b.y - b.vy * 0.016;
+      this.spark(hx, hy, '#ffe08a', 2);
+      if (!this.cfg.noRec) { this.addDecal('hole', b.x, b.y); for (let k = 0; k < 3; k++) this.parts.push({ x: hx, y: hy, vx: -b.vx * 0.05 + (rnd() - 0.5) * 1.5, vy: -b.vy * 0.05 + (rnd() - 0.5) * 1.5, life: 0.5, max: 0.8, color: '#a8a29e', size: 0.07 + rnd() * 0.05 }); }   // polvo de la pared
+      return true;
+    }
     const p = this.pr[i];
     if (!p) return false;
     if (p === 3) { if (this.glass[i] === 1) this.breakGlass(i, b.owner); return false; }
     if (p === 1) {
       if ((b.d || 0) <= 1.35) return false;                                                // tirador pegado al cajón: dispara por encima
-      this.damageProp(i, b.dmg * 0.6, b.owner); this.spark(b.x, b.y, '#d4a373', 3); return true;
+      this.damageProp(i, b.dmg * 0.6, b.owner); this.spark(b.x, b.y, '#d4a373', 5); this.addDecal('hole', b.x, b.y); return true;     // astillas
     }
     this.damageProp(i, b.dmg, b.owner);                                                     // barril
     return true;
@@ -139,6 +144,7 @@
       const d = Math.hypot(s.x - x, s.y - y);
       if (d > R) continue;
       if (d > 0.7 && !this.losShot(x, y, s.x, s.y)) continue;                              // una pared o un cajón lo protege
+      s._boom = { x, y, t: this.time };
       this.damage(s, owner || null, dmg * Math.max(0.2, 1 - d / R), false);
       if (s.alive && kind === 'frag') s.stunT = Math.max(s.stunT, 0.8);
     }

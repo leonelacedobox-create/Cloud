@@ -702,7 +702,21 @@
     if (s.act || s.stunT > 0) return this.steer(s, dt);
     const c = this.ctl || (this.ctl = { mx: 0, my: 0, fire: false, sneak: false });
     const r = { vx: 0, vy: 0, desired: s.angle, speedMul: 1, sneak: false, scanning: false };
+    if (s.vault) {                                                              // saltando un cajón: el salto no se puede cortar
+      const v = s.vault; v.t += dt; const k = Math.min(1, v.t / v.dur);
+      s.x = v.fx + (v.tx - v.fx) * k; s.y = v.fy + (v.ty - v.fy) * k;
+      if (k >= 1) { s.vault = null; this.emitSound(s.x, s.y, 4, 'step', s); }
+      return r;
+    }
     const m = Math.hypot(c.mx, c.my);
+    if (m > 0.5) {                                                              // empujando contra un cajón con lugar libre del otro lado: lo salta
+      const dx = c.mx / m, dy = c.my / m, cx = Math.floor(s.x + dx * 0.75), cy = Math.floor(s.y + dy * 0.75), ci = cy * this.W + cx;
+      if (this.pr && this.pr[ci] === 1 && (Math.abs(dx) > 0.8 || Math.abs(dy) > 0.8)) {
+        const sx = Math.round(dx), sy = Math.round(dy), bx = cx + sx, by = cy + sy;
+        s.vaultPush = (s.vaultPush || 0) + dt;
+        if (s.vaultPush > 0.25 && !this.isSolid(bx, by) && !this.blocked(bx + 0.5, by + 0.5, s.r)) { s.vault = { t: 0, dur: 0.45, fx: s.x, fy: s.y, tx: bx + 0.5, ty: by + 0.5 }; s.vaultPush = 0; this.emitSound(s.x, s.y, 5, 'step', s); return r; }
+      } else s.vaultPush = 0;
+    }
     if (m > 0.12) {
       const k = Math.min(1, m);
       r.vx = c.mx / m * k; r.vy = c.my / m * k;

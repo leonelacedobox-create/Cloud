@@ -360,7 +360,7 @@ const Art = (() => {
   const G2 = (x, u) => { const g = x.createLinearGradient(0, -0.3 * u, 0, 0.3 * u); g.addColorStop(0, '#0b0d12'); g.addColorStop(0.5, '#6b7280'); g.addColorStop(1, '#0b0d12'); return g; };
   /** Los objetos del piso se dibujan una sola vez en una imagen chiquita y después se copian (mucho más liviano). */
   function drawItemCached(x, it, ts, time) {
-    const k = Math.min(2, x.getTransform().a || 1), half = ts * 0.9;
+    const m = x.getTransform(), k = Math.max(0.5, Math.min(2, Math.round(Math.hypot(m.a, m.b) * 2) / 2)), half = ts * 0.9;
     let c = it._spr;
     if (!c || c.ts !== ts || c.k !== k) {
       const cv = document.createElement('canvas'); cv.width = cv.height = Math.ceil(half * 2 * k);
@@ -465,5 +465,5 @@ const Art = (() => {
     x.restore();
   }
 
-  return { makeLooks, drawSoldier, drawCorpse, drawDoor, drawItem: drawItemCached, drawItemRaw: drawItem, head, GUNS, RARITY };
+  return { makeLooks, drawSoldier, drawCorpse, drawDoor, drawItem: drawItemCached, drawItemRaw: drawItem, head, GUNS, RARITY, _: { ell, shade, gun, head } };
 })();
