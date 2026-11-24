@@ -109,5 +109,7 @@ const Personas = (() => {
     return a.length ? a[rint(a.length)] : '';
   };
 
-  return { PERS, IQ, WEIGHTS, LINES, choose, pickLine, setCustom };
+  // 0.9.8: ya no se elige la inteligencia: todos usan este nivel (alto pero humano; las mejoras de la IA van para todos)
+  const ONE_IQ = 3;
+  return { PERS, IQ, ONE_IQ, WEIGHTS, LINES, choose, pickLine, setCustom };
 })();

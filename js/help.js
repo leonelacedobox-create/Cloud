@@ -12,7 +12,7 @@
     ['🔫 La batalla', [
       'Agregá de 2 a 10 soldados con nombre y color. Se mueven y disparan solos: <b>gana el último en pie</b> (o el que cumpla el objetivo del modo).',
       'Tocá la ficha de un soldado arriba para <b>seguirlo con la cámara</b>; si ya cayó, ves la <b>repetición</b> de cómo murió. 🎥 cambia entre automático, siguiendo y todo el mapa; 👁 muestra solo lo que ve ese soldado.',
-      'En el ⚙️ de cada soldado elegís personalidad, inteligencia, rol, gorro, foto, frases propias, a quién apostás y si lo manejás vos.',
+      'En el ⚙️ de cada soldado elegís personalidad, rol, gorro, foto, frases propias, a quién apostás y si lo manejás vos. Todos tienen la misma inteligencia: lo que cambia es la forma de jugar.',
       'Los soldados <b>no saben dónde están los demás</b>: ven con un cono de visión y oyen pasos, tiros, puertas y gritos. Un “?” es que oyó algo; un “!” que vio a alguien.',
     ]],
     ['🎮 Manejar un soldado', [
@@ -55,13 +55,14 @@
     ]],
     ['📜 Créditos', [
       'Sonidos: <b>Freedoom</b> (licencia BSD) y <b>Kenney</b> (CC0). Música: “Battle Theme A” de <b>cynicmusic</b> (CC0).',
+      'Muebles, objetos y texturas: <b>Poly Haven</b> (CC0). Autos: <b>Kenney</b> Car Kit (CC0).',
       'Tipografías: <b>Black Ops One</b> y <b>Cinzel</b> (SIL Open Font License). Íconos: <b>game-icons.net</b> (Lorc, Delapouite y otros, CC BY 3.0).',
       'El detalle de cada archivo y su licencia está en CREDITOS.md, junto al juego.',
     ]],
     ['💡 Consejos', [
       'Las partidas duran entre 1 y 3 minutos; con 4× van más rápido.',
       'La <b>semilla</b> (en la pausa) repite el mismo mapa: sirve para revanchas justas.',
-      'Si un compañero quiere ventaja, bajale la inteligencia a su rival 😉.',
+      'Si un compañero quiere ventaja, dale el rol de tanque o una personalidad que le convenga 😉.',
     ]],
   ];
   function open() {

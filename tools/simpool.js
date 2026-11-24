@@ -36,7 +36,7 @@ function inPage() {
     if (two && !c.teams && !c.players) players.forEach((p, i) => { p.team = i % 2; });
     const cfg = { mode: c.mode || 'classic', noRec: true, players, teamMode: !!c.teams || two, lives: c.lives || 3, map: c.map || 'maze', size: c.size || 'm', powerups: true, zone: c.zone !== false,
       varied: c.varied !== false, loot: c.loot !== false, gear: c.gear !== false, props: c.props !== false, events: c.events !== false, friendly: !!c.friendly, talk: true, seed: c.seed,
-      customMap: Maps.SAMPLE, downed: !!c.downed, weather: c.weather || 'none', night: !!c.night };
+      customMap: Maps.SAMPLE, downed: !!c.downed, weather: c.weather || 'none', night: !!c.night, oldAI: c.oldAI || null, ai2Off: c.ai2Off || null };
     const g = new App.battle.Game(cv, cfg, noop);
     g.phase = 'run'; g.paused = false;
     const t0 = performance.now(), lim = c.limit || 700;
@@ -49,7 +49,7 @@ function inPage() {
       title: g.endInfo && g.endInfo.title ? g.endInfo.title.replace(/[^A-Za-zÁ-úñ0-9 /]/g, '').trim() : '',
       winTeam: winners.length && winners[0].team >= 0 && cfg.teamMode ? winners[0].team : -1,
       stuck: g.stuckEvents || 0, overtime: !!g.overtime,
-      soldiers: g.soldiers.filter((s) => !s.bot).map((s) => ({ id: s.id, pers: s.pers, iq: s.iq, team: s.team, role: s.role, win: winners.includes(s), place: order.indexOf(s) + 1, kills: s.kills, dmg: Math.round(s.stats.dmgDealt), life: s.alive ? g.time : s.deathT,
+      soldiers: g.soldiers.filter((s) => !s.bot).map((s) => ({ id: s.id, ai2: s.ai2 !== false, pre: s.stats.preHit || 0, pers: s.pers, iq: s.iq, team: s.team, role: s.role, win: winners.includes(s), place: order.indexOf(s) + 1, kills: s.kills, dmg: Math.round(s.stats.dmgDealt), life: s.alive ? g.time : s.deathT,
         revives: s.stats.revives || 0, downs: s.downCount || 0, knifeKills: (s.stats.killsBy && s.stats.killsBy.knife) || 0 })),
       mst: JSON.parse(JSON.stringify(g.mst.caps || g.mst.pts || g.mst.score || (g.mst.wave ? { wave: g.mst.wave } : {}))),
     };

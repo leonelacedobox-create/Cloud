@@ -363,7 +363,8 @@
       const pers = Personas.choose(p.pers, cfg.varied);
       const P = PERS[pers], pd = WEAPONS.pistol;
       const o = {
-        id: i, name: p.name, color: p.color, iq: clamp(p.iq == null ? 1 : p.iq, 0, Personas.IQ.length - 1), team: p.team == null || p.team < 0 || !cfg.teamMode ? -1 : p.team, teamColor: cfg.teamMode && p.team >= 0 ? TEAMS[p.team].color : null,
+        id: i, name: p.name, color: p.color, iq: p.bot ? clamp(p.iq == null ? 1 : p.iq, 0, Personas.IQ.length - 1) : Personas.ONE_IQ,   // 0.9.8: todos con la misma inteligencia
+        team: p.team == null || p.team < 0 || !cfg.teamMode ? -1 : p.team, teamColor: cfg.teamMode && p.team >= 0 ? TEAMS[p.team].color : null,
         ap: Object.assign({}, look, { hat: p.hat && p.hat !== 'none' ? p.hat : null }), x: place[0], y: place[1], r: 0.3, angle: rnd() * 6.283, look: 0, moveAng: 0, headOff: 0, phase: rnd() * 6, gait: 0, recoil: 0, lastStep: 0,
         hp: (p.lives || cfg.lives) * HPL, maxHp: (p.lives || cfg.lives) * HPL, alive: true, deathT: 0, kills: 0,
         pers, P, sk: { peek: jitter(P.base.peek), door: jitter(P.base.door), blind: jitter(P.base.blind), listen: 0.75 + jitter(P.base.listen) * 0.5, ambush: jitter(P.base.ambush) },
@@ -1366,21 +1367,17 @@
       }
       const pe = p.pers && p.pers !== 'auto' && PERS[p.pers] ? PERS[p.pers].emoji : '⚙️';
       row.append(el('button', {
-        class: 'gear-btn' + (openRows.has(p.id) ? ' on' : ''), 'aria-label': 'Personalidad e inteligencia', title: 'Personalidad e inteligencia',
+        class: 'gear-btn' + (openRows.has(p.id) ? ' on' : ''), 'aria-label': 'Personalidad y más', title: 'Personalidad, rol, gorro y foto',
         onclick: () => { if (openRows.has(p.id)) openRows.delete(p.id); else openRows.add(p.id); renderRoster(); },
-      }, `${pe}${IQ[p.iq == null ? 1 : p.iq].emoji}`));
+      }, `${pe}⚙️`));
       row.append(el('button', { class: 'rm', 'aria-label': 'Quitar', onclick: () => { if (state.players.length > 2) { state.players.splice(i, 1); save(); renderRoster(); } } }, '✕'));
       const wrapRow = el('div', { class: 'srowwrap' }, row);
       if (openRows.has(p.id)) {
         const desc = el('p', { class: 'hint' });
-        const paintDesc = () => { desc.textContent = (p.pers && p.pers !== 'auto' && PERS[p.pers] ? PERS[p.pers].desc + ' · ' : 'Se sortea al empezar. · ') + 'Inteligencia: ' + IQ[p.iq == null ? 1 : p.iq].label + '.'; };
+        const paintDesc = () => { desc.textContent = (p.pers && p.pers !== 'auto' && PERS[p.pers] ? PERS[p.pers].desc : 'Se sortea al empezar.') + ' Todos juegan con la misma inteligencia: la diferencia está en la forma de jugar.'; };
         const select = el('select', { 'aria-label': 'Personalidad', onchange: (e) => { p.pers = e.target.value; save(); renderRoster(); } },
           el('option', { value: 'auto' }, '🎲 Al azar'),
           Object.entries(PERS).map(([k, v]) => el('option', Object.assign({ value: k }, p.pers === k ? { selected: true } : {}), `${v.emoji} ${v.label}`)));
-        const seg = el('div', { class: 'seg small' }, IQ.map((q, qi) => el('button', {
-          class: (p.iq == null ? 1 : p.iq) === qi ? 'on' : '', title: q.label, 'aria-label': q.label,
-          onclick: () => { p.iq = qi; save(); renderRoster(); },
-        }, `${q.emoji} ${q.label}`)));
         paintDesc();
         const hatSel = el('select', { 'aria-label': 'Gorro', onchange: (e) => { p.hat = e.target.value; save(); } },
           Object.entries(App.HATS).map(([k, v]) => el('option', Object.assign({ value: k }, (p.hat || 'none') === k ? { selected: true } : {}), v)));
@@ -1403,7 +1400,7 @@
             state.players.map((q, j) => el('option', Object.assign({ value: q.id }, p.bet === q.id ? { selected: true } : {}), pname(q, j)))));
         const roleSel = el('select', { 'aria-label': 'Rol', onchange: (e) => { p.role = e.target.value; save(); renderRoster(); } },
           Object.entries(App.Modes.ROLES).map(([k, v]) => el('option', Object.assign({ value: k }, (p.role || 'none') === k ? { selected: true } : {}), `${v.emoji} ${v.label}`)));
-        wrapRow.append(el('div', { class: 'sdet' }, el('label', { class: 'sel' }, 'Personalidad', select), el('div', {}, el('div', { class: 'sel' }, 'Inteligencia'), seg),
+        wrapRow.append(el('div', { class: 'sdet' }, el('label', { class: 'sel' }, 'Personalidad', select),
           el('label', { class: 'sel' }, 'Rol', roleSel), el('p', { class: 'hint' }, App.Modes.ROLES[p.role || 'none'].desc),
           el('label', { class: 'sel' }, 'Gorro', hatSel), photoRow, phrasesBox, betSel,
           el('label', { class: 'switch' }, el('input', Object.assign({ type: 'checkbox', onchange: (e) => { state.players.forEach((q) => { q.manual = false; }); p.manual = e.target.checked; save(); renderRoster(); } }, p.manual ? { checked: true } : {})), el('span', {}, '🎮 Lo manejo yo con el joystick (los demás siguen solos)')), desc));
@@ -1522,7 +1519,7 @@
     chips = g.soldiers.map((s) => {
       const hp = el('span', { class: 'hp' }), wp = el('span', { class: 'wp' });
       const chip = el('div', {
-        class: 'chip', style: s.team >= 0 ? `border-color:${TEAMS[s.team].color}` : '', title: `${s.name} (${PERS[s.pers].label}, ${IQ[s.iq].label}) · tocá para seguirlo (si cayó: repetición)`,
+        class: 'chip', style: s.team >= 0 ? `border-color:${TEAMS[s.team].color}` : '', title: `${s.name} (${PERS[s.pers].label}) · tocá para seguirlo (si cayó: repetición)`,
         onclick: () => {
           if (!game) return;
           if (!s.alive && App.Replay) {                                      // ficha de un caído: repetición de cómo murió
@@ -1696,7 +1693,7 @@
       const acc = s.stats.rounds ? Math.round((s.stats.hits / s.stats.rounds) * 100) : 0;
       list.append(el('div', { style: `--i:${i}` },
         el('span', {}, `${i + 1}.`), s.photo ? el('img', { class: 'ava', src: s.photo, alt: '', style: `border-color:${s.color}` }) : el('span', { class: 'dot', style: `background:${s.color}` }),
-        el('span', {}, `${PERS[s.pers].emoji}${IQ[s.iq].emoji} ${s.name}`),
+        el('span', {}, `${PERS[s.pers].emoji} ${s.name}`),
         el('span', { class: 'k' }, `${s.kills}💥 · ${Math.round(s.stats.dmgDealt)}❤ · ${acc}%${win.includes(s) ? ' · ganó' : ''}`)));
     });
 

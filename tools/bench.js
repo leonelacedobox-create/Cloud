@@ -4,7 +4,7 @@
  *   node tools/bench.js            (8 partidas por configuración, ~2 minutos)
  *   node tools/bench.js --runs 16  (más partidas, más preciso)
  *   node tools/bench.js --json     (además guarda bench-report.json)
- *   node tools/bench.js --balance --runs 30   (solo el balance entre personalidades e inteligencias, con muestra grande)
+ *   node tools/bench.js --balance --runs 30   (solo el balance entre personalidades, con muestra grande)
  *
  * Requiere Playwright (npm i playwright) o el que ya trae el entorno. Abre index.html directo del disco.
  * Corre por tandas chicas para no gastar memoria.
@@ -165,14 +165,8 @@ const CONFIGS = [
     res.winners.forEach((w) => { bal[w.pers].wins++; });
   }
 
-  /* ---- 3) balance por inteligencia ---- */
-  const iqb = [0, 1, 2, 3, 4].map(() => ({ n: 0, wins: 0, life: 0, kills: 0 }));
-  for (let r = 0; r < balRuns; r++) {
-    process.stderr.write(`· balance inteligencia ${r + 1}/${balRuns}\r`);
-    const res = await run({ map: ['maze', 'rooms', 'arena', 'oficina'][r % 4], n: 10, iq: [0, 1, 2, 3, 4], pers: [PERS[r % PERS.length]] });
-    res.soldiers.forEach((s) => { const b = iqb[s.iq]; b.n++; b.life += s.deathT; b.kills += s.kills; });
-    res.winners.forEach((w) => { iqb[w.iq].wins++; });
-  }
+  /* ---- 3) (0.9.8) ya no hay niveles de inteligencia: todos juegan igual de bien. La IA nueva contra la vieja se mide con tools/abtest.js y tools/duels.js ---- */
+  const iqb = null;
   const sameMap = await page.evaluate(() => window.__sameSeed());
 
   /* ----- reporte ----- */
@@ -196,8 +190,6 @@ const CONFIGS = [
   L.push('', 'Bajas por arma: ' + Object.entries(tot.kb).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${f1(v)}`).join(' · '));
   L.push('', `## Balance por personalidad (${balRuns} partidas de 10, todas con el mismo peso)`, '', '| Personalidad | victorias | % | vida media | bajas | escondido | huyendo | frases |', '|---|---|---|---|---|---|---|---|');
   Object.entries(bal).forEach(([k, b]) => L.push(`| ${k} | ${b.wins} | ${Math.round(b.wins / Math.max(1, balRuns) * 100)}% | ${Math.round(b.life / b.n)}s | ${f1(b.kills / b.n)} | ${Math.round(b.hidden / b.n)}s | ${Math.round(b.fled / b.n)}s | ${f1(b.talk / b.n)} |`));
-  L.push('', `## Balance por inteligencia (${balRuns} partidas de 10: 2 de cada nivel)`, '', '| Nivel | victorias | vida media | bajas |', '|---|---|---|---|');
-  ['Novato', 'Normal', 'Veterano', 'Maestro', 'Leyenda'].forEach((n, i) => { const b = iqb[i]; L.push(`| ${n} | ${b.wins} | ${Math.round(b.life / b.n)}s | ${f1(b.kills / b.n)} |`); });
 
   const alerts = [];
   rows.forEach((r) => { if (r.timeouts) alerts.push(`⚠️ "${r.name}": ${r.timeouts} partidas no terminaron.`); if (r.stuck > 3) alerts.push(`⚠️ "${r.name}": ${f1(r.stuck)} trabas por partida.`); if (r.draws > RUNS * 0.2) alerts.push(`⚠️ "${r.name}": muchos empates (${r.draws}).`); if (r.overtime > RUNS * 0.5) alerts.push(`⚠️ "${r.name}": la muerte súbita se activa seguido (${r.overtime}/${RUNS}).`); });

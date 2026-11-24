@@ -22,6 +22,19 @@ Los disparos y las explosiones tienen además una versión "de lejos" hecha a pa
 
 La música sintetizada (la otra opción) y los ambientes de cada mapa se arman en el momento con código propio.
 
+## Muebles, objetos y autos (`assets/art/`, desde la 0.9.8)
+
+Modelos 3D convertidos en dibujos vistos desde arriba con `tools/make_art.js` (luz, sombra y tamaño real).
+
+| Dibujos | Origen | Autor | Licencia |
+|---|---|---|---|
+| Escritorios, sillas, sillones, mesas, plantas, estanterías, góndolas, cajones, barriles, cajas, tachos, máquinas, generador, carro, barreras, hidrante, aire acondicionado, cama, auto tapado y más | [Poly Haven](https://polyhaven.com/models) (modelos glTF: metal_office_desk, modern_arm_chair_01, Sofa_01, sofa_02, potted_plant_01/02, CoffeeTable_01, WetFloorSign_01, CoffeeCart_01, drawer_cabinet, Shelf_01, steel_frame_shelves_01/02/03, wooden_bookshelf_worn, CashRegister_01, wooden_display_shelves_01, cardboard_box_01, metal_trash_can, wooden_crate_01/02, Barrel_01/02, barrel_03, ammo_box, metal_tool_chest, industrial_pastic_container, metal_jerrycan, covered_car, concrete_road_barrier, fire_hydrant, exterior_aircon_unit, utility_box_01, old_tyre, modular_street_seating, wooden_picnic_table, plastic_monobloc_chair_01, drill_press_01, industrial_storage_cart, hand_truck, old_military_compressor, portable_generator, dining_table, WoodenTable_01, round_wooden_table_01, metal_stool_01, old_bed_frame, boulder_01, SchoolDesk_01) | Artistas de Poly Haven | CC0 1.0 |
+| Autos (sedán, camioneta, taxi, patrullero, utilitario, deportivos, ambulancia) y conos | [Car Kit 3.1](https://opengameart.org/content/car-kit) (bajado de OpenGameArt) | Kenney | CC0 1.0 (`assets/art/LICENSE-kenney-carkit.txt`) |
+
+## Texturas de pisos y paredes (`assets/tex/`, desde la 0.9.8)
+
+Fotos reales de materiales de [Poly Haven](https://polyhaven.com/textures), CC0 1.0: laminate_floor, herringbone_parquet, wood_floor, floor_tiles_06, grey_tiles, dirty_carpet, concrete_floor_02, concrete_floor_worn_001, asphalt_02, metal_plate, gravel_floor, anti_skid_tiles, rubber_tiles, plastered_wall, brick_wall_02, concrete_block_wall y painted_plaster_wall (achicadas a 256 px).
+
 ## Tipografías (`assets/fonts/`)
 
 | Archivo | Tipografía | Autor | Licencia |

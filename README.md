@@ -149,6 +149,15 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **Pantallas:** tipografías propias (**Black Ops One** para la batalla y **Cinzel** para la moneda), **íconos dibujados** de game-icons.net en el menú y en las fichas de los soldados (el arma que tienen en la mano), y la moneda ahora cae sobre una **mesa de madera** con su sonido.
 - **Créditos** de todo lo descargado en `CREDITOS.md` (y resumidos en la Ayuda).
 
+### Novedades de la 0.9.8 — Mundo de verdad
+- **Pisos y paredes con texturas fotográficas** (Poly Haven, CC0): parquet, laminado, cerámica, alfombra, cemento, asfalto, chapa, grava, revoque, ladrillo y bloque. Cada mapa tiene sus materiales.
+- **Sombras:** las paredes tiran sombra hacia abajo a la derecha (el sol viene de arriba a la izquierda) y los rincones se oscurecen.
+- **Muebles, objetos y autos de verdad** (`js/world3.js`): 53 modelos 3D de Poly Haven y los autos del Car Kit de Kenney (CC0), convertidos en dibujos vistos desde arriba con luz y sombra (`tools/make_art.js`). Los cajones, barriles y mesas también usan dibujos realistas.
+- **Mapas amueblados según el lugar:** escritorios con sillas, plantas, armarios y sillones en la oficina; góndolas de verdad en el súper; estanterías de metal en el depósito; autos en el estacionamiento y el complejo; camas y mesas en la cárcel; máquinas en la fábrica; bancos en la estación. Nunca tapan un camino.
+- **Cobertura baja y alta:** escritorios, autos y sillones frenan balas pero se dispara por encima estando pegado; las estanterías tapan todo como una pared. La IA los usa para cubrirse.
+- **Una sola inteligencia:** ya no se elige Novato/Normal/Veterano/Maestro/Leyenda; todos juegan con el mismo nivel alto y lo que cambia es la **personalidad** (forma de jugar).
+- **IA nueva** (`js/brain3.js`): apunta antes a las esquinas y puertas mientras camina (si el rival aparece ahí reacciona el doble de rápido y con el arma casi en su lugar), revisa los costados al entrar a un cuarto, sostiene el ángulo cuando oye a alguien cerca en vez de ir a buscarlo, frena para disparar cuando el rival no lo está apuntando y elige mejor a quién tirarle (al que recarga, al que pelea con otro, al herido; no al que está detrás de un mueble). En 1000 duelos contra la IA de la 0.9.7 gana el 54% (`tools/reports/duels.md`).
+
 ### Novedades de la 0.9.7 — Afinado final
 - **Miles de partidas en paralelo** (`tools/simpool.js`): varios navegadores sin ventana juegan a la vez, sin dibujar ni sonar. En total se jugaron más de 12.000 partidas para afinar esta versión.
 - **Ajuste por evolución** (`tools/tune.js`): generaciones de candidatos con distinto aguante por personalidad y puntería por nivel, todos jugando las mismas partidas; se queda con el más parejo. Confirmó que las **personalidades ya estaban parejas** (todas entre 45 y 56 puntos sobre 100).
@@ -165,6 +174,8 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 node tools/tune.js --gens 14      # ajuste por evolución del balance (personalidades e inteligencia)
 node tools/iqgrid.js --games 300  # compara escaleras de inteligencia completas
 node tools/mass.js --runs 15      # miles de partidas: todos los mapas × todos los modos
+node tools/duels.js --games 1000  # duelos IA nueva contra la anterior (y cuánto aporta cada mejora)
+node tools/abtest.js --games 500  # IA nueva contra la anterior en equipos y todos contra todos
 node tools/bench.js --runs 12    # simula cientos de partidas sin dibujar y genera un reporte
 node tools/bench.js --modes --runs 6   # solo los modos de juego de la 0.7
 ```

@@ -303,7 +303,7 @@
           s.photo ? el('img', { class: 'ava', src: s.photo, alt: '' }) : el('div', { class: 'ava dot', style: `background:${s.color}` }, (s.name || '?').slice(0, 1).toUpperCase()),
           el('div', { class: 'nm' }, s.name),
           el('div', { class: 'tg' }, `${P.emoji || ''} ${P.label || ''}`),
-          el('div', { class: 'tg' }, `${Q.emoji || ''} ${Q.label || ''}${R && s.role !== 'none' ? ' · ' + R.emoji + ' ' + R.label : ''}`));
+          el('div', { class: 'tg' }, R && s.role !== 'none' ? `${R.emoji} ${R.label}` : (P.desc || '').split('.')[0]));
         box.append(card);
         if (team && list[i + 1] && list[i + 1].team !== s.team) box.append(el('div', { class: 'vs' }, 'VS'));
       });

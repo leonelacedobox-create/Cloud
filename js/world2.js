@@ -351,7 +351,7 @@
     for (const [i, tb] of this.tables) {                                         // mesas: de pie o dadas vuelta (cobertura)
       if (!inV(tb.x, tb.y)) continue;
       x.save(); x.translate(tb.x * ts + ts / 2, tb.y * ts + ts / 2);
-      if (!tb.flipped && App.Art3 && App.Art3.ready() && App.Art3.draw(x, 'roundtable', false, 0, 0, ts)) { /* mesa de verdad (0.9.8) */ }
+      if (!tb.flipped && App.Art3 && App.Art3.ready() && App.Art3.draw(x, 'roundtable', false, 0, 0, ts, 1, true)) { /* mesa de verdad (0.9.8) */ }
       else if (!tb.flipped) { x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(-ts * 0.42 + 2, -ts * 0.32 + 3, ts * 0.84, ts * 0.64); x.fillStyle = '#9a6b3c'; x.fillRect(-ts * 0.42, -ts * 0.32, ts * 0.84, ts * 0.64); x.strokeStyle = '#5a3a1a'; x.lineWidth = 1.5; x.strokeRect(-ts * 0.42, -ts * 0.32, ts * 0.84, ts * 0.64); }
       else if (this.pr[i]) { x.rotate(tb.ang + Math.PI / 2); x.fillStyle = '#7b5230'; x.fillRect(-ts * 0.45, -ts * 0.14, ts * 0.9, ts * 0.28); x.fillStyle = '#5a3a1a'; for (const k of [-0.36, 0.36]) { x.fillRect(ts * k - 2, ts * 0.14, 4, ts * 0.3); } }
       x.restore();

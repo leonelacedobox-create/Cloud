@@ -19,12 +19,24 @@ App.Art3 = (() => {
   for (const k of App.TEXLIST || []) tex[k] = load(`assets/tex/${k}.webp`);
   const ok = (im) => im && im.complete && im.naturalWidth > 0;
   /** Dibuja un objeto con su centro en (cx, cy) casilleros. La imagen trae la sombra corrida abajo a la derecha. */
-  function draw(x, key, v, cx, cy, ts, alpha = 1) {
+  const scaled = new Map();
+  /** La imagen ya achicada al tamaño justo de la pantalla (dibujar sin escalar es mucho más rápido en el celular). */
+  function sized(key, im, w, h) {
+    const k = key + '|' + w + 'x' + h; let c = scaled.get(k); if (c) return c;
+    if (scaled.size > 400) scaled.clear();
+    c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h);
+    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, c.width, c.height);
+    scaled.set(k, c); return c;
+  }
+  function draw(x, key, v, cx, cy, ts, alpha = 1, cache = false) {
     const m = META[key]; if (!m) return false;
-    const o = (v && m.v) || m.h, im = imgs[key + (v && m.v ? '_v' : '')]; if (!ok(im)) return false;
+    const vk = key + (v && m.v ? '_v' : ''), o = (v && m.v) || m.h, im = imgs[vk]; if (!ok(im)) return false;
     const ox = cx - o.w / 2 + o.h * 0.1, oy = cy - o.d / 2 + o.h * 0.08;
     if (alpha < 1) x.globalAlpha = alpha;
-    x.drawImage(im, ox * ts, oy * ts, o.w * ts, o.d * ts);
+    if (cache) {                                                                 // para lo que se dibuja en cada cuadro (cajones, barriles, mesas)
+      const sc = x.getTransform ? Math.hypot(x.getTransform().a, x.getTransform().b) : 1;
+      x.drawImage(sized(vk, im, Math.round(o.w * ts * sc), Math.round(o.d * ts * sc)), ox * ts, oy * ts, o.w * ts, o.d * ts);
+    } else x.drawImage(im, ox * ts, oy * ts, o.w * ts, o.d * ts);
     if (alpha < 1) x.globalAlpha = 1;
     return true;
   }
@@ -276,7 +288,7 @@ App.Art3 = (() => {
       const i = saved[k], p = saved[k + 1]; if (this.prKind && this.prKind.get(i) === 'furn') continue;
       const tx = i % W, ty = (i / W) | 0, v = VAR[p], key = v[(tx * 7 + ty * 13) % v.length];
       const sl = this.slides && this.slides.get(i), sk = sl ? 1 - Math.min(1, sl.t / 0.25) : 0;
-      A.draw(x, key, false, tx + 0.5 - (sl ? sl.dx * sk : 0), ty + 0.5 - (sl ? sl.dy * sk : 0), ts);
+      A.draw(x, key, false, tx + 0.5 - (sl ? sl.dx * sk : 0), ty + 0.5 - (sl ? sl.dy * sk : 0), ts, 1, true);
       const hp = this.prHp[i], max = p === 2 ? 55 : 110;
       if (hp < max * 0.6) { x.strokeStyle = 'rgba(30,15,5,.7)'; x.lineWidth = Math.max(1, ts * 0.05); x.beginPath(); x.moveTo((tx + 0.25) * ts, (ty + 0.3) * ts); x.lineTo((tx + 0.5) * ts, (ty + 0.55) * ts); x.lineTo((tx + 0.7) * ts, (ty + 0.45) * ts); x.stroke(); }   // rajado
     }
