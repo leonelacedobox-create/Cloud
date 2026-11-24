@@ -1,0 +1,45 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+</head><body style="margin:0;background:transparent">
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+renderer.setClearColor(0x000000, 0);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+const loader = new GLTFLoader();
+// rinde un modelo visto desde arriba: devuelve PNG (data URL) y el tamaño en metros
+window.renderModel = async (url, { pxm = 80, rotY = 0, margin = 0.12, targetLen = 0 } = {}) => {
+  const gltf = await loader.loadAsync(url);
+  const scene = new THREE.Scene();
+  const obj = gltf.scene;
+  if (targetLen) { const b0 = new THREE.Box3().setFromObject(obj), s0 = b0.getSize(new THREE.Vector3()); obj.scale.multiplyScalar(targetLen / Math.max(s0.x, s0.z)); }
+  obj.rotation.y = rotY;
+  obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) { o.material.side = THREE.DoubleSide; } } });
+  scene.add(obj);
+  const box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  obj.position.sub(new THREE.Vector3(c.x, box.min.y, c.z));        // centrado y apoyado en el piso
+  const h = size.y;
+  // luces: cielo suave + sol desde arriba a la izquierda (proyecta sombra hacia abajo a la derecha)
+  scene.add(new THREE.HemisphereLight(0xf2f5ff, 0x6b5d4c, 1.15));
+  const sun = new THREE.DirectionalLight(0xfff3e0, 2.1); sun.position.set(-0.5, 2.6, -0.4).multiplyScalar(10); sun.castShadow = true;
+  const ext = Math.max(size.x, size.z) + 2 * margin + h;
+  Object.assign(sun.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext, near: 0.1, far: 50 }); sun.shadow.mapSize.set(2048, 2048); sun.shadow.radius = 6; sun.shadow.bias = -0.0005;
+  scene.add(sun);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(ext * 4, ext * 4), new THREE.ShadowMaterial({ opacity: 0.42 }));
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  const w = size.x + 2 * margin + h * 0.2, d = size.z + 2 * margin + h * 0.16;   // lugar para la sombra
+  const cam = new THREE.OrthographicCamera(-w / 2, w / 2, d / 2, -d / 2, 0.01, 100);
+  cam.position.set(h * 0.1, 30, h * 0.08); cam.up.set(0, 0, -1); cam.lookAt(h * 0.1, 0, h * 0.08);
+  const W = Math.max(8, Math.round(w * pxm)), H = Math.max(8, Math.round(d * pxm));
+  renderer.setSize(W, H, false); renderer.setPixelRatio(1);
+  renderer.render(scene, cam);
+  const png = renderer.domElement.toDataURL('image/png');
+  scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+  return { png, w, d, sx: size.x, sz: size.z, h };
+};
+window.ready = true;
+</script></body></html>

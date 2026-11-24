@@ -65,6 +65,14 @@ html = re.sub(r'<script src="(js/[^"]+)"></script>', inline_script, html)
 sfx_dir = os.path.join(ROOT, "assets", "sfx")
 sfx = {fn[:-4]: "data:audio/mpeg;base64," + base64.b64encode(open(os.path.join(sfx_dir, fn), "rb").read()).decode()
        for fn in sorted(os.listdir(sfx_dir)) if fn.endswith(".mp3")}
+# dibujos y texturas del mundo (0.9.8): también adentro
+art = {}
+for sub in ("art", "tex"):
+    d = os.path.join(ROOT, "assets", sub)
+    for fn in sorted(os.listdir(d)):
+        if fn.endswith(".webp"):
+            art[f"assets/{sub}/{fn}"] = "data:image/webp;base64," + base64.b64encode(open(os.path.join(d, fn), "rb").read()).decode()
+html = html.replace("<script>\n/* Generado por tools/make_art.js", "<script>window.ART_INLINE = " + json.dumps(art) + ";</script>\n<script>\n/* Generado por tools/make_art.js", 1)
 html = html.replace("<script>\n/* Banco de sonidos reales", "<script>window.SFX_INLINE = " + json.dumps(sfx) + ";</script>\n<script>\n/* Banco de sonidos reales", 1)
 # las imágenes que usa el JS de la moneda
 html = html.replace("'assets/coin-milei.png'", f"'{MILEI}'").replace("'assets/coin-cristina.png'", f"'{CRIS}'")
