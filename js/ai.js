@@ -788,6 +788,12 @@
       if (this.doorGrid[idx] && doorClosed(this.doors.get(idx))) this.toggleDoor(idx, true, s);
     }
     if (s.target) r.desired = Math.atan2(s.target.y - s.y, s.target.x - s.x);
+    if (c.mouse && performance.now() - (c.mouseT || 0) < 4000) {               // jugando con mouse (PC): apunta al puntero
+      const ma = Math.atan2(c.mouse.y - s.y, c.mouse.x - s.x);
+      const near = s.target && Math.abs(angDiff(ma, Math.atan2(s.target.y - s.y, s.target.x - s.x))) < 0.3;
+      r.desired = near ? Math.atan2(s.target.y - s.y, s.target.x - s.x) : ma;
+      s.mouseFree = !near;                                                       // apunta a otro lado: dispara hacia el puntero
+    } else s.mouseFree = false;
     return r;
   };
   /** Botones de la pantalla: recargar, cambiar de arma, tirar granada, curarse. */
@@ -1052,8 +1058,8 @@
 
     // ----- atacar -----
     const ctl = s.manual ? (this.ctl || {}) : null;
-    if (s.manual && ctl.fire && !s.target && !s.act && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.cur !== 'knife') this.fire(s, 0);   // dispara hacia adelante
-    if (s.target && !s.act && !frozen && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.reactT <= 0 && !s.passive && (!s.manual || ctl.fire)) {
+    if (s.manual && ctl.fire && (!s.target || s.mouseFree) && !s.act && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.cur !== 'knife') this.fire(s, 0);   // dispara hacia adelante
+    if (s.target && !(s.manual && s.mouseFree) && !s.act && !frozen && s.stunT <= 0 && s.cd <= 0 && s.reloadT <= 0 && s.swapT <= 0 && s.reactT <= 0 && !s.passive && (!s.manual || ctl.fire)) {
       const aim = s.aimPt || s.target, ad = Math.hypot(aim.x - s.x, aim.y - s.y);
       const b = !s.manual && !s.aimPt && s.aimAng != null && s.cur !== 'knife' ? s.aimAng : Math.atan2(aim.y - s.y, aim.x - s.x);
       if (s.cur === 'knife') { if (s.td <= KNIFE.range + 0.2 && Math.abs(angDiff(s.angle, b)) < 0.6) this.melee(s, s.target); }

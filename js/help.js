@@ -19,6 +19,7 @@
       'Activá “Lo manejo yo” en el ⚙️ de un soldado, o tocá 🎮 durante la partida para tomar el control del que estás siguiendo.',
       '<b>Joystick</b> para caminar (empujá hasta el borde para correr) · <b>🔫</b> mantené para disparar (apunta solo al enemigo que ve) · <b>🔄</b> recargar · <b>🔁</b> cambiar de arma · <b>💣</b> granada · <b>🩹</b> botiquín. Las puertas se abren al empujarlas.',
       'Con teclado: W A S D o flechas, espacio para disparar, Shift para caminar en silencio, R, Q, G y H.',
+      '<b>En la PC</b> también podés usar el <b>mouse</b>: apuntás con el puntero, <b>clic</b> dispara, <b>clic derecho</b> tira granada y la <b>rueda</b> cambia de arma. Atajos: <b>P</b> pausa, <b>1 2 3</b> velocidad, <b>C</b> cámara, <b>V</b> vista del soldado, <b>M</b> manejar uno.',
       'Caminando contra un <b>cajón</b> un ratito, lo <b>empujás</b> (si atrás hay lugar): sirve para armarte una cobertura. Con <b>🧰</b> usás la herramienta que tengas.',
       'Si cae el soldado que seguís, la cámara muestra unos segundos <b>al que lo eliminó</b>.',
       'Modo zurdo (en el menú) pone el joystick a la derecha.',

@@ -473,3 +473,21 @@ body.calm #resultOverlay * { animation: none !important; }
 #segMap, #segWeather, #segMusicStyle { flex-wrap: wrap; }
 #segMap button, #segWeather button { flex: 1 1 auto; min-width: 0; }
 @media (max-width: 360px) { #segMap button, #segWeather button { flex-basis: 30%; font-size: 12px; padding-left: 4px; padding-right: 4px; } }
+
+/* ===== versión para PC: pantallas anchas ===== */
+@media (min-width: 1100px) {
+  #app { max-width: 1180px; }
+  #screen-menu.active { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: stretch; }
+  #screen-menu > .menu-hero, #screen-menu > .hero-title, #screen-menu > .card, #screen-menu > p { grid-column: 1 / -1; }
+  #screen-menu > .card { max-width: 760px; justify-self: center; width: 100%; }
+  #screen-menu .menu-card { margin: 0; height: 100%; }
+  #screen-coin { max-width: 640px; margin: 0 auto; }
+  #battleSetup { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+  #battleSetup > * { margin: 0 !important; }
+  #battleSetup > .tut-hint, #battleSetup > #btnFight, #battleSetup > .pc-keys { grid-column: 1 / -1; }
+  #battleSetup > #btnFight { max-width: 520px; justify-self: center; width: 100%; }
+}
+/* con mouse el joystick de la pantalla no hace falta (se camina con W A S D) */
+@media (pointer: fine) and (min-width: 900px) { #joy { display: none; } }
+.pc-keys { font-size: 12px; color: var(--muted); text-align: center; margin: 4px 0 0; }
+@media (pointer: coarse), (max-width: 899px) { .pc-keys { display: none; } }

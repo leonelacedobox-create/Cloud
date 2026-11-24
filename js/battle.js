@@ -1020,7 +1020,7 @@
       cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
       this.dpr = dpr; this.cw = cw; this.ch = ch;
       this.fitTs = Math.floor(Math.min(cw / this.W, ch / this.H) * 100) / 100;
-      this.followTs = clamp(Math.min(cw, ch) / 13, 20, 40);
+      this.followTs = cw > 900 && ch > 500 ? clamp(ch / 15, 34, 64) : clamp(Math.min(cw, ch) / 13, 20, 40);   // en la PC, más cerca
       this.setScale();
     }
 
@@ -1369,7 +1369,7 @@
       row.append(el('button', {
         class: 'gear-btn' + (openRows.has(p.id) ? ' on' : ''), 'aria-label': 'Personalidad y más', title: 'Personalidad, rol, gorro y foto',
         onclick: () => { if (openRows.has(p.id)) openRows.delete(p.id); else openRows.add(p.id); renderRoster(); },
-      }, `${pe}⚙️`));
+      }, pe === '⚙️' ? '⚙️' : `${pe}⚙️`));
       row.append(el('button', { class: 'rm', 'aria-label': 'Quitar', onclick: () => { if (state.players.length > 2) { state.players.splice(i, 1); save(); renderRoster(); } } }, '✕'));
       const wrapRow = el('div', { class: 'srowwrap' }, row);
       if (openRows.has(p.id)) {
@@ -1826,6 +1826,31 @@
     if (MOVEK.concat([' ', 'f', 'shift']).includes(k)) { keys.add(k); keyCtl(k); e.preventDefault(); }
   });
   window.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); keys.delete(k); keyCtl(k); });
+  // atajos para jugar en la PC: P o Esc pausa, 1/2/3 velocidad, C cámara, V vista del soldado, M manejar uno
+  window.addEventListener('keydown', (e) => {
+    if (!game || /INPUT|TEXTAREA|SELECT/.test((e.target || {}).tagName || '') || e.repeat) return;
+    const k = e.key.toLowerCase();
+    if (k === 'p' || k === 'escape') { if (game.phase !== 'done') { setPause(!game.paused); e.preventDefault(); } return; }
+    if (game.soldiers.some((q) => q.manual && q.alive) && (MOVEK.includes(k) || KEYACT[k] || k === ' ' || k === 'f')) return;   // esas teclas son del soldado
+    const sp = { 1: '1', 2: '2', 3: '4' }[k];
+    if (sp) { const b = document.querySelector(`#segSpeed button[data-v="${sp}"]`); if (b) b.click(); return; }
+    if (k === 'c') $('#btnCam').click(); else if (k === 'v') $('#btnPov').click(); else if (k === 'm') $('#btnManual').click();
+  });
+  // mouse: el soldado que manejás apunta hacia el puntero; clic izquierdo dispara, derecho tira granada, la rueda cambia de arma
+  const cvs = $('#battleCanvas');
+  const toWorld = (e) => { const r = cvs.getBoundingClientRect(), g = game; const left = g.camX - g.cw / (2 * g.ts), top = g.camY - g.ch / (2 * g.ts); return { x: left + (e.clientX - r.left) / g.ts, y: top + (e.clientY - r.top) / g.ts }; };
+  const mine = () => game && game.soldiers.find((q) => q.manual && q.alive);
+  cvs.addEventListener('mousemove', (e) => { if (!mine()) return; game.ctl.mouse = toWorld(e); game.ctl.mouseT = performance.now(); });
+  cvs.addEventListener('mousedown', (e) => {
+    if (!mine() || game.paused) return;
+    game.ctl.mouse = toWorld(e); game.ctl.mouseT = performance.now();
+    if (e.button === 0) { game.ctl.fire = true; game.ctl.mouseFire = true; }
+    else if (e.button === 2) game.manualAction('nade');
+    e.preventDefault();
+  });
+  window.addEventListener('mouseup', (e) => { if (game && e.button === 0 && game.ctl.mouseFire) { game.ctl.mouseFire = false; game.ctl.fire = keys.has(' ') || keys.has('f'); } });
+  cvs.addEventListener('contextmenu', (e) => { if (mine()) e.preventDefault(); });
+  cvs.addEventListener('wheel', (e) => { if (!mine()) return; if (Math.abs(e.deltaY) > 20 && !(game._wheelT > performance.now())) { game._wheelT = performance.now() + 250; game.manualAction('swap'); } e.preventDefault(); }, { passive: false });
 
   document.addEventListener('visibilitychange', () => { if (document.hidden && game && game.phase === 'run') setPause(true); });
 

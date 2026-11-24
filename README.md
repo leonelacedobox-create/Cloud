@@ -188,6 +188,11 @@ node tools/bench.js --modes --runs 6   # solo los modos de juego de la 0.7
 ```
 Mide la duración, trabas, tácticas usadas, bajas por arma y el balance entre personalidades y niveles de inteligencia.
 
+## Jugar en la PC
+Abrí `moneda-y-batalla.html` con doble clic (Chrome, Edge o Firefox). En pantallas anchas los menús van en columnas y la cámara se acerca.
+- **Atajos:** `P` o `Esc` pausa · `1` `2` `3` velocidad · `C` cámara · `V` vista del soldado · `M` manejar uno.
+- **Manejando un soldado:** `W A S D` caminar · **mouse** para apuntar · **clic** dispara · **clic derecho** granada · **rueda** cambia de arma · `R` recarga · `H` cura · `Shift` camina en silencio.
+
 ## Cómo usarla
 Abrí `index.html` desde cualquier servidor estático, por ejemplo:
 
