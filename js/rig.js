@@ -98,9 +98,32 @@
     }
   };
 
+
+  /* ================= 0.9.9: uniforme camuflado, chaleco táctico, insignias ================= */
+  const CAMO = new Map();
+  /** Tela camuflada del color de cada uno (se arma una vez por color y se reusa). */
+  function camo(x, color) {
+    let c = CAMO.get(color);
+    if (!c) {
+      c = document.createElement('canvas'); c.width = c.height = 48; const g = c.getContext('2d');
+      g.fillStyle = color; g.fillRect(0, 0, 48, 48);
+      let seed = 0; for (const ch of color) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+      const r = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+      for (const [d, n] of [[-0.28, 7], [0.16, 6], [-0.45, 4]]) {
+        g.fillStyle = shade(color, d);
+        for (let i = 0; i < n; i++) { g.beginPath(); const cx = r() * 48, cy = r() * 48; for (let k = 0; k < 7; k++) { const a = k / 7 * TAU, rr = 4 + r() * 6; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } g.fill(); }
+      }
+      g.fillStyle = 'rgba(0,0,0,.06)'; for (let y = 0; y < 48; y += 2) g.fillRect(0, y, 48, 1);   // trama de la tela
+      CAMO.set(color, c);
+    }
+    if (c._ctx !== x) { c._ctx = x; c._p = x.createPattern(c, 'repeat'); }       // el patrón se arma una vez por pantalla
+    return c._p || color;
+  }
+  const ROLE_BADGE = { medico: ['#fff', '+', '#dc2626'], tirador: ['#1f2937', '◎', '#facc15'], tanque: ['#374151', '■', '#9ca3af'], explorador: ['#14532d', '▲', '#86efac'], ingeniero: ['#92400e', '⚙', '#fde68a'], asalto: ['#7f1d1d', '✦', '#fca5a5'] };
+
   /* ================= cachés (armas y cabezas) ================= */
   function gunSprite(type, u, k) {
-    const key = type + '|' + Math.round(u * 10) + '|' + k;
+    const key = type + '|' + Math.round(u * 10) + '|' + k + (App.Art3 && App.Art3.ready() ? 'r' : 'p');   // 0.9.9: cuando cargan las armas de verdad se rehace
     let c = gunSprite.cache.get(key);
     if (c) return c;
     const len = (GUNS[type] || GUNS.pistol).len, ox = 0.9 * u, oy = 0.8 * u, w = (len + 1.7) * u, h = 1.6 * u;
@@ -311,8 +334,13 @@
     x.save(); x.rotate(s.angle + (hk ? Math.sin(hk * PI) * 0.25 * A.hitK * (Math.sin(A.hitAng - s.angle) > 0 ? -1 : 1) : 0));
     x.translate(cr * 0.12 * u, A.lean * 0.4 * u + Math.sin(s.phase) * 0.07 * u * g);
     if (s.stunT > 0) x.rotate(Math.sin(time * 9) * 0.12);
-    if (s.dodgeT > 0) x.rotate(Math.sin(time * 20) * 0.08);
-    if (ap.pack) { x.fillStyle = shade(s.color, -0.5); x.beginPath(); x.roundRect(-1.05 * u, (-0.6 + A.pack) * u, 0.62 * u, 1.2 * u, 0.2 * u); x.fill(); }
+    if (s.dodgeT > 0) { const k = 1 - s.dodgeT / 0.3; x.scale(1, 1 - Math.sin(k * PI) * 0.28); x.rotate(Math.sin(k * PI) * 0.5 * (s.dodgeDir && s.dodgeDir[1] > 0 ? 1 : -1)); }   // se tira al costado
+    if (ap.pack || s.pack) {
+      const big = !!s.pack, pw = big ? 0.78 : 0.62, ph = big ? 1.45 : 1.2;
+      x.fillStyle = big ? '#4a5132' : shade(s.color, -0.5); x.beginPath(); x.roundRect((-0.45 - pw) * u, (-ph / 2 + A.pack) * u, pw * u, ph * u, 0.2 * u); x.fill();
+      x.strokeStyle = 'rgba(0,0,0,.45)'; x.lineWidth = Math.max(1, u * 0.06); x.stroke();
+      if (big) { x.fillStyle = '#3b4128'; x.fillRect((-0.45 - pw + 0.1) * u, (-0.25 + A.pack) * u, (pw - 0.2) * u, 0.5 * u); x.fillStyle = '#6b7a46'; x.fillRect((-0.45 - pw) * u, (-ph / 2 + 0.12 + A.pack) * u, 0.12 * u, (ph - 0.24) * u); }
+    }
     x.lineCap = 'round'; x.lineJoin = 'round';
     const SR = [0.05 * u, 0.82 * u], SL = [0.05 * u, -0.82 * u];
     if (P.gun) { x.save(); x.translate(P.gx, P.gy); x.rotate(P.rot); drawGun(x, wt, u); x.restore(); }
@@ -330,16 +358,21 @@
     }
     if (P.item) heldItem(x, P.item, u);
     // torso encima de los brazos
-    x.fillStyle = s.color; x.strokeStyle = 'rgba(0,0,0,.55)'; x.lineWidth = Math.max(1.2, u * 0.14);
+    x.fillStyle = camo(x, s.team >= 0 && s.teamColor ? s.teamColor : s.color); x.strokeStyle = 'rgba(0,0,0,.55)'; x.lineWidth = Math.max(1.2, u * 0.14);
     ell(x, 0, 0, 0.62 * u, 1.02 * u); x.fill(); x.stroke();
+    if (s.team >= 0 && s.teamColor) { x.fillStyle = s.color; x.globalAlpha = 0.55; ell(x, 0.05 * u, 0, 0.36 * u, 0.62 * u); x.fill(); x.globalAlpha = 1; }   // en equipos: uniforme del equipo y su color en el pecho
     x.fillStyle = shade(s.color, -0.22); ell(x, -0.1 * u, 0, 0.3 * u, 0.7 * u); x.fill();
     x.fillStyle = shade(s.color, 0.3); ell(x, 0.2 * u, -0.35 * u, 0.18 * u, 0.28 * u); x.fill();
     x.fillStyle = shade(s.color, -0.3); x.beginPath(); x.arc(SR[0], SR[1] * 0.92, 0.26 * u, 0, TAU); x.arc(SL[0], SL[1] * 0.92, 0.26 * u, 0, TAU); x.fill();   // hombros
     if (s.armor && s.armor.vest > 0) {
-      x.fillStyle = 'rgba(58,70,96,.72)'; ell(x, 0.02 * u, 0, 0.5 * u, 0.86 * u); x.fill(); x.strokeStyle = 'rgba(10,14,24,.7)'; x.lineWidth = Math.max(1, u * 0.07); x.stroke();
-      x.fillStyle = 'rgba(255,255,255,.14)'; ell(x, 0.15 * u, -0.25 * u, 0.15 * u, 0.3 * u); x.fill();
+      x.fillStyle = '#3c4430'; x.beginPath(); x.roundRect(-0.38 * u, -0.78 * u, 0.86 * u, 1.56 * u, 0.25 * u); x.fill(); x.strokeStyle = 'rgba(10,14,8,.75)'; x.lineWidth = Math.max(1, u * 0.07); x.stroke();   // chaleco táctico
+      x.fillStyle = '#4d5838'; for (const py of [-0.5, -0.05, 0.4]) { x.beginPath(); x.roundRect(0.08 * u, (py - 0.16) * u, 0.32 * u, 0.32 * u, 0.06 * u); x.fill(); }   // bolsillos para cargadores
+      x.strokeStyle = 'rgba(0,0,0,.35)'; x.lineWidth = Math.max(0.8, u * 0.04); for (const py of [-0.5, -0.05, 0.4]) { x.beginPath(); x.moveTo(0.08 * u, (py - 0.04) * u); x.lineTo(0.4 * u, (py - 0.04) * u); x.stroke(); }
+      x.fillStyle = 'rgba(255,255,255,.1)'; x.fillRect(-0.3 * u, -0.7 * u, 0.12 * u, 1.4 * u);
     }
     if (s.team >= 0) { x.fillStyle = s.teamColor; x.beginPath(); x.roundRect(-0.2 * u, -1.28 * u, 0.6 * u, 0.34 * u, 0.1 * u); x.fill(); x.strokeStyle = 'rgba(0,0,0,.5)'; x.lineWidth = 1; x.stroke(); }
+    const rb = ROLE_BADGE[s.role];
+    if (rb && u > 5) { x.fillStyle = rb[0]; x.beginPath(); x.arc(SL[0], SL[1] * 0.92, 0.27 * u, 0, TAU); x.fill(); x.strokeStyle = rb[2]; x.lineWidth = Math.max(1, u * 0.06); x.stroke(); x.fillStyle = rb[2]; x.font = `900 ${0.36 * u}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(rb[1], SL[0], SL[1] * 0.92); }   // insignia del rol (0.9.9)
     if (s.recoil > 0.55 && P.gun && !(s.reloadT > 0) && !(s.act)) {
       const len = (GUNS[wt] || GUNS.pistol).len * u, mx = P.gx + Math.cos(P.rot) * len, my = P.gy + Math.sin(P.rot) * len;
       muzzle(x, wt, mx, my, P.rot, u, time, A.sup);

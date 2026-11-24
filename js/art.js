@@ -135,6 +135,16 @@ const Art = (() => {
   const STEELB = [[0, '#6b7280'], [0.5, '#f3f4f6'], [1, '#6b7280']];
 
   function gun(x, type, u, glow) {
+    // 0.9.9: si está el dibujo del arma de verdad (de perfil, a partir de un modelo 3D), se usa ese
+    const A3 = App.Art3, gm = App.GUNMETA && App.GUNMETA[type];
+    if (A3 && gm && GUNS[type]) {
+      const im = A3.imgs['gun_' + type];
+      if (A3.ok(im)) {
+        const L = (GUNS[type].len + 0.3) * u, sc = L / gm.len, W = gm.w * sc, H = gm.h * sc;
+        x.drawImage(im, -0.3 * u - 0.02 * sc, -H * 0.3, W, H);
+        return;
+      }
+    }
     const lw = Math.max(0.6, u * 0.05);
     const G = (cy, w, stops) => { const g = x.createLinearGradient(0, (cy - w / 2) * u, 0, (cy + w / 2) * u); for (const [o, c] of stops) g.addColorStop(o, c); return g; };
     const box = (a, b, cy, w, stops, rad = 0.06) => {
@@ -362,11 +372,12 @@ const Art = (() => {
   function drawItemCached(x, it, ts, time) {
     const m = x.getTransform(), k = Math.max(0.5, Math.min(2, Math.round(Math.hypot(m.a, m.b) * 2) / 2)), half = ts * 0.9;
     let c = it._spr;
-    if (!c || c.ts !== ts || c.k !== k) {
+    const ready = !!(App.Art3 && App.Art3.ready());
+    if (!c || c.ts !== ts || c.k !== k || c.ready !== ready) {
       const cv = document.createElement('canvas'); cv.width = cv.height = Math.ceil(half * 2 * k);
       const g = cv.getContext('2d'); g.scale(k, k);
       drawItem(g, Object.assign({}, it, { x: half / ts, y: half / ts }), ts, -it.id / 4);
-      c = it._spr = { ts, k, cv };
+      c = it._spr = { ts, k, cv, ready };
     }
     const p = 1 + Math.sin(time * 4 + it.id) * 0.035;
     x.save(); x.translate(it.x * ts, it.y * ts); x.scale(p, p); x.drawImage(c.cv, -half, -half, half * 2, half * 2); x.restore();

@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.9.8 ✅ terminada.** Próximas: 0.9.9 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.9.9 ✅ terminada.** Próxima: 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -194,7 +194,9 @@ Antes de publicar, seis versiones grandes de mejoras: cuerpos y animaciones, int
 
 > **Hecho.** Texturas fotográficas, sombras, 53 modelos 3D de Poly Haven y los autos del Car Kit de Kenney (todo CC0) convertidos en dibujos vistos desde arriba, mapas amueblados según el lugar, cobertura baja y alta, una sola inteligencia para todos y una IA nueva que mira las esquinas, revisa los cuartos, sostiene ángulos y elige mejor a quién disparar. Notas: la IA nueva le gana a la anterior el 54% de 1000 duelos (en equipos y todos contra todos la diferencia es menor, cerca de 50–53%): es una mejora real pero moderada, y el trabajo fuerte de IA sigue en la 0.9.9. Los mapas no se rediseñaron de cero: se amueblan sobre el trazado de antes. Kenney no permite descargas automáticas desde su sitio; el Car Kit se bajó de OpenGameArt, donde Kenney lo publica.
 
-## 0.9.9 — "Soldados de verdad" (aspecto + IA)
+## 0.9.9 — "Soldados de verdad" (aspecto + IA) ✅
+
+> **Hecho.** Armas realistas (Quaternius, CC0), uniformes camuflados, chaleco táctico, mochila, insignias de rol, rodada al esquivar, charcos con lluvia; IA que recuerda por dónde viene cada rival y cobra las bajas de los compañeros. Notas honestas: contra la IA de la 0.9.8 la diferencia está dentro del margen de error (51% en 600 partidas); el fuego concentrado y adaptarse al marcador se probaron y restaban, así que se apagaron. No se hicieron: la distribución nueva de oficinas y súper (siguen amuebladas sobre el trazado de antes), "asomarse/agacharse" nuevos (ya existían de la 0.9.2) ni personalidades con un plan de partida propio.
 **Aspecto:** personajes con más detalle (uniforme por equipo y rol, el equipo que llevan a la vista: casco, chaleco, mochila), armas dibujadas a partir de modelos reales, animaciones nuevas (agacharse detrás de la cobertura, asomarse, rodar, caer al recibir un golpe fuerte), charcos con lluvia, marcas y escombros más realistas, y oficinas y súper con distribución más real.
 **IA:** aprende de cada rival durante la partida (por dónde suele venir, si recarga a la vista), personalidades más marcadas y humanas (plan de partida, miedo, venganza, cambio de estrategia si va perdiendo), equipos más coordinados (pinzas, cada uno cubre un ángulo, avanzar de a turnos), y la prueba de miles de partidas contra la IA de la 0.9.8.
 

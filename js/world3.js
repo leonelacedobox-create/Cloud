@@ -17,6 +17,7 @@ App.Art3 = (() => {
   }
   for (const k in META) { imgs[k] = load(`assets/art/${k}.webp`); if (META[k].v) imgs[k + '_v'] = load(`assets/art/${k}_v.webp`); }
   for (const k of App.TEXLIST || []) tex[k] = load(`assets/tex/${k}.webp`);
+  for (const k in App.GUNMETA || {}) imgs['gun_' + k] = load(`assets/art/gun_${k}.webp`);   // armas (0.9.9)
   const ok = (im) => im && im.complete && im.naturalWidth > 0;
   /** Dibuja un objeto con su centro en (cx, cy) casilleros. La imagen trae la sombra corrida abajo a la derecha. */
   const scaled = new Map();
@@ -291,6 +292,37 @@ App.Art3 = (() => {
       A.draw(x, key, false, tx + 0.5 - (sl ? sl.dx * sk : 0), ty + 0.5 - (sl ? sl.dy * sk : 0), ts, 1, true);
       const hp = this.prHp[i], max = p === 2 ? 55 : 110;
       if (hp < max * 0.6) { x.strokeStyle = 'rgba(30,15,5,.7)'; x.lineWidth = Math.max(1, ts * 0.05); x.beginPath(); x.moveTo((tx + 0.25) * ts, (ty + 0.3) * ts); x.lineTo((tx + 0.5) * ts, (ty + 0.55) * ts); x.lineTo((tx + 0.7) * ts, (ty + 0.45) * ts); x.stroke(); }   // rajado
+    }
+  };
+})();
+
+/* ----- charcos con la lluvia (0.9.9): se van formando y las gotas hacen ondas ----- */
+(() => {
+  const G = App.battle.Game.prototype, TAU = Math.PI * 2;
+  const w2 = G.drawWorld2;
+  G.drawWorld2 = function (x, ts, left, top, right, bottom) {
+    w2.call(this, x, ts, left, top, right, bottom);
+    const wet = this.weather === 'rain' || this.weather === 'storm';
+    if (!wet || this.quality === 'ahorro') return;
+    if (!this.puddles) {
+      const rng = this.srnd, W = this.W, out = [];
+      for (let k = 0; k < 400 && out.length < Math.round(this.floor.length / 28); k++) {
+        const i = this.floor[Math.floor(rng() * this.floor.length)];
+        if (this.furn && this.furn[i]) continue;
+        out.push({ x: (i % W) + 0.2 + rng() * 0.6, y: ((i / W) | 0) + 0.2 + rng() * 0.6, rx: 0.35 + rng() * 0.8, ry: 0.25 + rng() * 0.5, a: rng() * Math.PI, seed: rng() * 10 });
+      }
+      this.puddles = out; this.puddleT = 0;
+    }
+    this.puddleT = Math.min(1, (this.puddleT || 0) + 0.002);                      // van creciendo con la lluvia
+    const grow = this.puddleT, t = this.time;
+    for (const p of this.puddles) {
+      if (p.x + p.rx < left || p.y + p.rx < top || p.x - p.rx > right || p.y - p.rx > bottom) continue;
+      x.save(); x.translate(p.x * ts, p.y * ts); x.rotate(p.a);
+      x.fillStyle = `rgba(95,120,150,${0.32 * grow})`; x.beginPath(); x.ellipse(0, 0, p.rx * ts * grow, p.ry * ts * grow, 0, 0, TAU); x.fill();
+      x.strokeStyle = `rgba(200,220,240,${0.22 * grow})`; x.lineWidth = Math.max(1, ts * 0.03); x.stroke();
+      const ph = (t * 1.3 + p.seed) % 1;                                          // una gota cae y hace una onda
+      x.strokeStyle = `rgba(220,235,255,${0.45 * (1 - ph) * grow})`; x.beginPath(); x.ellipse(Math.sin(p.seed) * p.rx * ts * 0.4, 0, ph * ts * 0.35, ph * ts * 0.22, 0, 0, TAU); x.stroke();
+      x.restore();
     }
   };
 })();

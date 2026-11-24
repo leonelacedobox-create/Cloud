@@ -41,5 +41,29 @@ window.renderModel = async (url, { pxm = 80, rotY = 0, margin = 0.12, targetLen 
   scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
   return { png, w, d, sx: size.x, sz: size.z, h };
 };
+// armas: de perfil (el caño hacia la derecha), sin sombra en el piso
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+window.renderSide = async (objUrl, mtlUrl, { pxm = 220, flip = false, targetLen = 0 } = {}) => {
+  const mtl = await new MTLLoader().loadAsync(mtlUrl); mtl.preload();
+  const obj = await new OBJLoader().setMaterials(mtl).loadAsync(objUrl);
+  obj.traverse((o) => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach((m) => { m.side = THREE.DoubleSide; if (m.shininess !== undefined) m.shininess = 40; }); } });
+  const scene = new THREE.Scene(); scene.add(obj);
+  let box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3());
+  const alongX = size.x >= size.z;                                       // el largo del arma
+  if (!alongX) obj.rotation.y = Math.PI / 2;
+  if (flip) obj.rotation.y += Math.PI;
+  box = new THREE.Box3().setFromObject(obj); size = box.getSize(new THREE.Vector3());
+  if (targetLen) { obj.scale.multiplyScalar(targetLen / size.x); box = new THREE.Box3().setFromObject(obj); size = box.getSize(new THREE.Vector3()); }
+  const c = box.getCenter(new THREE.Vector3()); obj.position.sub(c);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x404040, 1.6));
+  const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(-1, 2, 3); scene.add(key);
+  const rim = new THREE.DirectionalLight(0xbfd4ff, 0.8); rim.position.set(2, -1, -2); scene.add(rim);
+  const m = 0.02, w = size.x + m * 2, h = size.y + m * 2;
+  const cam = new THREE.OrthographicCamera(-w / 2, w / 2, h / 2, -h / 2, 0.01, 100); cam.position.set(0, 0, 10); cam.lookAt(0, 0, 0);
+  const W = Math.max(8, Math.round(w * pxm)), H = Math.max(8, Math.round(h * pxm));
+  renderer.shadowMap.enabled = false; renderer.setSize(W, H, false); renderer.render(scene, cam); renderer.shadowMap.enabled = true;
+  return { png: renderer.domElement.toDataURL('image/png'), w, h, len: size.x };
+};
 window.ready = true;
 </script></body></html>

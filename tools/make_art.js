@@ -5,6 +5,7 @@
  *   - Poly Haven (CC0): modelos glTF de muebles, cajones, barriles, estanterías, máquinas, plantas…
  *   - Kenney Car Kit (CC0, bajado de OpenGameArt): autos.
  *   - Poly Haven (CC0): texturas de pisos y paredes (fotos reales).
+ *   - Ultimate Gun Pack de Quaternius (CC0, bajado de OpenGameArt): armas, dibujadas de perfil.
  *
  * Cada modelo se carga en un navegador sin ventana con three.js, se lo apoya en el piso con un sol desde
  * arriba a la izquierda (la sombra cae siempre hacia abajo a la derecha, igual que en el juego) y se le
@@ -52,6 +53,10 @@ const ITEMS = {
   van: [CAR('delivery'), 5.0, true, 'low'], hatch: [CAR('hatchback-sports'), 4.0, true, 'low'], sport: [CAR('sedan-sports'), 4.3, true, 'low'], ambulance: [CAR('ambulance'), 5.2, true, 'low'],
   cone: [CAR('cone'), 0.4, false, 'deco'],
 };
+// armas (Ultimate Gun Pack de Quaternius, CC0, bajado de OpenGameArt): de perfil, con su largo real en metros
+const QG = (id) => `guns/x/Ultimate Gun Pack - July 2019/OBJ/${id}`;
+const GUNS = { pistol: [QG('Pistol_1'), 0.21], revolver: [QG('Revolver_1'), 0.27], smg: [QG('SubmachineGun_2'), 0.5], rifle: [QG('AssaultRifle_1'), 0.88],
+  lmg: [QG('AssaultRifle2_2'), 0.95], hmg: [QG('Bullpup_1'), 1.05], sniper: [QG('SniperRifle_1'), 1.2], shotgun: [QG('Shotgun_1'), 1.05], ashotgun: [QG('Shotgun_ShortStock'), 0.82] };
 // texturas: clave -> archivo de Poly Haven (foto real del material)
 const TEXTURES = { wood: 'laminate_floor', parquet: 'herringbone_parquet', planks: 'wood_floor', tiles: 'floor_tiles_06', greytiles: 'grey_tiles', carpet: 'dirty_carpet',
   concrete: 'concrete_floor_02', concrete2: 'concrete_floor_worn_001', asphalt: 'asphalt_02', metal: 'metal_plate', gravel: 'gravel_floor', antiskid: 'anti_skid_tiles', rubber: 'rubber_tiles',
@@ -77,6 +82,14 @@ const TEXTURES = { wood: 'laminate_floor', parquet: 'herringbone_parquet', plank
     meta[key] = { kind, ...outs };
     process.stdout.write(`${key} `);
   }
+  const gunMeta = {};
+  for (const [key, [src, len]] of Object.entries(GUNS)) {
+    const u = (f) => `${BASE}/${src.split('/').map(encodeURIComponent).join('/')}.${f}`;
+    const res = await p.evaluate(async ([o, m, len]) => window.renderSide(o, m, { pxm: 300, targetLen: len }), [u('obj'), u('mtl'), len]);
+    fs.writeFileSync(path.join(OUT, `gun_${key}.png`), Buffer.from(res.png.split(',')[1], 'base64'));
+    gunMeta[key] = { w: +res.w.toFixed(3), h: +res.h.toFixed(3), len: +res.len.toFixed(3) };
+    process.stdout.write(`gun_${key} `);
+  }
   await b.close();
   // PNG -> WebP (con transparencia) y texturas a 256 px
   execFileSync('python3', ['-I', '-c', `
@@ -100,6 +113,7 @@ for k, src in T.items():
 'use strict';
 App.ARTMETA = ${JSON.stringify(meta)};
 App.TEXLIST = ${JSON.stringify(Object.keys(TEXTURES))};
+App.GUNMETA = ${JSON.stringify(gunMeta)};
 `;
   fs.writeFileSync(path.join(ROOT, 'js', 'artdata.js'), js);
   let tot = 0; for (const d of [OUT, TEX]) for (const f of fs.readdirSync(d)) tot += fs.statSync(path.join(d, f)).size;

@@ -55,7 +55,7 @@
     ]],
     ['📜 Créditos', [
       'Sonidos: <b>Freedoom</b> (licencia BSD) y <b>Kenney</b> (CC0). Música: “Battle Theme A” de <b>cynicmusic</b> (CC0).',
-      'Muebles, objetos y texturas: <b>Poly Haven</b> (CC0). Autos: <b>Kenney</b> Car Kit (CC0).',
+      'Muebles, objetos y texturas: <b>Poly Haven</b> (CC0). Autos: <b>Kenney</b> Car Kit (CC0). Armas: <b>Quaternius</b> Ultimate Gun Pack (CC0).',
       'Tipografías: <b>Black Ops One</b> y <b>Cinzel</b> (SIL Open Font License). Íconos: <b>game-icons.net</b> (Lorc, Delapouite y otros, CC BY 3.0).',
       'El detalle de cada archivo y su licencia está en CREDITOS.md, junto al juego.',
     ]],

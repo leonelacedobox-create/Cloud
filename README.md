@@ -149,6 +149,13 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **Pantallas:** tipografías propias (**Black Ops One** para la batalla y **Cinzel** para la moneda), **íconos dibujados** de game-icons.net en el menú y en las fichas de los soldados (el arma que tienen en la mano), y la moneda ahora cae sobre una **mesa de madera** con su sonido.
 - **Créditos** de todo lo descargado en `CREDITOS.md` (y resumidos en la Ayuda).
 
+### Novedades de la 0.9.9 — Soldados de verdad
+- **Armas realistas:** 9 armas dibujadas de perfil a partir de modelos 3D (Ultimate Gun Pack de Quaternius, CC0): pistola, revólver, subfusil, rifle tipo AK, ametralladora, ametralladora pesada, sniper con mira, escopeta y escopeta corta. Se ven así en la mano y tiradas en el piso.
+- **Uniformes y equipo a la vista:** tela camuflada del color de cada uno (en equipos, del color del equipo con el color propio en el pecho), **chaleco táctico** con bolsillos para cargadores cuando lo tienen, **mochila grande** si juntaron una, casco, e **insignia del rol** en el hombro (médico, tirador, tanque, explorador, ingeniero, asalto).
+- **Animaciones:** al esquivar se tiran al costado (antes solo temblaban).
+- **Charcos con la lluvia** que van creciendo, con ondas de las gotas.
+- **IA** (`js/brain4.js`): recuerda por dónde le aparece cada rival y vigila hacia ahí; si cae un compañero, los de al lado saben dónde está el que lo bajó y van a cobrársela. Se probaron también el fuego concentrado y adaptarse al marcador, pero en miles de partidas restaban y quedaron apagados. Contra la IA de la 0.9.8 queda prácticamente pareja (51% en 600 partidas, `tools/reports/ab099.md`): son comportamientos que se ven, pero no cambian los resultados de forma medible.
+
 ### Novedades de la 0.9.8 — Mundo de verdad
 - **Pisos y paredes con texturas fotográficas** (Poly Haven, CC0): parquet, laminado, cerámica, alfombra, cemento, asfalto, chapa, grava, revoque, ladrillo y bloque. Cada mapa tiene sus materiales.
 - **Sombras:** las paredes tiran sombra hacia abajo a la derecha (el sol viene de arriba a la izquierda) y los rincones se oscurecen.
