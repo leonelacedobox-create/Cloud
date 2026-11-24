@@ -522,7 +522,7 @@
     const prevMode = s.mode;
     let path = null;
     this.noteHabits(s);
-    if (s.act && s.act.type === 'hold' && (s.act.useTool || s.act.flipTable != null || s.act.revive != null || s.act.healMate != null) && !(this.zone && this.outsideZone(s.x, s.y, 1.2))) return;   // está haciendo algo con las manos: lo termina
+    if (s.act && s.act.type === 'hold' && (s.act.useTool || s.act.flipTable != null || s.act.pushCrate || s.act.revive != null || s.act.healMate != null) && !(this.zone && this.outsideZone(s.x, s.y, 1.2))) return;   // está haciendo algo con las manos: lo termina
     if (s.act && s.act.type === 'hold') {                                   // está esperando (emboscada, escuchando, cuidando un lugar)
       if (!(this.zone && this.outsideZone(s.x, s.y, 1.2)) && !s.target && !s.carry) return;   // sigue esperando sin cambiar de plan
       s.act = null;                                                          // la zona o un enemigo a la vista: deja de esperar
@@ -845,7 +845,7 @@
       }
       return r;
     }
-    if (act && s.target && (act.type === 'peek' || (act.type === 'hold' && act.revive == null && act.healMate == null && !act.useTool && act.flipTable == null))) { s.act = act = null; }
+    if (act && s.target && (act.type === 'peek' || (act.type === 'hold' && act.revive == null && act.healMate == null && !act.useTool && act.flipTable == null && !act.pushCrate))) { s.act = act = null; }
     if (act && (act.type === 'open' || act.type === 'close') && s.target && s.td < 3) { s.act = act = null; }
 
     if (s.cover) { this.steerCover(s, dt, r); if (s.cover) return r; }
@@ -864,7 +864,7 @@
         if (act.t >= act.dur) s.act = null;
       } else if (act.type === 'hold') {
         r.desired = act.face; r.sneak = true; r.scanning = !act.revive && act.healMate == null;
-        if (act.t >= act.dur) { s.act = null; if (act.revive != null) this.finishRevive(s, act.revive); if (act.healMate != null) this.finishHealMate(s, act.healMate); if (act.useTool) this.finishTool(s, act); if (act.flipTable != null) this.finishFlip(s, act.flipTable); }
+        if (act.t >= act.dur) { s.act = null; if (act.revive != null) this.finishRevive(s, act.revive); if (act.healMate != null) this.finishHealMate(s, act.healMate); if (act.useTool) this.finishTool(s, act); if (act.flipTable != null) this.finishFlip(s, act.flipTable); if (act.pushCrate) this.finishPush(s, act.pushCrate); }
       } else if (act.type === 'burst') {
         r.desired = act.face;
         if (Math.abs(angDiff(s.angle, r.desired)) < 0.12 && s.cd <= 0) {

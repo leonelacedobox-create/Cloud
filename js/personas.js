@@ -61,11 +61,12 @@ const Personas = (() => {
   const WEIGHTS = { agresivo: 3, cauteloso: 3, francotirador: 2, asesino: 2, tactico: 2, oportunista: 2, berserker: 2, cobarde: 1 };
 
   /* Nivel de inteligencia: tiempo de reacción, puntería, uso de tácticas, esquive y errores. */
+  // 0.9.7: escalera elegida con tools/iqgrid.js (cada nivel gana más que el de abajo: 6% · 15% · 21% · 27% · 32% en partidas de 10)
   const IQ = [
-    { key: 'novato', label: 'Novato', emoji: '🐣', react: 0.45, aim: 1.28, tac: 0.6, dodge: 0.12, think: 1.5, forget: 0.18 },
-    { key: 'normal', label: 'Normal', emoji: '🙂', react: 0.3, aim: 1.0, tac: 0.88, dodge: 0.42, think: 1.0, forget: 0.06 },
-    { key: 'veterano', label: 'Veterano', emoji: '🎖️', react: 0.25, aim: 0.93, tac: 0.95, dodge: 0.55, think: 0.92, forget: 0.03 },
-    { key: 'maestro', label: 'Maestro', emoji: '🧠', react: 0.2, aim: 0.88, tac: 1.0, dodge: 0.7, think: 0.85, forget: 0.01 },
+    { key: 'novato', label: 'Novato', emoji: '🐣', react: 0.55, aim: 1.35, tac: 0.6, dodge: 0.08, think: 1.7, forget: 0.18 },
+    { key: 'normal', label: 'Normal', emoji: '🙂', react: 0.32, aim: 1.0, tac: 0.88, dodge: 0.4, think: 1.0, forget: 0.06 },
+    { key: 'veterano', label: 'Veterano', emoji: '🎖️', react: 0.24, aim: 0.9, tac: 0.95, dodge: 0.55, think: 0.88, forget: 0.03 },
+    { key: 'maestro', label: 'Maestro', emoji: '🧠', react: 0.18, aim: 0.82, tac: 1.0, dodge: 0.72, think: 0.78, forget: 0.01 },
   ];
 
   /** Elige la personalidad: la pedida, o una al azar según los pesos. */

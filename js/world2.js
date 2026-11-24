@@ -403,9 +403,10 @@
   };
   /** Huecos de luz extra en la capa oscura: lámparas con sus sombras, fogonazos, explosiones, foco. */
   G.lightHoles = function (f, left, top) {
-    const ts = this.ts;
+    const ts = this.ts, vw = this.cw / ts, vh = this.ch / ts;
     for (const l of this.lamps) {
       if (!l.on || !l.poly) continue;
+      if (l.x + l.r < left || l.y + l.r < top || l.x - l.r > left + vw || l.y - l.r > top + vh) continue;   // fuera de la pantalla
       const cx = (l.x - left) * ts, cy = (l.y - top) * ts, g = f.createRadialGradient(cx, cy, 0, cx, cy, l.r * ts);
       g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.65, 'rgba(0,0,0,.8)'); g.addColorStop(1, 'rgba(0,0,0,0)');
       f.fillStyle = g; f.beginPath(); l.poly.forEach(([px, py], k) => { if (k) f.lineTo(cx + px * ts, cy + py * ts); else f.moveTo(cx + px * ts, cy + py * ts); }); f.closePath(); f.fill();

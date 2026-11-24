@@ -149,8 +149,22 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **Pantallas:** tipografías propias (**Black Ops One** para la batalla y **Cinzel** para la moneda), **íconos dibujados** de game-icons.net en el menú y en las fichas de los soldados (el arma que tienen en la mano), y la moneda ahora cae sobre una **mesa de madera** con su sonido.
 - **Créditos** de todo lo descargado en `CREDITOS.md` (y resumidos en la Ayuda).
 
+### Novedades de la 0.9.7 — Afinado final
+- **Miles de partidas en paralelo** (`tools/simpool.js`): varios navegadores sin ventana juegan a la vez, sin dibujar ni sonar. En total se jugaron más de 12.000 partidas para afinar esta versión.
+- **Ajuste por evolución** (`tools/tune.js`): generaciones de candidatos con distinto aguante por personalidad y puntería por nivel, todos jugando las mismas partidas; se queda con el más parejo. Confirmó que las **personalidades ya estaban parejas** (todas entre 45 y 56 puntos sobre 100).
+- **Escalera de inteligencia nueva** (`tools/iqgrid.js`): reflejos, puntería, esquive y rapidez para pensar ajustados juntos. Ahora cada nivel gana más que el de abajo: Novato 6% · Normal 15% · Veterano 21% · Maestro 27% · Leyenda 32% (antes el Veterano ganaba menos que el Normal).
+- **Reporte por mapa y modo** (`tools/mass.js`, en `tools/reports/mass.md`): duración, partidas que no terminan, empates, trabas y qué equipo gana más en los 13 mapas y 9 modos.
+- **Bomba pareja:** los atacantes ganaban 65% (87% en el Depósito). Ahora plantar tarda 5 s, desactivar 5 s, los defensores rotan antes y arrancan con casco: queda cerca de 50%.
+- **Derribados:** ahora se levanta a 4 de cada 10 (antes 1 de cada 9). Ayudan también los que tienen un rival lejos del caído y se desangran en 34 s.
+- **Cajones que se empujan:** caminando contra un cajón un ratito lo empujás (si atrás hay lugar); la IA, si no tiene dónde cubrirse, empuja uno hacia el rival y queda atrás.
+- **Más rápido:** la línea de visión se calcula sin pasos repetidos (las simulaciones van 2,5 veces más rápido y la IA gasta menos en el celular); de noche los conos de linterna se recalculan solo si el soldado se mueve y la sombra se dibuja a media resolución en calidad media/ahorro; en celulares lentos cada soldado mira 30 veces por segundo en vez de 60. Con la CPU 4 veces más lenta, una partida de noche con tormenta pasó de ~34 a ~40 cuadros por segundo sin tener que bajar a ahorro.
+- **Ayuda** al día (empujar cajones, cámara del que te eliminó, música y ambiente).
+
 ### Banco de pruebas
 ```sh
+node tools/tune.js --gens 14      # ajuste por evolución del balance (personalidades e inteligencia)
+node tools/iqgrid.js --games 300  # compara escaleras de inteligencia completas
+node tools/mass.js --runs 15      # miles de partidas: todos los mapas × todos los modos
 node tools/bench.js --runs 12    # simula cientos de partidas sin dibujar y genera un reporte
 node tools/bench.js --modes --runs 6   # solo los modos de juego de la 0.7
 ```

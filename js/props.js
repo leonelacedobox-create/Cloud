@@ -51,19 +51,25 @@
   };
   /** ¿Se ve de un punto a otro? Frenan las paredes, las puertas cerradas y el humo (los cajones no). */
   G.los = function (x0, y0, x1, y1) {
+    // (0.9.7) más rápido: sin llamar a otra función en cada paso y sin revisar dos veces la misma casilla
     const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy), n = Math.ceil(d / 0.2), sm = this.smokes.length > 0;
+    const W = this.W, H = this.H, wl = this.wl, dg = this.doorGrid;
+    let last = -1;
     for (let i = 1; i < n; i++) {
-      const t = i / n, px = x0 + dx * t, py = y0 + dy * t;
-      if (this.isOpaque(Math.floor(px), Math.floor(py)) || (sm && this.inSmoke(px, py))) return false;
+      const t = i / n, px = x0 + dx * t, py = y0 + dy * t, tx = Math.floor(px), ty = Math.floor(py);
+      if (tx < 0 || ty < 0 || tx >= W || ty >= H) return false;
+      const idx = ty * W + tx;
+      if (idx !== last) { last = idx; if (wl[idx] || (dg[idx] === 1 && doorClosed(this.doors.get(idx)))) return false; }
+      if (sm && this.inSmoke(px, py)) return false;
     }
     return true;
   };
   /** ¿Puede llegar una bala? Los cajones frenan balas salvo las del que está pegado al cajón (disparar por encima). */
   G.losShot = function (x0, y0, x1, y1) {
-    const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy), n = Math.ceil(d / 0.2);
+    const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy), n = Math.ceil(d / 0.2), W = this.W, wl = this.wl, pr = this.pr;
     for (let i = 1; i < n; i++) {
-      const t = i / n, idx = Math.floor(y0 + dy * t) * this.W + Math.floor(x0 + dx * t);
-      if (this.wl[idx] || (this.pr[idx] === 1 && d * t > 1.35)) return false;
+      const t = i / n, idx = Math.floor(y0 + dy * t) * W + Math.floor(x0 + dx * t);
+      if (wl[idx] || (pr[idx] === 1 && d * t > 1.35)) return false;
     }
     return true;
   };
@@ -410,8 +416,8 @@
         if (this.glass[i] === 2) { x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px + 2, py + 2); x.lineTo(px + ts * 0.5, py + ts * 0.45); x.lineTo(px + ts - 2, py + 3); x.moveTo(px + ts * 0.5, py + ts * 0.45); x.lineTo(px + ts * 0.4, py + ts - 2); x.stroke(); x.fillStyle = 'rgba(20,30,50,.35)'; x.fillRect(px + 2, py + 2, ts - 4, ts - 4); }
         continue;
       }
-      const hp = this.prHp[i];
-      x.save(); x.translate(px + ts / 2, py + ts / 2);
+      const hp = this.prHp[i], sl = this.slides && this.slides.get(i), sk = sl ? 1 - Math.min(1, sl.t / 0.25) : 0;   // cajón que viene deslizándose (0.9.7)
+      x.save(); x.translate(px + ts / 2 - (sl ? sl.dx * sk * ts : 0), py + ts / 2 - (sl ? sl.dy * sk * ts : 0));
       if (p === 1) {                                                          // cajón de madera
         const s = ts * 0.86;
         x.fillStyle = 'rgba(0,0,0,.3)'; x.fillRect(-s / 2 + 2, -s / 2 + 3, s, s);

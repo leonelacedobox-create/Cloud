@@ -19,6 +19,8 @@
       'Activá “Lo manejo yo” en el ⚙️ de un soldado, o tocá 🎮 durante la partida para tomar el control del que estás siguiendo.',
       '<b>Joystick</b> para caminar (empujá hasta el borde para correr) · <b>🔫</b> mantené para disparar (apunta solo al enemigo que ve) · <b>🔄</b> recargar · <b>🔁</b> cambiar de arma · <b>💣</b> granada · <b>🩹</b> botiquín. Las puertas se abren al empujarlas.',
       'Con teclado: W A S D o flechas, espacio para disparar, Shift para caminar en silencio, R, Q, G y H.',
+      'Caminando contra un <b>cajón</b> un ratito, lo <b>empujás</b> (si atrás hay lugar): sirve para armarte una cobertura. Con <b>🧰</b> usás la herramienta que tengas.',
+      'Si cae el soldado que seguís, la cámara muestra unos segundos <b>al que lo eliminó</b>.',
       'Modo zurdo (en el menú) pone el joystick a la derecha.',
     ]],
     ['🏁 Modos de juego', [
@@ -48,7 +50,7 @@
       'Las <b>apuestas</b> suman aciertos a cada uno y hay ranking semanal. En 🏅 Logros ves las medallas y el historial de cada jugador.',
     ]],
     ['🔊 Sonido, relator y accesibilidad', [
-      'En Ajustes de la batalla: música que sube con la tensión, relator automático, voz (usa la del celular) y volúmenes.',
+      'En Ajustes de la batalla: música (el <b>tema de batalla grabado</b> o la sintetizada), <b>ambiente de cada mapa</b>, relator automático, voz (usa la del celular) y volúmenes. Los disparos, pasos y golpes son <b>sonidos reales</b> y retumban más en los pasillos.',
       'En el menú: texto más grande, ayuda para daltonismo (colores seguros y símbolos ● ▲ ■ ◆ por equipo), vibración, modo zurdo, menos animaciones y calidad (Ahorro gasta menos batería).',
     ]],
     ['📜 Créditos', [

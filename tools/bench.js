@@ -74,6 +74,7 @@ const CONFIGS = [
 
   // Funciones de simulación dentro de la página (se definen una vez).
   await page.evaluate(() => {
+    App.state.sound = false;                                // sin sonido: las simulaciones van más rápido
     const wrap = document.createElement('div');
     wrap.style.cssText = 'position:fixed;left:0;top:0;width:372px;height:662px';
     const cv = document.createElement('canvas'); wrap.appendChild(cv); document.body.appendChild(wrap);

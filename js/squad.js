@@ -96,9 +96,10 @@
     const downed = this.soldiers.filter((m) => m.alive && m.downed && m.team === s.team);
     if (downed.length) {
       let best = null, bd = 1e9; for (const d of downed) { const dd = Math.hypot(d.x - s.x, d.y - s.y) - (s.role === 'medico' ? 6 : 0); if (dd < bd) { bd = dd; best = d; } }
-      const helpers = sq.members.filter((m) => !m.manual && (!m.target || m === s)).sort((a, b) => (Math.hypot(a.x - best.x, a.y - best.y) - (a.role === 'medico' ? 6 : 0)) - (Math.hypot(b.x - best.x, b.y - best.y) - (b.role === 'medico' ? 6 : 0)));
-      if (helpers[0] === s && bd < 16) return { x: best.x, y: best.y, r: 0.85, hold: true, revive: best.id, face: Math.atan2(best.y - s.y, best.x - s.x) };
-      if (helpers[1] === s && bd < 16) return { x: best.x, y: best.y, r: 3, hold: true, face: sq.tgt ? Math.atan2(sq.tgt.y - s.y, sq.tgt.x - s.x) : s.angle };   // otro lo cubre
+      // ayudan los que no están en un tiroteo cerca del caído (0.9.7: antes cualquiera con un rival a la vista quedaba afuera)
+      const helpers = sq.members.filter((m) => !m.manual && (!m.target || m === s || Math.hypot(m.target.x - best.x, m.target.y - best.y) > 9)).sort((a, b) => (Math.hypot(a.x - best.x, a.y - best.y) - (a.role === 'medico' ? 6 : 0)) - (Math.hypot(b.x - best.x, b.y - best.y) - (b.role === 'medico' ? 6 : 0)));
+      if (helpers[0] === s && bd < 22) return { x: best.x, y: best.y, r: 0.85, hold: true, revive: best.id, face: Math.atan2(best.y - s.y, best.x - s.x) };
+      if (helpers[1] === s && bd < 22) return { x: best.x, y: best.y, r: 3, hold: true, face: sq.tgt ? Math.atan2(sq.tgt.y - s.y, sq.tgt.x - s.x) : s.angle };   // otro lo cubre
     }
     // 2) el médico cura a un herido
     if (s.role === 'medico' && now > (s.healOtherCd || 0)) {
@@ -202,7 +203,7 @@
     if (!this.cfg.downed || !this.cfg.teamMode || s.team < 0 || s.downed || zone || (this.M && this.M.respawn) || s.bot) return false;
     if (s.downCount >= 1) return false;                                        // una sola vez por partida
     if (!this.soldiers.some((m) => m.alive && m !== s && m.team === s.team && !m.downed)) return false;
-    s.downed = { t: 0, bleed: 28, by, imm: this.time + 1.2 };
+    s.downed = { t: 0, bleed: 34, by, imm: this.time + 1.2 };
     for (const o of this.soldiers) if (o.target === s) { o.target = null; o.burstLeft = 0; } s.downCount = (s.downCount || 0) + 1;
     s.hp = 1; s.act = null; s.cover = null; s.target = null; s.path = []; s.mode = 'downed';
     this.callout(s, 'down'); s.callCd = 0;

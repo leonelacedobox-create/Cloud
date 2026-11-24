@@ -342,7 +342,7 @@
 
   /* ----- bomba ----- */
   add({ key: 'bomb', emoji: '💣', label: 'Bomba', team: 'two', respawn: 0, noOvertime: true,
-    desc: 'El equipo Rojo ataca: lleva la bomba a uno de los dos sitios (A o B) y la planta (4 s); los defensores se reparten y rotan cuando ven venir al de la bomba. El Azul defiende: si la bomba está plantada hay que desactivarla (6 s) antes de que explote (35 s). Sin reapariciones.',
+    desc: 'El equipo Rojo ataca: lleva la bomba a uno de los dos sitios (A o B) y la planta (5 s); los defensores se reparten y rotan cuando ven venir al de la bomba. El Azul defiende (arranca con casco): si la bomba está plantada hay que desactivarla (5 s) antes de que explote (35 s). Sin reapariciones.',
     pre(cfg) { cfg.zone = false; },
     init(g) {
       const gs = groupsOf(g), att = gs.find((o) => o.team === 0), def = gs.find((o) => o.team === 1);
@@ -355,7 +355,7 @@
           const da = Math.hypot(x - ab[0], y - ab[1]), dd = Math.hypot(x - db[0], y - db[1]);
           if (da < 9 || dd < 4) continue;
           if (avoid && Math.hypot(x - avoid[0], y - avoid[1]) < Math.hypot(g.W, g.H) * 0.33) continue;
-          const sc = Math.abs(da / (da + dd) - 0.66) * 20 + rnd() * 2;      // más cerca de los defensores, pero a una caminata de los atacantes
+          const sc = Math.abs(da / (da + dd) - 0.7) * 20 + rnd() * 2;      // más cerca de los defensores, pero a una caminata de los atacantes
           if (sc < bs) { bs = sc; best = [x, y]; }
         }
         return best;
@@ -368,6 +368,7 @@
       g.mst.alert = null; g.mst.alertT = 0;
       g.mst.bomb = { carrier: att ? att.members[Math.floor(rnd() * att.members.length)] : null, x: 0, y: 0, planted: false, plantT: 0, timer: 0, defT: 0, boom: false, defused: false, last: 0 };
       if (g.mst.bomb.carrier) g.mst.bomb.carrier.carry = g.mst.bomb;
+      if (def) for (const s of def.members) { s.armor = s.armor || { vest: 0, helm: 0 }; s.armor.helm = Math.max(s.armor.helm, 60); }   // 0.9.7: los defensores esperan con casco (antes ganaban poco)
     },
     step(g, dt) {
       const m = g.mst, b = m.bomb, site = m.site;
@@ -385,11 +386,11 @@
           if (m.alertT <= 0) {
             m.alertT = 1;
             const c = b.carrier, seen = alivePl(g).some((q) => q.team === 1 && q.know[c.id] && g.time - q.know[c.id].t < 3);
-            if (seen) { const near = m.sites.slice().sort((p, q) => Math.hypot(p.x - c.x, p.y - c.y) - Math.hypot(q.x - c.x, q.y - c.y))[0]; if (Math.hypot(near.x - c.x, near.y - c.y) < 12 && m.alert !== near) { m.alert = near; say(g, `📢 ¡Van al sitio ${near.name}! Los defensores rotan`); } }
+            if (seen) { const near = m.sites.slice().sort((p, q) => Math.hypot(p.x - c.x, p.y - c.y) - Math.hypot(q.x - c.x, q.y - c.y))[0]; if (Math.hypot(near.x - c.x, near.y - c.y) < 17 && m.alert !== near) { m.alert = near; say(g, `📢 ¡Van al sitio ${near.name}! Los defensores rotan`); } }
           }
           if (at) {
             b.plantT += dt;
-            if (b.plantT >= 4) { b.planted = true; b.timer = 35; b.x = m.site.x; b.y = m.site.y; b.carrier.carry = null; b.carrier.score++; pop(g, m.site.x, m.site.y, '💣 ¡PLANTADA!', '#f87171'); say(g, `💣 ¡Bomba plantada en el sitio ${m.site.name}! 35 segundos`, true); sfx.alarm(); b.carrier = null; }
+            if (b.plantT >= 5) { b.planted = true; b.timer = 35; b.x = m.site.x; b.y = m.site.y; b.carrier.carry = null; b.carrier.score++; pop(g, m.site.x, m.site.y, '💣 ¡PLANTADA!', '#f87171'); say(g, `💣 ¡Bomba plantada en el sitio ${m.site.name}! 35 segundos`, true); sfx.alarm(); b.carrier = null; }
           } else b.plantT = Math.max(0, b.plantT - dt * 2);
         }
       } else {
@@ -397,7 +398,7 @@
         const sec = Math.ceil(b.timer);
         if (sec !== b.last && sec > 0) { b.last = sec; sfx.beep(sec <= 5); }
         const dfs = alivePl(g).filter((s) => s.team === 1 && Math.hypot(s.x - site.x, s.y - site.y) < site.r);
-        if (dfs.length) { b.defT += dt; if (b.defT >= 6) { b.defused = true; dfs.forEach((s) => { s.score++; }); pop(g, site.x, site.y, '✂️ ¡DESACTIVADA!', '#7dd3fc'); say(g, '✂️ ¡Bomba desactivada!', true); sfx.fanfare(); } }
+        if (dfs.length) { b.defT += dt; if (b.defT >= 5) { b.defused = true; dfs.forEach((s) => { s.score++; }); pop(g, site.x, site.y, '✂️ ¡DESACTIVADA!', '#7dd3fc'); say(g, '✂️ ¡Bomba desactivada!', true); sfx.fanfare(); } }
         else b.defT = Math.max(0, b.defT - dt * 0.5);
         if (b.timer <= 0 && !b.defused) { b.boom = true; g.explode(site.x, site.y, 5.5, 140, null, 'bomb'); say(g, '💥 ¡La bomba explotó!', true); }
       }
@@ -437,7 +438,7 @@
     text(g) {
       const b = g.mst.bomb;
       if (b.planted && !b.defused && !b.boom) return `💣 EXPLOTA EN ${Math.max(0, Math.ceil(b.timer))}s${b.defT > 0 ? ' · ✂️ desactivando ' + Math.round(b.defT / 6 * 100) + '%' : ''}`;
-      return `💣 ${b.carrier ? 'La lleva ' + b.carrier.name + ' → ' + g.mst.site.name : 'bomba en el piso'}${b.plantT > 0 ? ' · plantando ' + Math.round(b.plantT / 4 * 100) + '%' : ''} · ${clock(g)}`;
+      return `💣 ${b.carrier ? 'La lleva ' + b.carrier.name + ' → ' + g.mst.site.name : 'bomba en el piso'}${b.plantT > 0 ? ' · plantando ' + Math.round(b.plantT / 5 * 100) + '%' : ''} · ${clock(g)}`;
     },
     scores() { return null; },
     tension: (g) => (g.mst.bomb.planted && !g.mst.bomb.defused ? 0.35 + (g.mst.bomb.timer < 10 ? 0.3 : 0) : g.mst.bomb.plantT > 0 ? 0.2 : 0),

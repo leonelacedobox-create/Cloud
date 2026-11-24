@@ -1,0 +1,45 @@
+{
+ "pers": {
+  "agresivo": {
+   "tough": 0.65
+  },
+  "cauteloso": {
+   "tough": 1.276
+  },
+  "francotirador": {
+   "tough": 1.14
+  },
+  "asesino": {
+   "tough": 0.726
+  },
+  "tactico": {
+   "tough": 0.964
+  },
+  "oportunista": {
+   "tough": 1.096
+  },
+  "berserker": {
+   "tough": 0.756
+  },
+  "cobarde": {
+   "tough": 1.339
+  }
+ },
+ "iq": {
+  "0": {
+   "aim": 1.6
+  },
+  "1": {
+   "aim": 1.598
+  },
+  "2": {
+   "aim": 0.813
+  },
+  "3": {
+   "aim": 0.566
+  },
+  "4": {
+   "aim": 0.55
+  }
+ }
+}

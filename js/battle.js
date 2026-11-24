@@ -1278,9 +1278,11 @@
       x.lineWidth = 3.2; x.strokeStyle = 'rgba(0,0,0,.85)'; x.lineJoin = 'round';
       const ny = top - (s.reloadT > 0 ? 10 : 5);
       const nm = (s.team >= 0 && TEAMS[s.team].sym ? TEAMS[s.team].sym + ' ' : '') + s.name;
-      x.strokeText(nm, cx, ny); x.fillStyle = '#fff'; x.fillText(nm, cx, ny);
+      const spr = this.nameSprite ? this.nameSprite(nm, fs) : null;                     // 0.9.7: el nombre ya dibujado (mucho más rápido)
+      if (spr) x.drawImage(spr.c, cx - spr.w / 2, ny - spr.h + spr.pad, spr.w, spr.h);
+      else { x.strokeText(nm, cx, ny); x.fillStyle = '#fff'; x.fillText(nm, cx, ny); }
       if (s.photoImg && s.photoImg.complete && s.photoImg.naturalWidth) {                 // foto del compañero, redonda, al lado del nombre
-        const tw = x.measureText(nm).width, r = fs * 0.75, ax = cx - tw / 2 - r - 3, ay = ny - fs * 0.5;
+        const tw = spr ? spr.tw : x.measureText(nm).width, r = fs * 0.75, ax = cx - tw / 2 - r - 3, ay = ny - fs * 0.5;
         x.save(); x.beginPath(); x.arc(ax, ay, r, 0, 6.283); x.clip(); x.drawImage(s.photoImg, ax - r, ay - r, r * 2, r * 2); x.restore();
         x.strokeStyle = s.color; x.lineWidth = 2; x.beginPath(); x.arc(ax, ay, r, 0, 6.283); x.stroke();
       }

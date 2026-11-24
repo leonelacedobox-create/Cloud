@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.9.6 ✅ terminada.** Próximas: 0.9.7 → 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 0.9.7 ✅ terminada.** Próxima: 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -179,7 +179,9 @@ Antes de publicar, seis versiones grandes de mejoras: cuerpos y animaciones, int
 7. **Pantallas rediseñadas:** menú, armado de partida y resultado más lindos, con iconos e ilustraciones (descargados de licencia libre o dibujados) y tipografía propia.
 8. **La moneda** con sonidos reales de moneda y una mesa donde cae.
 
-## 0.9.7 — "Afinado final"
+## 0.9.7 — "Afinado final" ✅
+
+> **Hecho.** Más de 12.000 partidas simuladas (reportes en `tools/reports/`). Notas: el ajuste por evolución confirmó que las personalidades ya estaban parejas, así que no se cambiaron; la escalera de inteligencia se rehízo con reflejos, puntería, esquive y rapidez para pensar juntos. Bomba quedó pareja y los derribados se levantan bastante más. En Oleadas los compañeros sobreviven a las 5 oleadas un tercio de las veces (se dejó así: es un desafío). En Bandera, en el Laberinto y en Habitaciones apareció una ventaja de un equipo con pocas partidas (15): puede ser azar del mapa, queda para mirar. El punto 4 (pruebas en tu celular) queda abierto: cuando me mandes lo que copia el botón 🐞 lo arreglo.
 1. **Ajuste automático por evolución:** el banco de pruebas prueba miles de combinaciones de parámetros y se queda con las que dejan parejas a las personalidades, a los equipos y a los modos.
 2. **Miles de partidas** por mapa y modo: duración, trabas, empates y ventajas.
 3. **Rendimiento con todo lo nuevo:** que siga andando fluido en celulares viejos (dibujar a caché, menos cálculos de IA por cuadro, calidad automática afinada).
