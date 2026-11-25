@@ -52,7 +52,8 @@
   if (App.loadProblem === 'roto') setTimeout(() => App.toast('⚠️ Los datos guardados estaban dañados: se empezó de cero (quedó una copia por las dudas).', 7000), 600);
 
   // errores: aviso amigable y detalle para copiar y mandar
-  const VERSION = '0.9.9';
+  const VERSION = '1.0';
+  App.VERSION = VERSION; App.VERSION_NAME = 'Lanzamiento';
   const errs = [];
   App.debugInfo = () => {
     const st = App.state, g = App.game;

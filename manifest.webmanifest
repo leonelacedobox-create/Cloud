@@ -1,12 +1,12 @@
 {
   "name": "Moneda y Batalla",
   "short_name": "Moneda y Batalla",
-  "description": "Tirá la moneda para decidir y mirá la batalla en el laberinto.",
+  "description": "Tirá la moneda para decidir y armá batallas de hasta 10 soldados con mapas de verdad, armas reales y una IA que piensa.",
   "lang": "es-AR",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#0d1220",
   "theme_color": "#0d1220",
   "icons": [

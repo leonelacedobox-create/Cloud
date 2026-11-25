@@ -84,7 +84,7 @@ print("ok", single, round(os.path.getsize(single) / 1024), "KB")
 
 # zip del proyecto completo (sin fotos originales ni git)
 zpath = os.path.join(OUT, "moneda-y-batalla-proyecto.zip")
-skip_dirs = {".git", "dist", "src", "__pycache__"}
+skip_dirs = {".git", "dist", "src", "__pycache__", "descargas"}
 with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
     for base, dirs, files in os.walk(ROOT):
         dirs[:] = [d for d in dirs if d not in skip_dirs]

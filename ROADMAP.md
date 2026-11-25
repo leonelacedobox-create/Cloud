@@ -1,6 +1,6 @@
 # Hoja de ruta — Moneda y Batalla
 
-**Dónde estamos: 0.9.9 ✅ terminada.** Próxima: 1.0 (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
+**Dónde estamos: 1.0 ✅ lanzada.** Lo que sigue: ideas para 1.x (abajo). (ver el plan nuevo más abajo). Moneda 3D con apuestas, series y "se va temprano". Batalla de hasta 10 soldados con mapas grandes y cámara, puertas, vista y oído, armas con munición, recarga y botín, 3 personalidades, equipos, tabla de victorias y versión en un solo archivo.
 
 **Cómo trabajamos:** por cada versión (1) te cuento el plan, (2) lo programo, (3) lo pruebo con simulaciones y capturas, (4) lo subo y (5) te pregunto si seguimos con la próxima.
 
@@ -200,7 +200,11 @@ Antes de publicar, seis versiones grandes de mejoras: cuerpos y animaciones, int
 **Aspecto:** personajes con más detalle (uniforme por equipo y rol, el equipo que llevan a la vista: casco, chaleco, mochila), armas dibujadas a partir de modelos reales, animaciones nuevas (agacharse detrás de la cobertura, asomarse, rodar, caer al recibir un golpe fuerte), charcos con lluvia, marcas y escombros más realistas, y oficinas y súper con distribución más real.
 **IA:** aprende de cada rival durante la partida (por dónde suele venir, si recarga a la vista), personalidades más marcadas y humanas (plan de partida, miedo, venganza, cambio de estrategia si va perdiendo), equipos más coordinados (pinzas, cada uno cubre un ángulo, avanzar de a turnos), y la prueba de miles de partidas contra la IA de la 0.9.8.
 
-## 1.0 — "Lanzamiento" (lo que estaba planeado)
+## 1.0 — "Lanzamiento" ✅
+
+> **Hecho.** Cuartos amueblados según lo que son (oficina y súper), pantalla Acerca de con créditos y licencias, botón para instalar como app, versión para PC (menús en columnas, mouse, atajos), archivo único en `descargas/` y pruebas finales sin alertas. Nota: publicar con GitHub Pages lo tiene que activar el dueño del repositorio en Settings → Pages (los pasos están en el README); desde acá no se puede cambiar esa opción.
+
+### Lo que estaba planeado para la 1.0
 - Publicación en una dirección web fija (GitHub Pages u otra), instalable como app y con funcionamiento sin conexión.
 - Nombre e ícono finales, licencia y **créditos** (incluye el material descargado).
 - Versión de archivo único actualizada para mandar por WhatsApp.

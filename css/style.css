@@ -269,7 +269,7 @@ body.in-game { overflow: hidden; }
 .podium .ava.big { width: 40px; height: 40px; }
 .modal { position: fixed; inset: 0; z-index: 60; background: rgba(5,8,16,.82); overflow: auto; padding: 14px; display: flex; }
 .modal[hidden] { display: none; }
-.modal-box { margin: auto; width: 100%; max-width: 440px; background: var(--card, #121a2e); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; gap: 10px; }
+.modal-box { margin: auto; width: 100%; max-width: 440px; color: var(--text); background: var(--panel, #121a2e); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; gap: 10px; }
 .hchips { display: flex; flex-wrap: wrap; gap: 6px; }
 .hgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .hstat { background: rgba(255,255,255,.06); border-radius: 10px; padding: 6px; text-align: center; display: grid; }
@@ -491,3 +491,12 @@ body.calm #resultOverlay * { animation: none !important; }
 @media (pointer: fine) and (min-width: 900px) { #joy { display: none; } }
 .pc-keys { font-size: 12px; color: var(--muted); text-align: center; margin: 4px 0 0; }
 @media (pointer: coarse), (max-width: 899px) { .pc-keys { display: none; } }
+
+/* ===== 1.0: Acerca de ===== */
+.about-btn { display: block; margin: 10px auto 0; }
+@media (min-width: 1100px) { #screen-menu > .about-btn { grid-column: 1 / -1; justify-self: center; } }
+.about-title { margin: 0; text-align: center; font: 400 30px var(--font-display); background: linear-gradient(180deg, #f7d774, #b8862b 60%, #7c5514); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.about-lic { display: grid; gap: 6px; }
+.about-lic > div { display: grid; grid-template-columns: 150px 1fr; gap: 8px; font-size: 13px; padding: 6px 8px; border-radius: 8px; background: var(--bg2); }
+@media (max-width: 420px) { .about-lic > div { grid-template-columns: 1fr; } }
+.modal-box.about { background: var(--panel); color: var(--text); max-width: 520px; }

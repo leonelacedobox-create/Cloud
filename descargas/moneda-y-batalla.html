@@ -280,7 +280,7 @@ body.in-game { overflow: hidden; }
 .podium .ava.big { width: 40px; height: 40px; }
 .modal { position: fixed; inset: 0; z-index: 60; background: rgba(5,8,16,.82); overflow: auto; padding: 14px; display: flex; }
 .modal[hidden] { display: none; }
-.modal-box { margin: auto; width: 100%; max-width: 440px; background: var(--card, #121a2e); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; gap: 10px; }
+.modal-box { margin: auto; width: 100%; max-width: 440px; color: var(--text); background: var(--panel, #121a2e); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; gap: 10px; }
 .hchips { display: flex; flex-wrap: wrap; gap: 6px; }
 .hgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .hstat { background: rgba(255,255,255,.06); border-radius: 10px; padding: 6px; text-align: center; display: grid; }
@@ -503,6 +503,15 @@ body.calm #resultOverlay * { animation: none !important; }
 .pc-keys { font-size: 12px; color: var(--muted); text-align: center; margin: 4px 0 0; }
 @media (pointer: coarse), (max-width: 899px) { .pc-keys { display: none; } }
 
+/* ===== 1.0: Acerca de ===== */
+.about-btn { display: block; margin: 10px auto 0; }
+@media (min-width: 1100px) { #screen-menu > .about-btn { grid-column: 1 / -1; justify-self: center; } }
+.about-title { margin: 0; text-align: center; font: 400 30px var(--font-display); background: linear-gradient(180deg, #f7d774, #b8862b 60%, #7c5514); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.about-lic { display: grid; gap: 6px; }
+.about-lic > div { display: grid; grid-template-columns: 150px 1fr; gap: 8px; font-size: 13px; padding: 6px 8px; border-radius: 8px; background: var(--bg2); }
+@media (max-width: 420px) { .about-lic > div { grid-template-columns: 1fr; } }
+.modal-box.about { background: var(--panel); color: var(--text); max-width: 520px; }
+
 </style>
 </head>
 <body>
@@ -531,7 +540,7 @@ body.calm #resultOverlay * { animation: none !important; }
     </button>
     <button class="menu-card" data-go="battle">
       <span class="menu-ico" data-icon="battle">🔫</span>
-      <span><b>Batalla en el laberinto</b><small>Hasta 10 soldados peleando solos. El último en pie gana.</small></span>
+      <span><b>La Batalla</b><small>Hasta 10 soldados en 14 mapas: oficina, súper, estacionamiento, cárcel… Pelean solos o manejás uno.</small></span>
     </button>
     <button class="menu-card" id="btnHelp">
       <span class="menu-ico" data-icon="help">❓</span>
@@ -549,7 +558,8 @@ body.calm #resultOverlay * { animation: none !important; }
       <p class="hint">Automática baja la calidad sola si el celular se pone lento. Ahorro: 30 cuadros por segundo, menos efectos y menos resolución.</p>
       <label class="switch"><input type="checkbox" id="uiFps"><span>Mostrar cuadros por segundo</span></label>
     </div>
-    <p class="hint center">Versión 0.9.9 · “Soldados de verdad”</p>
+    <button class="btn about-btn" id="btnAbout">ℹ️ Acerca de, créditos e instalar</button>
+    <p class="hint center">Versión 1.0 · “Lanzamiento”</p>
     <p class="hint center" id="installHint">Tip: en el menú del navegador elegí “Agregar a pantalla de inicio” y queda como una app.</p>
   </section>
 
@@ -2587,6 +2597,8 @@ const Maps = (() => {
   const barrel = (m, x, y) => { if (x > 0 && y > 0 && x < m.W - 1 && y < m.H - 1 && !m.g[at(m, x, y)]) m.props.push({ x, y, k: 'barrel' }); };
   const addDoor = (m, x, y, along) => { m.g[at(m, x, y)] = 0; m.doors.push({ x, y, along }); };
   const addWindow = (m, x, y) => { m.windows.push({ x, y }); };
+  /** 1.0: un mueble de verdad en un lugar pensado (escritorio con su silla, mesa de reuniones…). over = solo dibujo, encima de otro. */
+  const furn = (m, k, x, y, v, over) => { (m.furn || (m.furn = [])).push({ k, x, y, v: !!v, over: !!over }); };
 
   /** Gira un mapa generado "en vertical" para usarlo en pantallas horizontales. */
   function transpose(m) {
@@ -2600,6 +2612,7 @@ const Maps = (() => {
     o.doors = m.doors.map((d) => ({ x: d.y, y: d.x, along: d.along === 'h' ? 'v' : 'h' }));
     o.labels = m.labels.map((l) => ({ x: l.y, y: l.x, text: l.text }));
     o.center = [m.center[1], m.center[0]];
+    o.furn = (m.furn || []).map((f) => Object.assign({}, f, { x: f.y, y: f.x, v: !f.v }));
     return o;
   }
 
@@ -2776,7 +2789,7 @@ const Maps = (() => {
     for (let x = 3; x < W - 6; x += 3) { wall(m, x, back + 3, x, cajas - 3); }            // góndolas
     for (let x = 3; x < W - 6; x += 3) for (let y = back + 5; y < cajas - 3; y += 6) m.g[at(m, x, y)] = 0;   // cortes en las góndolas
     m.labels.push({ x: W / 2, y: (back + cajas) / 2, text: 'Góndolas' });
-    for (let x = 2; x < W - 8; x += 3) crate(m, x, cajas);                     // cajas registradoras
+    for (let x = 2; x < W - 8; x += 3) { furn(m, 'cabinet', x, cajas); furn(m, 'register', x, cajas, false, true); }   // cajas con su registradora
     m.labels.push({ x: W / 2, y: cajas + 2, text: 'Cajas' });
     m.tables = []; for (let x = W - 5; x < W - 2; x += 2) for (let y = back + 3; y < back + 10; y += 3) m.tables.push({ x, y });   // bar
     m.labels.push({ x: W - 3.5, y: back + 2, text: 'Bar' });
@@ -2859,7 +2872,8 @@ const Maps = (() => {
       carve(m, 1, ya, cx - 3, yb, 1); carve(m, cx + 3, ya, W - 2, yb, 1);
       addDoor(m, cx - 2, ym, 'h'); addDoor(m, cx + 2, ym, 'h');
       for (let yy = ya; yy <= yb; yy++) if (yy !== ym && (yy - ya) % 2 === 0) { addWindow(m, cx - 2, yy); addWindow(m, cx + 2, yy); }
-      crate(m, 2, ya + 1); crate(m, 3, ya + 1); crate(m, W - 3, yb - 1); crate(m, W - 4, yb - 1);   // escritorios
+      furn(m, 'desk', 2, ya + 1); furn(m, 'chair', 2, ya + 2); furn(m, 'desk', W - 4, yb - 1); furn(m, 'chair', W - 3, yb - 2);   // escritorio con su silla
+      furn(m, i % 2 ? 'plant' : 'cabinet', cx - 4, yb); furn(m, i % 2 ? 'bookshelf' : 'plant2', W - 3, ya);
       m.labels.push({ x: (cx - 3 + 1) / 2 + 0.5, y: ym + 0.5, text: names[(i * 2) % names.length] });
       m.labels.push({ x: (cx + 3 + W - 2) / 2 + 0.5, y: ym + 0.5, text: names[(i * 2 + 1) % names.length] });
     });
@@ -2868,14 +2882,15 @@ const Maps = (() => {
     const bm = (botY + H - 2) >> 1;
     addDoor(m, cx - 2, bm, 'h'); addDoor(m, cx + 2, bm, 'h');
     for (let yy = botY; yy <= H - 2; yy++) if (yy !== bm && (yy - botY) % 2 === 0) { addWindow(m, cx - 2, yy); addWindow(m, cx + 2, yy); }
-    for (let xx = 3; xx <= Math.max(3, cx - 5); xx++) { crate(m, xx, bm - 1); crate(m, xx, bm + 1); }    // mesa larga
-    crate(m, W - 3, botY + 1); crate(m, W - 3, botY + 2); crate(m, W - 5, H - 3);                         // mesada de la cocina
+    for (let xx = 3; xx + 1 <= Math.max(4, cx - 5); xx += 2) { furn(m, 'diningtable', xx, bm); furn(m, 'chair', xx, bm - 1); furn(m, 'chair', xx + 1, bm + 1); }   // mesa larga con sillas
+    furn(m, 'coffeecart', W - 3, botY + 1, true); furn(m, 'table', W - 6, H - 4); furn(m, 'monobloc', W - 6, H - 3); furn(m, 'monobloc', W - 5, H - 5); furn(m, 'trash', cx + 3, H - 2);   // cocina
     m.labels.push({ x: (cx - 3 + 1) / 2 + 0.5, y: bm + 0.5, text: 'Reuniones' }, { x: (cx + 3 + W - 2) / 2 + 0.5, y: bm + 0.5, text: '☕ Cocina' });
     // espacio abierto: filas de escritorios dobles
     for (let yy = 3; yy <= topH - 2; yy += 4) for (let xx = 2; xx <= W - 5; xx += 5) {
       if (Math.abs(xx + 1 - cx) <= 2 && yy >= topH - 3) continue;
-      crate(m, xx, yy); crate(m, xx + 1, yy);
+      furn(m, 'desk', xx, yy); furn(m, 'chair', xx + (yy % 8 < 4 ? 0 : 1), yy + 1);
     }
+    furn(m, 'plant', 1, 1); furn(m, 'plant2', W - 2, 1); furn(m, 'coffeecart', W - 2, topH - 1);
     m.labels.push({ x: W / 2, y: 1.8, text: 'Open Space' });
     m.center = [cx, (topH + botY) >> 1];
     return land ? transpose(m) : m;
@@ -10216,7 +10231,13 @@ App.Art3 = (() => {
     initOld.call(this, m);
     this.deco = []; this.furn = new Uint8Array(this.W * this.H);
     if (this.cfg.noDeco) return;
-    try { this.furnish(); } catch (e) { console.warn('muebles', e); }
+    try {
+      for (const f of m.furn || []) {                                            // 1.0: los muebles que pensó el mapa (escritorio con su silla, mesa de reuniones…)
+        if (f.over) { const [fw, fd] = A.foot(f.k, f.v); this.deco.push({ k: f.k, v: f.v && !!(A.META[f.k] || {}).v, x: f.x + fw / 2, y: f.y + fd / 2, tiles: [], over: true }); }
+        else this.placeDeco(f.k, f.x, f.y, f.v);
+      }
+      this.furnish();
+    } catch (e) { console.warn('muebles', e); }
   };
   /** ¿Se puede poner algo que ocupa (fw × fd) desde (tx, ty)? Piso libre, lejos de puertas y sin cortar caminos. */
   G.fits = function (tx, ty, fw, fd) {
@@ -10310,11 +10331,18 @@ App.Art3 = (() => {
         for (const t of [i, j]) { this.furn[t] = 2; this.wallHp[t] = 0; }
         this.deco.push({ k: pick(rng, keys), v: !!vert, x: x + (vert ? 0.5 : 1), y: y + (vert ? 1 : 0.5), tiles: [i, j], shelf: true });
       }
+      // los pedacitos sueltos al final de una góndola: un mueble chico en vez de un cuadrado de pared
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x; if (!this.wl[i] || done[i] || !this.wallHp || !(this.wallHp[i] > 0)) continue;
+        if (![i - 1, i + 1, i - W, i + W].some((j) => this.furn[j] === 2) && [i - 1, i + 1, i - W, i + W].some((j) => this.wl[j])) continue;   // pegado a una góndola, o una columna suelta
+        done[i] = 1; this.furn[i] = 2; this.wallHp[i] = 0;
+        this.deco.push({ k: 'cabinet', v: !!(this.furn[i - W] === 2 || this.furn[i + W] === 2), x: x + 0.5, y: y + 0.5, tiles: [i], shelf: true });
+      }
     };
     switch (map) {
       case 'oficina': case 'oficina_noche':
-        desks(Math.round(9 * k)); alongWall(['bookshelf', 'cabinet', 'cabinet', 'plant', 'plant2', 'trash', 'coffeecart'], Math.round(16 * k));
-        inOpen(['sofa', 'sofa2', 'coffeetable', 'plant', 'wetsign'], Math.round(4 * k), 1); break;
+        alongWall(['plant', 'plant2', 'trash', 'cabinet'], Math.round(6 * k));                   // el resto ya lo pone el mapa (escritorios, sala de reuniones, cocina)
+        inOpen(['sofa', 'wetsign'], Math.round(2 * k), 1); break;
       case 'super':
         shelvesFromWalls(['display', 'steel3', 'steel2']); alongWall(['box', 'box', 'trash', 'plant', 'wetsign', 'cart'], Math.round(12 * k));
         inOpen(['cart', 'box', 'wetsign'], Math.round(5 * k), 1); break;
@@ -10804,6 +10832,64 @@ App.Art3 = (() => {
 
 </script>
 <script>
+/* Acerca de (1.0): versión, qué es, créditos y licencias, y el botón para instalarlo como app
+   (cuando el navegador lo permite: hace falta abrirlo desde una dirección web, no como archivo suelto). */
+'use strict';
+
+(() => {
+  const { el, $ } = App;
+  let deferred = null;                                                         // el pedido de instalación que guarda el navegador
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; paintInstall(); });
+  window.addEventListener('appinstalled', () => { deferred = null; paintInstall(); App.toast('✅ Instalado: ya lo tenés como app'); });
+
+  function paintInstall() {
+    const b = $('#btnInstall'); if (!b) return;
+    const standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+    b.hidden = !deferred || standalone;
+    const hint = $('#installHint');
+    if (hint) hint.textContent = standalone ? '✅ Lo estás usando como app.' : location.protocol === 'file:'
+      ? 'Tip: abierto como archivo funciona igual (sin internet). Para instalarlo como app hay que abrirlo desde su link.'
+      : 'Tip: en el menú del navegador elegí “Agregar a pantalla de inicio” (o el botón Instalar) y queda como una app.';
+  }
+
+  const LIC = [
+    ['🎮 El juego', 'Código propio. Hecho para jugar entre compañeros.'],
+    ['🔊 Sonidos', 'Freedoom (licencia BSD de 3 cláusulas) y Kenney (CC0).'],
+    ['🎼 Música', '“Battle Theme A”, de cynicmusic (CC0).'],
+    ['🪑 Muebles, objetos y texturas', 'Poly Haven (CC0).'],
+    ['🚗 Autos', 'Kenney, Car Kit (CC0).'],
+    ['🔫 Armas', 'Quaternius, Ultimate Gun Pack (CC0).'],
+    ['🔤 Tipografías', 'Black Ops One y Cinzel (SIL Open Font License).'],
+    ['🖼️ Íconos', 'game-icons.net: Lorc, Delapouite y otros (CC BY 3.0).'],
+    ['🪙 Moneda', 'Las fotos de las caras las cargó el dueño del juego.'],
+  ];
+  function open() {
+    let m = $('#aboutModal');
+    if (!m) {
+      m = el('div', { id: 'aboutModal', class: 'modal', hidden: true, onclick: (e) => { if (e.target === m) m.hidden = true; } });
+      const ver = (App.VERSION || '') ;
+      m.append(el('div', { class: 'modal-box about' },
+        el('div', { class: 'card-head' }, el('b', {}, 'ℹ️ Acerca de'), el('span', { class: 'spacer' }), el('button', { class: 'btn small', onclick: () => { m.hidden = true; } }, '✕ Cerrar')),
+        el('h2', { class: 'about-title' }, 'Moneda y Batalla'),
+        el('p', { class: 'hint center' }, `Versión ${ver} · “${App.VERSION_NAME || ''}”`),
+        el('p', {}, 'Tirá la moneda para decidir cualquier cosa, y armá batallas de hasta 10 soldados que pelean solos (o manejás vos), con mapas que parecen lugares de verdad, armas reales, clima, noche y una IA que mira las esquinas y cobra las bajas de sus compañeros.'),
+        el('div', { class: 'about-lic' }, LIC.map(([a, b]) => el('div', {}, el('b', {}, a), el('span', {}, b)))),
+        el('p', { class: 'hint' }, 'El detalle de cada archivo y su licencia está en CREDITOS.md. Todo el material de terceros es libre (CC0, BSD, OFL o CC BY).'),
+        el('button', { class: 'btn primary', id: 'btnInstall', hidden: true, onclick: async () => { if (!deferred) return; deferred.prompt(); try { await deferred.userChoice; } catch (e) { /* nada */ } deferred = null; paintInstall(); } }, '📲 Instalar como app'),
+      ));
+      document.body.append(m);
+    }
+    m.hidden = false; paintInstall();
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const b = $('#btnAbout'); if (b) b.addEventListener('click', open);
+    paintInstall();
+  });
+  App.About = { open };
+})();
+
+</script>
+<script>
 /* Pasarela de animaciones (0.9.2): una pantalla oculta para ver cada animación por separado y en cámara lenta.
    Se abre tocando 5 veces el número de versión en el menú, o entrando con #pasarela al final de la dirección. */
 'use strict';
@@ -10974,7 +11060,8 @@ App.Art3 = (() => {
   if (App.loadProblem === 'roto') setTimeout(() => App.toast('⚠️ Los datos guardados estaban dañados: se empezó de cero (quedó una copia por las dudas).', 7000), 600);
 
   // errores: aviso amigable y detalle para copiar y mandar
-  const VERSION = '0.9.9';
+  const VERSION = '1.0';
+  App.VERSION = VERSION; App.VERSION_NAME = 'Lanzamiento';
   const errs = [];
   App.debugInfo = () => {
     const st = App.state, g = App.game;

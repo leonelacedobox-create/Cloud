@@ -66,7 +66,13 @@ App.Art3 = (() => {
     initOld.call(this, m);
     this.deco = []; this.furn = new Uint8Array(this.W * this.H);
     if (this.cfg.noDeco) return;
-    try { this.furnish(); } catch (e) { console.warn('muebles', e); }
+    try {
+      for (const f of m.furn || []) {                                            // 1.0: los muebles que pensó el mapa (escritorio con su silla, mesa de reuniones…)
+        if (f.over) { const [fw, fd] = A.foot(f.k, f.v); this.deco.push({ k: f.k, v: f.v && !!(A.META[f.k] || {}).v, x: f.x + fw / 2, y: f.y + fd / 2, tiles: [], over: true }); }
+        else this.placeDeco(f.k, f.x, f.y, f.v);
+      }
+      this.furnish();
+    } catch (e) { console.warn('muebles', e); }
   };
   /** ¿Se puede poner algo que ocupa (fw × fd) desde (tx, ty)? Piso libre, lejos de puertas y sin cortar caminos. */
   G.fits = function (tx, ty, fw, fd) {
@@ -160,11 +166,18 @@ App.Art3 = (() => {
         for (const t of [i, j]) { this.furn[t] = 2; this.wallHp[t] = 0; }
         this.deco.push({ k: pick(rng, keys), v: !!vert, x: x + (vert ? 0.5 : 1), y: y + (vert ? 1 : 0.5), tiles: [i, j], shelf: true });
       }
+      // los pedacitos sueltos al final de una góndola: un mueble chico en vez de un cuadrado de pared
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x; if (!this.wl[i] || done[i] || !this.wallHp || !(this.wallHp[i] > 0)) continue;
+        if (![i - 1, i + 1, i - W, i + W].some((j) => this.furn[j] === 2) && [i - 1, i + 1, i - W, i + W].some((j) => this.wl[j])) continue;   // pegado a una góndola, o una columna suelta
+        done[i] = 1; this.furn[i] = 2; this.wallHp[i] = 0;
+        this.deco.push({ k: 'cabinet', v: !!(this.furn[i - W] === 2 || this.furn[i + W] === 2), x: x + 0.5, y: y + 0.5, tiles: [i], shelf: true });
+      }
     };
     switch (map) {
       case 'oficina': case 'oficina_noche':
-        desks(Math.round(9 * k)); alongWall(['bookshelf', 'cabinet', 'cabinet', 'plant', 'plant2', 'trash', 'coffeecart'], Math.round(16 * k));
-        inOpen(['sofa', 'sofa2', 'coffeetable', 'plant', 'wetsign'], Math.round(4 * k), 1); break;
+        alongWall(['plant', 'plant2', 'trash', 'cabinet'], Math.round(6 * k));                   // el resto ya lo pone el mapa (escritorios, sala de reuniones, cocina)
+        inOpen(['sofa', 'wetsign'], Math.round(2 * k), 1); break;
       case 'super':
         shelvesFromWalls(['display', 'steel3', 'steel2']); alongWall(['box', 'box', 'trash', 'plant', 'wetsign', 'cart'], Math.round(12 * k));
         inOpen(['cart', 'box', 'wetsign'], Math.round(5 * k), 1); break;

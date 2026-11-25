@@ -45,6 +45,8 @@ const Maps = (() => {
   const barrel = (m, x, y) => { if (x > 0 && y > 0 && x < m.W - 1 && y < m.H - 1 && !m.g[at(m, x, y)]) m.props.push({ x, y, k: 'barrel' }); };
   const addDoor = (m, x, y, along) => { m.g[at(m, x, y)] = 0; m.doors.push({ x, y, along }); };
   const addWindow = (m, x, y) => { m.windows.push({ x, y }); };
+  /** 1.0: un mueble de verdad en un lugar pensado (escritorio con su silla, mesa de reuniones…). over = solo dibujo, encima de otro. */
+  const furn = (m, k, x, y, v, over) => { (m.furn || (m.furn = [])).push({ k, x, y, v: !!v, over: !!over }); };
 
   /** Gira un mapa generado "en vertical" para usarlo en pantallas horizontales. */
   function transpose(m) {
@@ -58,6 +60,7 @@ const Maps = (() => {
     o.doors = m.doors.map((d) => ({ x: d.y, y: d.x, along: d.along === 'h' ? 'v' : 'h' }));
     o.labels = m.labels.map((l) => ({ x: l.y, y: l.x, text: l.text }));
     o.center = [m.center[1], m.center[0]];
+    o.furn = (m.furn || []).map((f) => Object.assign({}, f, { x: f.y, y: f.x, v: !f.v }));
     return o;
   }
 
@@ -234,7 +237,7 @@ const Maps = (() => {
     for (let x = 3; x < W - 6; x += 3) { wall(m, x, back + 3, x, cajas - 3); }            // góndolas
     for (let x = 3; x < W - 6; x += 3) for (let y = back + 5; y < cajas - 3; y += 6) m.g[at(m, x, y)] = 0;   // cortes en las góndolas
     m.labels.push({ x: W / 2, y: (back + cajas) / 2, text: 'Góndolas' });
-    for (let x = 2; x < W - 8; x += 3) crate(m, x, cajas);                     // cajas registradoras
+    for (let x = 2; x < W - 8; x += 3) { furn(m, 'cabinet', x, cajas); furn(m, 'register', x, cajas, false, true); }   // cajas con su registradora
     m.labels.push({ x: W / 2, y: cajas + 2, text: 'Cajas' });
     m.tables = []; for (let x = W - 5; x < W - 2; x += 2) for (let y = back + 3; y < back + 10; y += 3) m.tables.push({ x, y });   // bar
     m.labels.push({ x: W - 3.5, y: back + 2, text: 'Bar' });
@@ -317,7 +320,8 @@ const Maps = (() => {
       carve(m, 1, ya, cx - 3, yb, 1); carve(m, cx + 3, ya, W - 2, yb, 1);
       addDoor(m, cx - 2, ym, 'h'); addDoor(m, cx + 2, ym, 'h');
       for (let yy = ya; yy <= yb; yy++) if (yy !== ym && (yy - ya) % 2 === 0) { addWindow(m, cx - 2, yy); addWindow(m, cx + 2, yy); }
-      crate(m, 2, ya + 1); crate(m, 3, ya + 1); crate(m, W - 3, yb - 1); crate(m, W - 4, yb - 1);   // escritorios
+      furn(m, 'desk', 2, ya + 1); furn(m, 'chair', 2, ya + 2); furn(m, 'desk', W - 4, yb - 1); furn(m, 'chair', W - 3, yb - 2);   // escritorio con su silla
+      furn(m, i % 2 ? 'plant' : 'cabinet', cx - 4, yb); furn(m, i % 2 ? 'bookshelf' : 'plant2', W - 3, ya);
       m.labels.push({ x: (cx - 3 + 1) / 2 + 0.5, y: ym + 0.5, text: names[(i * 2) % names.length] });
       m.labels.push({ x: (cx + 3 + W - 2) / 2 + 0.5, y: ym + 0.5, text: names[(i * 2 + 1) % names.length] });
     });
@@ -326,14 +330,15 @@ const Maps = (() => {
     const bm = (botY + H - 2) >> 1;
     addDoor(m, cx - 2, bm, 'h'); addDoor(m, cx + 2, bm, 'h');
     for (let yy = botY; yy <= H - 2; yy++) if (yy !== bm && (yy - botY) % 2 === 0) { addWindow(m, cx - 2, yy); addWindow(m, cx + 2, yy); }
-    for (let xx = 3; xx <= Math.max(3, cx - 5); xx++) { crate(m, xx, bm - 1); crate(m, xx, bm + 1); }    // mesa larga
-    crate(m, W - 3, botY + 1); crate(m, W - 3, botY + 2); crate(m, W - 5, H - 3);                         // mesada de la cocina
+    for (let xx = 3; xx + 1 <= Math.max(4, cx - 5); xx += 2) { furn(m, 'diningtable', xx, bm); furn(m, 'chair', xx, bm - 1); furn(m, 'chair', xx + 1, bm + 1); }   // mesa larga con sillas
+    furn(m, 'coffeecart', W - 3, botY + 1, true); furn(m, 'table', W - 6, H - 4); furn(m, 'monobloc', W - 6, H - 3); furn(m, 'monobloc', W - 5, H - 5); furn(m, 'trash', cx + 3, H - 2);   // cocina
     m.labels.push({ x: (cx - 3 + 1) / 2 + 0.5, y: bm + 0.5, text: 'Reuniones' }, { x: (cx + 3 + W - 2) / 2 + 0.5, y: bm + 0.5, text: '☕ Cocina' });
     // espacio abierto: filas de escritorios dobles
     for (let yy = 3; yy <= topH - 2; yy += 4) for (let xx = 2; xx <= W - 5; xx += 5) {
       if (Math.abs(xx + 1 - cx) <= 2 && yy >= topH - 3) continue;
-      crate(m, xx, yy); crate(m, xx + 1, yy);
+      furn(m, 'desk', xx, yy); furn(m, 'chair', xx + (yy % 8 < 4 ? 0 : 1), yy + 1);
     }
+    furn(m, 'plant', 1, 1); furn(m, 'plant2', W - 2, 1); furn(m, 'coffeecart', W - 2, topH - 1);
     m.labels.push({ x: W / 2, y: 1.8, text: 'Open Space' });
     m.center = [cx, (topH + botY) >> 1];
     return land ? transpose(m) : m;

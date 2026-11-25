@@ -149,6 +149,13 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **Pantallas:** tipografías propias (**Black Ops One** para la batalla y **Cinzel** para la moneda), **íconos dibujados** de game-icons.net en el menú y en las fichas de los soldados (el arma que tienen en la mano), y la moneda ahora cae sobre una **mesa de madera** con su sonido.
 - **Créditos** de todo lo descargado en `CREDITOS.md` (y resumidos en la Ayuda).
 
+### Novedades de la 1.0 — Lanzamiento
+- **Cuartos amueblados según lo que son:** en la oficina cada despacho tiene su escritorio con silla, plantas y armario; el open space, filas de escritorios; la sala de reuniones, una mesa larga con sillas; la cocina, carrito de café, mesa y sillas. En el súper las cajas tienen su caja registradora y las góndolas ya no dejan cuadrados de pared sueltos.
+- **Acerca de:** versión, qué es, créditos y licencias de todo el material, y un botón **📲 Instalar como app** cuando el navegador lo permite (abriéndolo desde su link).
+- **Arreglo:** las ventanas (Ayuda, Torneo, Acerca de) se leían mal con el tema claro.
+- La app se puede usar en horizontal o vertical (antes el modo instalado pedía vertical).
+- **Pruebas finales:** 702 partidas en los 13 mapas y 9 modos sin alertas; todos los celulares de prueba y la PC andan bien.
+
 ### Novedades de la 0.9.9 — Soldados de verdad
 - **Armas realistas:** 9 armas dibujadas de perfil a partir de modelos 3D (Ultimate Gun Pack de Quaternius, CC0): pistola, revólver, subfusil, rifle tipo AK, ametralladora, ametralladora pesada, sniper con mira, escopeta y escopeta corta. Se ven así en la mano y tiradas en el piso.
 - **Uniformes y equipo a la vista:** tela camuflada del color de cada uno (en equipos, del color del equipo con el color propio en el pecho), **chaleco táctico** con bolsillos para cargadores cuando lo tienen, **mochila grande** si juntaron una, casco, e **insignia del rol** en el hombro (médico, tirador, tanque, explorador, ingeniero, asalto).
@@ -187,6 +194,11 @@ node tools/bench.js --runs 12    # simula cientos de partidas sin dibujar y gene
 node tools/bench.js --modes --runs 6   # solo los modos de juego de la 0.7
 ```
 Mide la duración, trabas, tácticas usadas, bajas por arma y el balance entre personalidades y niveles de inteligencia.
+
+## Descargar
+El archivo único de la última versión está en [`descargas/moneda-y-batalla.html`](descargas/moneda-y-batalla.html): se baja y se abre con doble clic, en la PC o en el celular.
+
+**Publicarlo con un link (GitHub Pages):** en GitHub, *Settings → Pages → Build and deployment → Deploy from a branch*, elegir la rama de este proyecto y la carpeta `/ (root)`. Queda en `https://leonelacedobox-create.github.io/Cloud/` y desde ahí se puede **instalar como app** (celular y PC) y anda sin conexión.
 
 ## Jugar en la PC
 Abrí `moneda-y-batalla.html` con doble clic (Chrome, Edge o Firefox). En pantallas anchas los menús van en columnas y la cámara se acerca.
