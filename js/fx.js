@@ -235,7 +235,7 @@
   G.damage = function (s, by, dmg, zone) {
     const hp0 = s.hp;
     dmgOld.call(this, s, by, dmg, zone);
-    if (s.hp < hp0 && !this.cfg.noRec && (s.id === this.followId || s.manual)) {
+    if (s.hp < hp0 && !this.cfg.noRec && (s.id === this.followId || (s.manual && !s.net))) {
       this.hurtT = 0.45; this.hurtK = Math.min(1, (hp0 - s.hp) / 40 + 0.3);
       if (!calm() && this.cfg.camShake !== false) this.shake = Math.max(this.shake || 0, 0.25 * this.hurtK);
     }
@@ -244,7 +244,7 @@
   /* ----- cámara de la muerte: si cae el que seguís, la cámara va al que lo eliminó ----- */
   const killOld = G.kill;
   G.kill = function (s, by, zone) {
-    const followed = s.id === this.followId || s.manual;
+    const followed = s.id === this.followId || (s.manual && !s.net);
     killOld.call(this, s, by, zone);
     if (followed && by && by !== s && by.alive && !this.cfg.noRec && this.phase === 'run') {
       this.killcam = { id: by.id, victim: s.name, until: this.time + 3.2 };

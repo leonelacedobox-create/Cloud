@@ -41,6 +41,10 @@
       <span class="menu-ico" data-icon="battle">🔫</span>
       <span><b>La Batalla</b><small>Hasta 10 soldados en 14 mapas: oficina, súper, estacionamiento, cárcel… Pelean solos o manejás uno.</small></span>
     </button>
+    <button class="menu-card" data-go="net">
+      <span class="menu-ico">📶</span>
+      <span><b>Jugar en red</b><small>Con los celulares en el mismo Wi-Fi: se conectan con un QR y cada uno maneja su soldado. Sin internet.</small></span>
+    </button>
     <button class="menu-card" id="btnHelp">
       <span class="menu-ico" data-icon="help">❓</span>
       <span><b>Ayuda y tutorial</b><small>Cómo se juega, los modos, los controles y una práctica guiada.</small></span>
@@ -58,8 +62,40 @@
       <label class="switch"><input type="checkbox" id="uiFps"><span>Mostrar cuadros por segundo</span></label>
     </div>
     <button class="btn about-btn" id="btnAbout">ℹ️ Acerca de, créditos e instalar</button>
-    <p class="hint center">Versión 1.0 · “Lanzamiento”</p>
+    <p class="hint center">Versión 1.1 · “En red”</p>
     <p class="hint center" id="installHint">Tip: en el menú del navegador elegí “Agregar a pantalla de inicio” y queda como una app.</p>
+  </section>
+
+  <!-- ============ RED (1.1) ============ -->
+  <section class="screen" id="screen-net">
+    <div id="netBody"></div>
+  </section>
+  <section class="screen" id="screen-netplay">
+    <div class="net-stage">
+      <video id="netVideo" playsinline muted autoplay></video>
+      <div class="net-flash" id="netFlash"></div>
+      <div class="net-hud">
+        <div class="net-hud-row"><b id="netWho"></b><span id="netKills"></span><span id="netFoes"></span><span class="spacer"></span><button class="btn small" id="netLeave">🚪</button></div>
+        <div class="net-hpbar"><div id="netHp"></div><span id="netHpTxt"></span></div>
+        <div class="net-hud-row"><span id="netGun"></span><span id="netGear"></span></div>
+      </div>
+      <div class="net-feed" id="netFeed"></div>
+      <div class="net-big" id="netCd" hidden></div>
+      <div class="net-big small" id="netPaused" hidden>⏸ Pausa</div>
+      <div class="pad" id="netPad">
+        <div class="joy" id="netJoy"><div class="knob" id="netKnob"></div></div>
+        <div class="pad-orders" id="netOrders" hidden>
+          <button id="netOrdFollow" title="Síganme">👣</button><button id="netOrdHold" title="Cubran acá">📍</button>
+          <button id="netOrdAttack" title="Ataquen">⚔️</button><button id="netOrdRegroup" title="Agrúpense">🫂</button>
+        </div>
+        <div class="pad-btns">
+          <button id="netHeal" aria-label="Curarse">🩹</button><button id="netNade" aria-label="Granada">💣</button>
+          <button id="netTool" aria-label="Usar herramienta">🧰</button><button id="netSwap" aria-label="Cambiar de arma">🔁</button><button id="netReload" aria-label="Recargar">🔄</button>
+          <button id="netFire" class="fire" aria-label="Disparar">🔫</button>
+        </div>
+      </div>
+      <div class="overlay" id="netEnd" hidden></div>
+    </div>
   </section>
 
   <!-- ============ MONEDA ============ -->
@@ -351,6 +387,9 @@
 <script src="js/help.js"></script>
 <script src="js/about.js"></script>
 <script src="js/runway.js"></script>
+<script src="js/vendor/qrcode.min.js"></script>
+<script src="js/vendor/jsqr.min.js"></script>
+<script src="js/net.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

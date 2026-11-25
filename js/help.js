@@ -46,6 +46,13 @@
       'Eventos: en el apagón alguien puede prender el <b>🔌 generador</b>; también hay inundación, helicóptero con reflector y alarma de humo.',
       'En el mapa <b>✏️ Propio</b>, el <b>🖌️ Editor visual</b> deja dibujar con el dedo (pincel, rectángulo y relleno), partir de un mapa del juego y guardar hasta 6 mapas.',
     ]],
+    ['📶 Jugar en red (mismo Wi-Fi)', [
+      'Todos los celulares en el <b>mismo Wi-Fi</b> (o en el punto de acceso de uno de ellos). No hace falta internet ni cuenta.',
+      'El anfitrión toca <b>Jugar en red → Crear sala</b> y muestra su QR. El otro toca <b>Unirme</b> y lo escanea con la cámara (o con una foto del QR, o pegando el código). Le aparece un QR de respuesta: lo escanea el anfitrión y quedan conectados.',
+      'Después el anfitrión arma <b>La Batalla</b> como siempre: a cada invitado le toca un soldado (se puede elegir cuál) y lo maneja desde su celular con joystick y botones, viendo su propia cámara y oyendo los tiros de cerca. Si no quedan soldados libres, mira la partida.',
+      'En <b>La Moneda</b> la tirada se comparte: cuando alguien tira, todos ven el mismo resultado.',
+      'La partida corre en el celular del anfitrión: que sea el más rápido y esté enchufado. Hasta 5 invitados. Si alguien se desconecta, su soldado sigue solo.',
+    ]],
     ['🏟️ Torneo, apuestas y logros', [
       'El <b>torneo</b> arma un cuadro de duelos 1 contra 1 con los soldados cargados. Cada cruce se mira o se simula. El campeón… se va temprano.',
       'Las <b>apuestas</b> suman aciertos a cada uno y hay ranking semanal. En 🏅 Logros ves las medallas y el historial de cada jugador.',
@@ -58,6 +65,7 @@
       'Sonidos: <b>Freedoom</b> (licencia BSD) y <b>Kenney</b> (CC0). Música: “Battle Theme A” de <b>cynicmusic</b> (CC0).',
       'Muebles, objetos y texturas: <b>Poly Haven</b> (CC0). Autos: <b>Kenney</b> Car Kit (CC0). Armas: <b>Quaternius</b> Ultimate Gun Pack (CC0).',
       'Tipografías: <b>Black Ops One</b> y <b>Cinzel</b> (SIL Open Font License). Íconos: <b>game-icons.net</b> (Lorc, Delapouite y otros, CC BY 3.0).',
+      'Códigos QR: <b>qrcode-generator</b> de Kazuhiko Arase (MIT) y <b>jsQR</b> de cozmo (Apache 2.0).',
       'El detalle de cada archivo y su licencia está en CREDITOS.md, junto al juego.',
     ]],
     ['💡 Consejos', [

@@ -149,6 +149,15 @@ Cada soldado es una persona distinta vista desde arriba (dibujada con código, `
 - **Pantallas:** tipografías propias (**Black Ops One** para la batalla y **Cinzel** para la moneda), **íconos dibujados** de game-icons.net en el menú y en las fichas de los soldados (el arma que tienen en la mano), y la moneda ahora cae sobre una **mesa de madera** con su sonido.
 - **Créditos** de todo lo descargado en `CREDITOS.md` (y resumidos en la Ayuda).
 
+### Novedades de la 1.1 — En red
+- **📶 Jugar en red por el mismo Wi-Fi, sin internet:** el anfitrión toca *Jugar en red → Crear sala* y muestra un QR; el otro toca *Unirme* y lo escanea con la cámara (o con una foto del QR, o pegando el código), y le muestra su QR de respuesta al anfitrión. Quedan conectados directo celular a celular (WebRTC, sin servidores). Hasta 5 invitados.
+- **Cada uno maneja su soldado desde su celular:** el anfitrión arma la batalla como siempre; a cada invitado le toca un soldado (el que elija el anfitrión, uno con su nombre o los últimos de la lista) y lo maneja con joystick y botones (o teclado y mouse en la PC). Ve su propia cámara en vivo, su vida, arma y bajas, oye los tiros y explosiones cerca suyo, y vibra cuando le pegan. Al final ve el resultado y la tabla.
+- **Espectadores:** si no quedan soldados libres, el invitado mira la acción en vivo.
+- **Moneda compartida:** cuando alguien tira la moneda, todos ven la misma tirada (un invitado también la puede tirar).
+- Si alguien se desconecta, su soldado sigue jugando solo con la IA.
+- QR cortitos (unos 115 caracteres) para que la cámara los lea al toque.
+- Librerías nuevas, libres: qrcode-generator (MIT) y jsQR (Apache 2.0), en `js/vendor/`.
+
 ### Novedades de la 1.0 — Lanzamiento
 - **Cuartos amueblados según lo que son:** en la oficina cada despacho tiene su escritorio con silla, plantas y armario; el open space, filas de escritorios; la sala de reuniones, una mesa larga con sillas; la cocina, carrito de café, mesa y sillas. En el súper las cajas tienen su caja registradora y las góndolas ya no dejan cuadrados de pared sueltos.
 - **Acerca de:** versión, qué es, créditos y licencias de todo el material, y un botón **📲 Instalar como app** cuando el navegador lo permite (abriéndolo desde su link).

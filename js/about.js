@@ -27,6 +27,7 @@
     ['🔫 Armas', 'Quaternius, Ultimate Gun Pack (CC0).'],
     ['🔤 Tipografías', 'Black Ops One y Cinzel (SIL Open Font License).'],
     ['🖼️ Íconos', 'game-icons.net: Lorc, Delapouite y otros (CC BY 3.0).'],
+    ['🔳 Códigos QR', 'qrcode-generator, de Kazuhiko Arase (MIT), y jsQR, de cozmo (Apache 2.0).'],
     ['🪙 Moneda', 'Las fotos de las caras las cargó el dueño del juego.'],
   ];
   function open() {
@@ -38,9 +39,9 @@
         el('div', { class: 'card-head' }, el('b', {}, 'ℹ️ Acerca de'), el('span', { class: 'spacer' }), el('button', { class: 'btn small', onclick: () => { m.hidden = true; } }, '✕ Cerrar')),
         el('h2', { class: 'about-title' }, 'Moneda y Batalla'),
         el('p', { class: 'hint center' }, `Versión ${ver} · “${App.VERSION_NAME || ''}”`),
-        el('p', {}, 'Tirá la moneda para decidir cualquier cosa, y armá batallas de hasta 10 soldados que pelean solos (o manejás vos), con mapas que parecen lugares de verdad, armas reales, clima, noche y una IA que mira las esquinas y cobra las bajas de sus compañeros.'),
+        el('p', {}, 'Tirá la moneda para decidir cualquier cosa, y armá batallas de hasta 10 soldados que pelean solos (o manejás vos), con mapas que parecen lugares de verdad, armas reales, clima, noche una IA que mira las esquinas y cobra las bajas de sus compañeros, y juego en red por el mismo Wi-Fi conectándose con un QR.'),
         el('div', { class: 'about-lic' }, LIC.map(([a, b]) => el('div', {}, el('b', {}, a), el('span', {}, b)))),
-        el('p', { class: 'hint' }, 'El detalle de cada archivo y su licencia está en CREDITOS.md. Todo el material de terceros es libre (CC0, BSD, OFL o CC BY).'),
+        el('p', { class: 'hint' }, 'El detalle de cada archivo y su licencia está en CREDITOS.md. Todo el material de terceros es libre (CC0, BSD, OFL, CC BY, MIT o Apache 2.0).'),
         el('button', { class: 'btn primary', id: 'btnInstall', hidden: true, onclick: async () => { if (!deferred) return; deferred.prompt(); try { await deferred.userChoice; } catch (e) { /* nada */ } deferred = null; paintInstall(); } }, '📲 Instalar como app'),
       ));
       document.body.append(m);

@@ -53,6 +53,15 @@ colaboradores, con licencia [CC BY 3.0](https://creativecommons.org/licenses/by/
 uzi, ak47, machine-gun, minigun, shotgun, sawed-off-shotgun, rifle, crossbow, bowie-knife, coinflip, crossed-pistols,
 open-book, trophy, skull-crossed-bones, podium, medal, crown y grenade.
 
+## Códigos QR (`js/vendor/`, desde la 1.1)
+
+| Archivo | Librería | Autor | Licencia |
+|---|---|---|---|
+| `qrcode.min.js` | [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4 (dibuja los QR) | Kazuhiko Arase | MIT (aviso dentro del archivo) |
+| `jsqr.min.js` | [jsQR](https://github.com/cozmo/jsQR) 1.4.0 (lee los QR desde la cámara o una foto) | Cosmo Wolfe | Apache 2.0 (`LICENSE-jsQR.txt`) |
+
+Las dos se bajaron de npm y solo se achicaron (minificaron); no se cambió su código.
+
 ## Fotos de la moneda
 
 Las caras de la moneda salen de las fotos que pasó el dueño del juego, retocadas para que parezcan acuñadas.

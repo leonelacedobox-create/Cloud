@@ -210,9 +210,11 @@ Antes de publicar, seis versiones grandes de mejoras: cuerpos y animaciones, int
 - Versión de archivo único actualizada para mandar por WhatsApp.
 - Versión estable con tutorial, tabla de victorias del grupo y documentación.
 
+## 1.1 — "En red" ✅
+
+> **Hecho.** Juego en red por el mismo Wi-Fi sin internet: conexión con dos QR (sala y respuesta), cada invitado maneja su soldado desde su celular viendo su propia cámara en vivo (el anfitrión corre la partida y le manda el video), sonidos y vibración para el invitado, espectadores, moneda compartida y el soldado sigue con IA si alguien se desconecta. Probado con dos y tres navegadores conectados.
+
 ## Más adelante (1.x, ideas)
-- **Multijugador en el mismo wifi:** cada uno desde su celular, y uno hace de pantalla.
-- Controlar a tu soldado en tiempo real contra los de tus compañeros.
 - Modo campaña.
 - Armas y personalidades editables.
 - Estadísticas del grupo a lo largo de los meses.

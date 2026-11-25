@@ -376,7 +376,7 @@
         zoneT: 0, stuckT: 0, lx: 0, ly: 0, target: null, td: 0, lastShot: -99, lastNoise: -99,
         know: {}, explored: new Float32Array(N).fill(-60), act: null, closeIdx: null, peekFor: -1, huntStamp: -1,
         talkCd: 2 + rnd() * 4, burstCd: 3 + rnd() * 4, radioCd: 0, alertT: -99, bubble: null, icon: null, sneak: false,
-        role: p.role || 'none', manual: !!p.manual, bot: !!p.bot, hat: p.hat || 'none', photo: p.photo || null, phrases: p.phrases && p.phrases.length ? p.phrases : null, pid: p.id, base: place.slice(), spawnT: 0, respawnAt: 0, deaths: 0, score: 0,
+        role: p.role || 'none', manual: !!p.manual || !!p.net, net: p.net || null, bot: !!p.bot, hat: p.hat || 'none', photo: p.photo || null, phrases: p.phrases && p.phrases.length ? p.phrases : null, pid: p.id, base: place.slice(), spawnT: 0, respawnAt: 0, deaths: 0, score: 0,
       };
       this.initBrain(o);
       if (o.photo) { const im = new Image(); im.src = o.photo; o.photoImg = im; }
@@ -1462,7 +1462,7 @@
     const seed = ($('#seedInput').value || '').trim();
     return { mode: M.key, players, teamMode: tm, lives: Math.min(3, +B.lives || 3), map: B.map, size: B.size, powerups: B.powerups, zone: B.zone, varied: B.varied, loot: B.loot !== false,
       talk: B.talk !== false, laser: !!B.laser, friendly: !!B.friendly, slowmo: B.slowmo !== false, debugAI: !!B.debugAI, night: !!B.night, weather: B.weather || 'none', downed: B.downed !== false, autoRoles: B.autoRoles !== false, voice: !!B.voice, narrator: B.narrator !== false, seed: seed || null,
-      gear: B.gear !== false, props: B.props !== false, events: B.events !== false, customMap: B.customMap || Maps.SAMPLE };
+      gear: B.gear !== false, props: B.props !== false, events: B.events !== false, customMap: B.customMap || Maps.SAMPLE, ...(App.Net ? App.Net.decorate(players) : {}) };
   }
 
   async function startGame(cfgOverride) {
@@ -1484,7 +1484,7 @@
     $('#pauseSeed').textContent = `Semilla del mapa: ${game.seed}`;
     document.body.classList.remove('pov-on');
     buildHud(game);
-    const mine = game.soldiers.find((q) => q.manual);
+    const mine = game.soldiers.find((q) => q.manual && !q.net);
     if (mine) { game.followId = mine.id; game.padOn = true; }
     paintCam(); paintPad();
     game.start();
@@ -1583,7 +1583,7 @@
   function onFrame(g) {
     if (App.Music && App.Music.on) App.Music.set(g.paused || g.phase !== 'run' ? 0.12 : tension(g));
     if (App.Amb && (g.frameN = (g.frameN || 0) + 1) % 15 === 0) App.Amb.duck(g.paused ? 0 : tension(g));
-    const mine = g.phase !== 'done' && g.soldiers.find((q) => q.manual && q.alive);
+    const mine = g.phase !== 'done' && g.soldiers.find((q) => q.manual && !q.net && q.alive);
     if (!!mine !== g.padOn) { g.padOn = !!mine; paintPad(); }
     g.soldiers.forEach((s, i) => {
       const c = chips[i]; if (!c) return;
@@ -1767,23 +1767,23 @@
   /* ----- control manual: joystick, botones y teclado ----- */
   const pad = $('#manualPad'), joy = $('#joy'), knob = $('#joyKnob');
   function paintPad() {
-    const mine = game && game.soldiers.some((q) => q.manual && q.alive) && game.phase !== 'done';
+    const mine = game && game.soldiers.some((q) => q.manual && !q.net && q.alive) && game.phase !== 'done';
     pad.hidden = !mine;
-    const me = game && game.soldiers.find((q) => q.manual && q.alive);
+    const me = game && game.soldiers.find((q) => q.manual && !q.net && q.alive);
     $('#padOrders').hidden = !(me && me.team >= 0 && game.soldiers.some((q) => q.alive && q !== me && q.team === me.team));
-    $('#btnManual').classList.toggle('primary', !!(game && game.soldiers.some((q) => q.manual)));
+    $('#btnManual').classList.toggle('primary', !!(game && game.soldiers.some((q) => q.manual && !q.net)));
     if (!mine && game) { game.ctl.mx = game.ctl.my = 0; game.ctl.fire = false; knob.style.transform = ''; }
   }
   $('#btnManual').addEventListener('click', () => {
     if (!game || game.phase === 'done') return;
-    const cur = game.soldiers.find((q) => q.manual);
-    game.soldiers.forEach((q) => { q.manual = false; });
+    const cur = game.soldiers.find((q) => q.manual && !q.net);
+    game.soldiers.forEach((q) => { if (!q.net) q.manual = false; });
     if (!cur) {
       let t = game.followId != null ? game.soldiers[game.followId] : null;
-      if (!t || !t.alive || t.bot) t = game.focus && game.focus.alive && !game.focus.bot ? game.focus : game.soldiers.find((q) => q.alive && !q.bot);
+      if (!t || !t.alive || t.bot || t.net) t = game.focus && game.focus.alive && !game.focus.bot ? game.focus : game.soldiers.find((q) => q.alive && !q.bot && !q.net);
       if (t) { t.manual = true; game.followId = t.id; game.camMode = 'auto'; game.pov = false; game.setScale(); }
     }
-    game.padOn = game.soldiers.some((q) => q.manual && q.alive);
+    game.padOn = game.soldiers.some((q) => q.manual && !q.net && q.alive);
     paintCam(); paintPad();
   });
   const joyMove = (e) => {
@@ -1820,7 +1820,7 @@
   };
   const KEYACT = { r: 'reload', q: 'swap', g: 'nade', h: 'heal' };
   window.addEventListener('keydown', (e) => {
-    if (!game || !game.soldiers.some((q) => q.manual && q.alive) || /INPUT|TEXTAREA|SELECT/.test((e.target || {}).tagName || '')) return;
+    if (!game || !game.soldiers.some((q) => q.manual && !q.net && q.alive) || /INPUT|TEXTAREA|SELECT/.test((e.target || {}).tagName || '')) return;
     const k = e.key.toLowerCase();
     if (KEYACT[k]) { game.manualAction(KEYACT[k]); return; }
     if (MOVEK.concat([' ', 'f', 'shift']).includes(k)) { keys.add(k); keyCtl(k); e.preventDefault(); }
@@ -1831,7 +1831,7 @@
     if (!game || /INPUT|TEXTAREA|SELECT/.test((e.target || {}).tagName || '') || e.repeat) return;
     const k = e.key.toLowerCase();
     if (k === 'p' || k === 'escape') { if (game.phase !== 'done') { setPause(!game.paused); e.preventDefault(); } return; }
-    if (game.soldiers.some((q) => q.manual && q.alive) && (MOVEK.includes(k) || KEYACT[k] || k === ' ' || k === 'f')) return;   // esas teclas son del soldado
+    if (game.soldiers.some((q) => q.manual && !q.net && q.alive) && (MOVEK.includes(k) || KEYACT[k] || k === ' ' || k === 'f')) return;   // esas teclas son del soldado
     const sp = { 1: '1', 2: '2', 3: '4' }[k];
     if (sp) { const b = document.querySelector(`#segSpeed button[data-v="${sp}"]`); if (b) b.click(); return; }
     if (k === 'c') $('#btnCam').click(); else if (k === 'v') $('#btnPov').click(); else if (k === 'm') $('#btnManual').click();
@@ -1839,7 +1839,7 @@
   // mouse: el soldado que manejás apunta hacia el puntero; clic izquierdo dispara, derecho tira granada, la rueda cambia de arma
   const cvs = $('#battleCanvas');
   const toWorld = (e) => { const r = cvs.getBoundingClientRect(), g = game; const left = g.camX - g.cw / (2 * g.ts), top = g.camY - g.ch / (2 * g.ts); return { x: left + (e.clientX - r.left) / g.ts, y: top + (e.clientY - r.top) / g.ts }; };
-  const mine = () => game && game.soldiers.find((q) => q.manual && q.alive);
+  const mine = () => game && game.soldiers.find((q) => q.manual && !q.net && q.alive);
   cvs.addEventListener('mousemove', (e) => { if (!mine()) return; game.ctl.mouse = toWorld(e); game.ctl.mouseT = performance.now(); });
   cvs.addEventListener('mousedown', (e) => {
     if (!mine() || game.paused) return;
@@ -1943,5 +1943,5 @@
     enter() { renderRoster(); renderWins(); },
     leave() { if (game) leaveGame(false); },
   });
-  App.battle = { startTutorial, startGame, leaveGame, setMatchHook: (cb) => { onMatchEnd = cb; }, buildConfig, initModeUI, genMap, Game, PERS, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, cap, magOf, MED };
+  App.battle = { startTutorial, startGame, leaveGame, weaponLine, gearLine, setMatchHook: (cb) => { onMatchEnd = cb; }, buildConfig, initModeUI, genMap, Game, PERS, WEAPONS, KNIFE, HPL, FOV, ammoOf, angDiff, clamp, clamp01, fitRange, doorClosed, cap, magOf, MED };
 })();

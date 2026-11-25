@@ -428,8 +428,8 @@
   };
 
   /* ================= modo manual: usar una herramienta ================= */
-  G.manualTool = function () {
-    const s = this.soldiers.find((q) => q.manual && q.alive); if (!s || s.act) return false;
+  G.manualTool = function (who) {
+    const s = who || this.soldiers.find((q) => q.manual && !q.net && q.alive); if (!s || s.act) return false;
     const t = this.toolsOf(s), W = this.W;
     if (t.charge > 0) { for (let d = 0.6; d <= 1.6; d += 0.25) { const i = Math.floor(s.y + Math.sin(s.angle) * d) * W + Math.floor(s.x + Math.cos(s.angle) * d); if ((this.wallHp[i] > 0 && this.wl[i]) || (this.doorGrid[i] && doorClosed(this.doors.get(i)))) { s.act = { type: 'hold', t: 0, dur: 0.9, face: s.angle, useTool: 'charge', spot: i }; return true; } } }
     for (const k of ['shield', 'trap', 'mine', 'sensor']) if (t[k] > 0) { s.act = { type: 'hold', t: 0, dur: 0.6, face: s.angle, useTool: k, ang: s.angle }; return true; }

@@ -174,15 +174,19 @@
     renderRoster(); save();
   }
 
-  async function toss() {
+  /** forced: el resultado que mandó el anfitrión (juego en red: todos ven la misma tirada). */
+  async function toss(forced) {
+    if (typeof forced !== 'string') forced = null;
     if (busy) return;
+    if (!forced && App.Net && App.Net.role === 'guest') { App.Net.coinRequest(); return; }
     App.ctx();
     if (series.done) { newSeries(); }
     if (C.mode === 'temprano') { ensureAssigned(); renderRoster(); }
     $$('#coinRoster .prow').forEach((r) => r.classList.remove('won', 'lost'));
     busy = true; btnToss.disabled = true; hint.style.visibility = 'hidden';
     resultBox.innerHTML = '';
-    const result = rnd() < 0.5 ? 'milei' : 'cristina';
+    const result = forced || (rnd() < 0.5 ? 'milei' : 'cristina');
+    if (!forced && App.Net && App.Net.role === 'host') App.Net.coinCast(result);
     await animateToss(result);
     record(result);
     busy = false; btnToss.disabled = false; hint.style.visibility = 'visible';
@@ -367,6 +371,8 @@
     },
     leave() { stopLoop(); },
   });
+
+  App.Coin = { toss, get busy() { return busy; } };
 
   // estado inicial de la moneda
   setCoin(0, 0, 0, 1);

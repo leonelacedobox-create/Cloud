@@ -797,8 +797,8 @@
     return r;
   };
   /** Botones de la pantalla: recargar, cambiar de arma, tirar granada, curarse. */
-  G.manualAction = function (kind) {
-    const s = this.soldiers.find((q) => q.manual && q.alive);
+  G.manualAction = function (kind, who) {
+    const s = who || this.soldiers.find((q) => q.manual && !q.net && q.alive);
     if (!s || s.act || this.phase !== 'run') return false;
     if (kind === 'reload') return this.startReload(s);
     if (kind === 'swap') {

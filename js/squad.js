@@ -54,7 +54,7 @@
       sq.members = mem;
       if (mem.length < 2 && !(sq.order && now < sq.order.until)) { sq.plan = 'solo'; sq.leader = mem[0] || null; continue; }
       // líder: el más táctico (y el que manejás vos manda siempre)
-      sq.leader = mem.find((s) => s.manual) || mem.slice().sort((a, b) => (b.sk.coord * 2 + IQ[b.iq].tac + (b.pers === 'tactico' ? 2 : 0)) - (a.sk.coord * 2 + IQ[a.iq].tac + (a.pers === 'tactico' ? 2 : 0)))[0];
+      sq.leader = mem.find((s) => s.manual && !s.net) || mem.slice().sort((a, b) => (b.sk.coord * 2 + IQ[b.iq].tac + (b.pers === 'tactico' ? 2 : 0)) - (a.sk.coord * 2 + IQ[a.iq].tac + (a.pers === 'tactico' ? 2 : 0)))[0];
       // marcas compartidas: lo que sabe cada uno, fresco
       const marks = {};
       for (const s of mem) for (const id in s.know) { const k = s.know[id], o = this.soldiers[id]; if (o && (o.downed || !o.alive)) continue; if (now - k.t < 8 && (!marks[id] || k.t > marks[id].t)) marks[id] = k; }
@@ -281,8 +281,8 @@
   };
 
   /* ================= órdenes del jugador (modo manual) ================= */
-  G.squadOrder = function (kind) {
-    const s = this.soldiers.find((q) => q.manual && q.alive); if (!s || s.team < 0) return false;
+  G.squadOrder = function (kind, who) {
+    const s = who || this.soldiers.find((q) => q.manual && !q.net && q.alive); if (!s || s.team < 0) return false;
     this.squadTick(1e9);
     const sq = this.squadOf(s); if (!sq) return false;
     sq.order = { kind, until: this.time + 30, x: s.x, y: s.y, face: s.angle };

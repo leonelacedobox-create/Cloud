@@ -263,7 +263,7 @@ const App = (() => {
 
   /* ---------- pantallas ---------- */
   const screens = {};
-  const titles = { menu: 'Moneda y Batalla', coin: 'La Moneda', battle: 'Batalla' };
+  const titles = { menu: 'Moneda y Batalla', coin: 'La Moneda', battle: 'Batalla', net: 'Jugar en red', netplay: 'En red' };
   let current = 'menu';
   function register(name, hooks) { screens[name] = hooks || {}; }
   function go(name) {
